@@ -11,7 +11,7 @@ var Pool = (function()
 
 		return obj;
 	};
- 
+
 	//definition:
 
 	var def =
@@ -312,7 +312,7 @@ var Ship = (function()
 	{
 		var obj = Object.create(def);
 		obj.ref = ref;
-        
+
 		obj.angle = 0;
 		obj.pos = Vec2D.create(x, y);
 		obj.vel = Vec2D.create(0, 0);
@@ -320,23 +320,23 @@ var Ship = (function()
 		obj.idle = false;
 		obj.color = '#FFF';
         obj.hp = 10;
-        
+
         obj.fireCounter = 0;
         obj.respawnCounter = 0;
-        
+
         obj.fric = 0.97,
 		obj.radius = 8;
-        
+
         obj.MAX_HP = 10;
         obj.TURN_SPEED = 0.12; // max velocity
         obj.MAX_VELOCITY = 5;
         obj.ACCELERATION = 0.18;
         obj.ACCURACY = (2 * Math.PI) * (0.01); // (1%) angle sweep in radians.
         obj.MAX_WALL_COUNT = 32;
-        
+
         obj.FIRE_FREQUENCY = 8;
 		obj.RESPAWN_TIME = 120;
-        
+
         obj.init();
 
 		return obj;
@@ -354,13 +354,13 @@ var Ship = (function()
 		idle: null,
         color: null,
         hp: null,
-        
+
         fireCounter: null,
         respawnCounter: null,
-        
+
         // STATIC VARIABLES
 		ref: null,
-        
+
         fric: null,
 		radius: null,
             // stats //
@@ -370,21 +370,21 @@ var Ship = (function()
         ACCELERATION: null,
         ACCURACY: null,
         MAX_WALL_COUNT: null,
-        
+
 		FIRE_FREQUENCY: null,
 		RESPAWN_TIME: null,
-        
+
         // COLLECTIONS
 		wallParticlePool: null,
 		wallParticles: null,
-        
+
         // FUNCTIONS
         init: function()
 		{
 			this.wallParticlePool = Pool.create(WallParticle, this.MAX_WALL_COUNT);
             this.wallParticles = [];
 		},
-        
+
 		update: function()
 		{
 			if(!this.idle)
@@ -417,7 +417,7 @@ var Ship = (function()
 				this.fireCounter = 0;
 			}
 		},
-        
+
         damage: function(hp)
 		{
 			this.hp -= hp;
@@ -428,10 +428,10 @@ var Ship = (function()
                 this.ref.generateShipExplosion(this);
 			}
 		},
-        
+
         reset: function()
 		{
-			
+
 		}
 	};
 
@@ -449,7 +449,7 @@ var Team = (function()
 		var obj = Object.create(def);
         obj.color = color;
         obj.players = [];
-        
+
 		return obj;
 	};
 
@@ -465,13 +465,13 @@ var Team = (function()
             this.players[this.players.length] = player;
             player.team = this;
 		},
-        
+
         removePlayer: function(player)
         {
             this.players.splice(this.players.indexOf(player), 1);
             player.team = null;
         },
-        
+
         getPoints: function()
         {
             var total = 0;
@@ -480,7 +480,7 @@ var Team = (function()
             }
             return total;
         }
-        
+
 	};
 
 	return {create:create};
@@ -514,7 +514,7 @@ var Player = (function()
 		{
 			this.points += p;
 		},
-        
+
         setPoints: function(p)
         {
             this.points = p;
@@ -568,7 +568,7 @@ var WallParticle = (function()
 				this.blacklisted = true;
 			}
 		},
-        
+
         damage: function(hp)
 		{
 			this.hp -= hp;
@@ -603,17 +603,17 @@ var doublePI = Math.PI * 2;
 var teams = [];
 var players = [];
 
-var particlePool;
-var particles;
-
-var bulletPool;
-var bullets;
-
-var asteroidPool;
-var asteroids;
+// var particlePool;
+// var particles;
+//
+// var bulletPool;
+// var bullets;
+//
+// var asteroidPool;
+// var asteroids;
 
 var hScan;
-var asteroidVelFactor = 0;
+// var asteroidVelFactor = 0;
 
 var teamColors = ["#FF4235", "#FFDE35", "#47C72A", "#3595FF", "#A235FF"];
 
@@ -639,16 +639,16 @@ window.onload = function()
 	context = canvas.getContext('2d');
 
 	window.onresize();
-    
+
     teamsInit();
     playersInit();
-    
+
 	inputInit();
 	particleInit();
-	bulletInit();
-	asteroidInit();
+	// bulletInit();
+	// asteroidInit();
 	shipInit();
-    
+
     pregameLogic();
 
 	loop();
@@ -669,7 +669,7 @@ window.onresize = function()
 
 function teamsInit()
 {
-    
+
     createTeam(teamColors[1]);
     createTeam(teamColors[3]);
 }
@@ -698,8 +698,8 @@ function desegnateTeams()
     var on = true;
 
     for(var i = 0; i < players.length; i++) {
-        teams[(i < 2) ? 0 : 1].addPlayer(players[i]);
-        //teams[(on) ? 0 : 1].addPlayer(players[i]);
+        // teams[(i < 2) ? 0 : 1].addPlayer(players[i]);
+        teams[(on) ? 0 : 1].addPlayer(players[i]);
         players[i].ship.color = players[i].team.color;
         on = !on;
     }
@@ -708,13 +708,13 @@ function desegnateTeams()
 function inputInit()
 {
     var i = players.length - 1;
-    
+
     for(i; i > -1; --i)
     {
         //playerInput.push([false, false, false, false, false, false]); //left, up, right, down, fire, block
         playerInput.push([0, 0, false, false]); // left -1to1 right axis, down -1to1 up axis, fire toggle, block toggle
     }
-    
+
 	window.onkeydown = function(e)
 	{
 		switch(e.keyCode)
@@ -725,20 +725,20 @@ function inputInit()
 			playerInput[0][0] = -keypressValue;
 
 			break;
-            
+
 			case 37:
 
 			playerInput[1][0] = -keypressValue;
 
 			break;
-            
+
 			//key W or UP
 			case 87:
 
 			playerInput[0][1] = keypressValue;
 
 			break;
-            
+
 			case 38:
 
 			playerInput[1][1] = keypressValue;
@@ -751,7 +751,7 @@ function inputInit()
 			playerInput[0][0] = keypressValue;
 
 			break;
-            
+
 			case 39:
 
 			playerInput[1][0] = keypressValue;
@@ -764,7 +764,7 @@ function inputInit()
 			playerInput[0][1] = -keypressValue;
 
 			break;
-            
+
 			case 40:
 
 			playerInput[1][1] = -keypressValue;
@@ -777,27 +777,27 @@ function inputInit()
 			playerInput[0][2] = true;
 
 			break;
-            
+
             case 32:
 
 			playerInput[1][2] = true;
 
 			break;
-            
+
 			//key L or C
             case 76:
 
 			playerInput[0][3] = true;
 
 			break;
-            
+
             case 67:
 
 			playerInput[1][3] = true;
 
 			break;
 		}
-    
+
     e.preventDefault();
 	};
 
@@ -811,20 +811,20 @@ function inputInit()
 			playerInput[0][0] = 0;
 
 			break;
-            
+
 			case 37:
 
 			playerInput[1][0] = 0;
 
 			break;
-            
+
 			//key W or UP
 			case 87:
 
 			playerInput[0][1] = 0;
 
 			break;
-            
+
 			case 38:
 
 			playerInput[1][1] = 0;
@@ -837,7 +837,7 @@ function inputInit()
 			playerInput[0][0] = 0;
 
 			break;
-            
+
 			case 39:
 
 			playerInput[1][0] = 0;
@@ -850,7 +850,7 @@ function inputInit()
 			playerInput[0][1] = 0;
 
 			break;
-            
+
 			case 40:
 
 			playerInput[1][1] = 0;
@@ -863,27 +863,27 @@ function inputInit()
 			playerInput[0][2] = false;
 
 			break;
-            
+
             case 32:
 
 			playerInput[1][2] = false;
 
 			break;
-            
+
 			//key L or C
             case 76:
 
 			playerInput[0][3] = false;
 
 			break;
-            
+
             case 67:
 
 			playerInput[1][3] = false;
 
 			break;
 		}
-    
+
     e.preventDefault();
 	};
 }
@@ -901,11 +901,11 @@ window.addEventListener("gamepadconnected", function(e) {
 
 function checkControllerInputs() {
     if(!navigator.getGamepads()[controller]) return;
-    
+
     var val;
-    
+
     // LEFT and RIGHT
-    
+
     val = navigator.getGamepads()[controller].axes[0];
     playerInput[0][0] = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
 
@@ -918,15 +918,15 @@ function checkControllerInputs() {
     // DOWN
 
     // FIRE
-    
+
     playerInput[0][2] = navigator.getGamepads()[controller].buttons[3].pressed;
-    
+
     // BLOCK
-    
+
     //playerInput[0][5] = ((navigator.getGamepads()[controller].axes[3] + 1)/2 > deadZone) ? true : false;
     playerInput[0][3] = navigator.getGamepads()[controller].buttons[7].pressed;
-    
-    
+
+
 }
 
 function particleInit()
@@ -958,14 +958,14 @@ function shipInit()
 function loop()
 {
     try {checkControllerInputs();} catch (e) {}
-    
-	updateShips();
-	updateWallParticles();
-	updateParticles();
-	updateBullets();
-	updateAsteroids();
 
-	checkCollisions();
+	updateShips();
+	// updateWallParticles();
+	updateParticles();
+	// updateBullets();
+	// updateAsteroids();
+
+	// checkCollisions();
 
 	render();
 
@@ -977,20 +977,20 @@ function updateShips()
     for(var i = 0; i < players.length; i++)
     {
         var ship = players[i].ship;
-        
+
         ship.update();
 
         if(ship.idle) continue;
-        
+
         if(playerInput[i][0] != 0) ship.angle += (ship.TURN_SPEED * playerInput[i][0]); // LEFT and RIGHT
 
         ship.thrust.setLength(ship.ACCELERATION * playerInput[i][1]); // THRUST
         ship.thrust.setAngle(ship.angle);
-        
-        if(playerInput[i][2]) ship.shoot(ship); // FIRE
-        
+
+        // if(playerInput[i][2]) ship.shoot(ship); // FIRE
+
         if(playerInput[i][3]) {
-            generateWallParticle(ship);
+            // generateWallParticle(ship);
         } else {
             generateThrustParticle(ship);
         }
@@ -1000,10 +1000,10 @@ function updateShips()
 
         if(ship.pos.getY() > screenHeight) ship.pos.setY(0);
         else if(ship.pos.getY() < 0) ship.pos.setY(screenHeight);
-        
-        
-        
-        
+
+
+
+
     }
 }
 
@@ -1057,7 +1057,7 @@ function updateWallParticles()
     for(var i = 0; i < players.length; i++)
     {
         var ship = players[i].ship;
-        
+
         var j = ship.wallParticles.length - 1;
 
         for(j; j > -1; --j)
@@ -1076,7 +1076,7 @@ function updateWallParticles()
 
             w.update();
         }
-        
+
     }
 }
 
@@ -1255,7 +1255,7 @@ function checkBulletShipCollisions()
         for(var j = 0; j < players.length; j++)
         {
             var s = players[j].ship;
-            
+
             if(b.color != s.color)
             {
                 if(checkDistanceCollision(b, s))
@@ -1286,13 +1286,13 @@ function checkWallShipCollisions()
 		{
             if(players[i] === players[j]) continue;
             var s = players[i].ship;
-            
+
             k = players[j].ship.wallParticles.length - 1;
-            
+
             for(k; k > -1; --k)
             {
                 var w = players[j].ship.wallParticles[k];
-                
+
                 if(checkDistanceCollision(s, w))
                 {
                     if(s.color != w.color)
@@ -1320,12 +1320,12 @@ function checkWallBulletCollisions()
 		for(j; j > -1; --j)
 		{
             k = players[j].ship.wallParticles.length - 1;
-            
+
             for(k; k > -1; --k)
             {
                 var b = bullets[i];
                 var w = players[j].ship.wallParticles[k];
-                
+
                 if(b.color != w.color)
                 {
                     if(checkDistanceCollision(b, w))
@@ -1334,9 +1334,9 @@ function checkWallBulletCollisions()
                         w.damage(b.hp);
                     }
                 }
-                
+
             }
-            
+
 		}
 	}
 }
@@ -1353,22 +1353,22 @@ function checkWallAsteroidCollisions()
 		for(j; j > -1; --j)
 		{
             k = players[j].ship.wallParticles.length - 1;
-            
+
             for(k; k > -1; --k)
             {
                 var a = asteroids[i];
                 var w = players[j].ship.wallParticles[k];
-                
-                
+
+
                 if(checkDistanceCollision(a, w))
                 {
                     destroyAsteroid(a);
                     w.damage(10);
                 }
-                
-                
+
+
             }
-            
+
 		}
 	}
 }
@@ -1474,8 +1474,8 @@ function render()
 
 	renderShip();
 	renderParticles();
-	renderBullets();
-	renderAsteroids();
+	// renderBullets();
+	// renderAsteroids();
 	renderScanlines();
 }
 
@@ -1485,13 +1485,13 @@ function renderShip()
         for(var i = 0; i < players.length; i++)
         {
             var ship = players[i].ship;
-            
+
             //RENDER SHIP WALL
-            
+
             context.save();
-            
+
             var j = ship.wallParticles.length - 1;
-            
+
             for(j; j > -1; --j)
             {
                 var w = ship.wallParticles[j];
@@ -1502,26 +1502,26 @@ function renderShip()
                 if(Math.random() > 0.4) context.fill();
                 context.closePath();
             }
-            
+
             context.restore();
-            
+
             //RENDER NAME
-            
+
             context.save();
             context.translate(ship.pos.getX() >> 0, ship.pos.getY() >> 0);
             //context.translate(0, 50);
-            
+
             context.font = "12px Source Sans pro";
             context.textAlign = "center";
             context.fillStyle = ship.color;
             context.fillText(players[i].name, 0, -20);
-            
+
             context.restore();
-            
+
             //RENDER SHIP
-            
+
             if(ship.idle) continue;
-            
+
             context.save();
             context.translate(ship.pos.getX() >> 0, ship.pos.getY() >> 0);
             context.rotate(ship.angle);
@@ -1535,11 +1535,11 @@ function renderShip()
             context.lineTo(10, 0);
             context.stroke();
             context.closePath();
-            
+
             context.restore();
-            
+
         }
-            
+
     }
 }
 
@@ -1600,11 +1600,11 @@ function renderAsteroids()
 		for(j; j > -1; --j)
 		{
 			context.lineTo((a.pos.getX() + Math.cos(doublePI * (j / a.sides) + a.angle) * a.radius) >> 0, (a.pos.getY() + Math.sin(doublePI * (j / a.sides) + a.angle) * a.radius) >> 0);
-			
+
 		}
 
 		if(Math.random() > 0.2) context.stroke();
-		
+
 		context.closePath();
 	}
 }
