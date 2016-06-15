@@ -319,25 +319,25 @@ var Ship = (function()
 		obj.thrust = Vec2D.create(0, 0);
 		obj.idle = false;
 		obj.color = '#FFF';
-        obj.hp = 10;
+    obj.hp = 10;
 
-        obj.fireCounter = 0;
-        obj.respawnCounter = 0;
+    obj.fireCounter = 0;
+    obj.respawnCounter = 0;
 
-        obj.fric = 0.97,
+    obj.fric = 0.97,
 		obj.radius = 8;
 
-        obj.MAX_HP = 10;
-        obj.TURN_SPEED = 0.12; // max velocity
-        obj.MAX_VELOCITY = 5;
-        obj.ACCELERATION = 0.18;
-        obj.ACCURACY = (2 * Math.PI) * (0.01); // (1%) angle sweep in radians.
-        obj.MAX_WALL_COUNT = 32;
+    obj.MAX_HP = 10;
+    obj.TURN_SPEED = 0.12; // max velocity
+    obj.MAX_VELOCITY = 5;
+    obj.ACCELERATION = 0.18;
+    obj.ACCURACY = (2 * Math.PI) * (0.01); // (1%) angle sweep in radians.
+    obj.MAX_WALL_COUNT = 32;
 
-        obj.FIRE_FREQUENCY = 8;
+    obj.FIRE_FREQUENCY = 8;
 		obj.RESPAWN_TIME = 120;
 
-        obj.init();
+    obj.init();
 
 		return obj;
 	};
@@ -346,30 +346,30 @@ var Ship = (function()
 
 	var def =
 	{
-        // DYNAMIC VARIABLES
+    // DYNAMIC VARIABLES
 		angle: null,
 		pos: null,
 		vel: null,
 		thrust: null,
 		idle: null,
-        color: null,
-        hp: null,
+    color: null,
+    hp: null,
 
-        fireCounter: null,
-        respawnCounter: null,
+    fireCounter: null,
+    respawnCounter: null,
 
-        // STATIC VARIABLES
+    // STATIC VARIABLES
 		ref: null,
 
-        fric: null,
+    fric: null,
 		radius: null,
             // stats //
-        MAX_HP: null,
-        TURN_SPEED: null,
-        MAX_VELOCITY: null,
-        ACCELERATION: null,
-        ACCURACY: null,
-        MAX_WALL_COUNT: null,
+    MAX_HP: null,
+    TURN_SPEED: null,
+    MAX_VELOCITY: null,
+    ACCELERATION: null,
+    ACCURACY: null,
+    MAX_WALL_COUNT: null,
 
 		FIRE_FREQUENCY: null,
 		RESPAWN_TIME: null,
@@ -379,7 +379,7 @@ var Ship = (function()
 		wallParticles: null,
 
         // FUNCTIONS
-        init: function()
+    init: function()
 		{
 			this.wallParticlePool = Pool.create(WallParticle, this.MAX_WALL_COUNT);
             this.wallParticles = [];
@@ -388,17 +388,17 @@ var Ship = (function()
 		update: function()
 		{
 			if(!this.idle)
-            {
-                this.vel.mul(this.fric);
-                this.vel.add(this.thrust);
-                this.pos.add(this.vel);
+      {
+        this.vel.mul(this.fric);
+        this.vel.add(this.thrust);
+        this.pos.add(this.vel);
 
-                if(this.vel.getLength() > this.MAX_VELOCITY) this.vel.setLength(this.MAX_VELOCITY);
+        if(this.vel.getLength() > this.MAX_VELOCITY) this.vel.setLength(this.MAX_VELOCITY);
 
-                ++this.fireCounter;
-            }
-            else
-            {
+        ++this.fireCounter;
+      }
+      else
+      {
 				if(++this.respawnCounter > this.RESPAWN_TIME)
 				{
 					this.respawnCounter = 0;
@@ -406,7 +406,7 @@ var Ship = (function()
 
 					this.ref.resetShip(this);
 				}
-            }
+      }
 		},
 
 		shoot: function(instance)
@@ -418,24 +418,70 @@ var Ship = (function()
 			}
 		},
 
-        damage: function(hp)
+    damage: function(hp)
 		{
 			this.hp -= hp;
 
 			if(this.hp <= 0 && !this.idle)
 			{
 				this.idle = true;
-                this.ref.generateShipExplosion(this);
+        this.ref.generateShipExplosion(this);
 			}
 		},
 
-        reset: function()
+    reset: function()
 		{
 
+		},
+		data: function() {
+			return {
+				angle: this.angle,
+				pos: this.pos,
+				vel: this.vel,
+				thrust: this.thrust,
+				idle: this.idle,
+				color: this.color,
+				hp: this.hp
+			}
 		}
+
 	};
 
-	return {create:create};
+	var make = function(data) {
+		var obj = Object.create(def);
+		// obj.ref = ref;
+
+		obj.angle = data.angle;
+		obj.pos = Vec2D.create(data.pos._x, data.pos._y);
+		obj.vel = Vec2D.create(data.vel._x, data.vel._y);
+		obj.thrust = Vec2D.create(data.thrust._x, data.thrust._y);
+		obj.idle = data.idle;
+		obj.color = data.color;
+		obj.hp = data.hp;
+
+		obj.fireCounter = 0;
+		obj.respawnCounter = 0;
+
+		obj.fric = 0.97,
+		obj.radius = 8;
+
+		obj.MAX_HP = 10;
+		obj.TURN_SPEED = 0.12; // max velocity
+		obj.MAX_VELOCITY = 5;
+		obj.ACCELERATION = 0.18;
+		obj.ACCURACY = (2 * Math.PI) * (0.01); // (1%) angle sweep in radians.
+		obj.MAX_WALL_COUNT = 32;
+
+		obj.FIRE_FREQUENCY = 8;
+		obj.RESPAWN_TIME = 120;
+
+		obj.init();
+
+		return obj;
+	};
+
+
+	return {create:create, make:make};
 }());
 
 //team.js ...........................................................
@@ -589,7 +635,7 @@ var WallParticle = (function()
 }());
 
 //canvas-asteroids.js ...........................................................
-
+var saveState = "";
 //common vars
 
 var canvas;
@@ -796,6 +842,13 @@ function inputInit()
 			playerInput[1][3] = true;
 
 			break;
+
+			case 49: // 1 key
+				saveState = JSON.stringify(players[0].ship.data());
+				break;
+			case 50: // 2 key
+				players[0].ship = Ship.make(JSON.parse(saveState));
+				break;
 		}
 
     e.preventDefault();
