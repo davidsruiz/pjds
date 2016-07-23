@@ -4,8 +4,8 @@
 
 canvas {
 	position: absolute;
-	width: 100%;
-	height: 100%;
+	/*width: 100%;
+	height: 100%;*/
 	background: #262626;
 }
 
@@ -26,5 +26,3 @@ canvas {
 #info p {
 	font-size: 11px;
 }
-
-canvas { width: 480px; height: 320px; }

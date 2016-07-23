@@ -21,7 +21,7 @@ class V2D {
   }
 
   get length() {
-    return this.x * this.y * this.x * this.y;
+    return Math.sqrt(this.x * this.x + this.y * this.y);
   }
 
   set length(l) {

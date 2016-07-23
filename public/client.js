@@ -9,6 +9,7 @@ var socket = io.connect();
 socket.on('onconnected', function(obj) {
   if(sessionStorage.id === undefined) sessionStorage.id = obj.id;
   socket.emit('userid', sessionStorage.id);
+  ENV["id"] = sessionStorage.id;
 
   // REQUEST JOIN lobby
   var lobbyID = window.location.pathname.slice(1);
@@ -66,9 +67,10 @@ socket.on('index', function(i) {
 
 // START game
 
-socket.on('start', function() {
-	console.log('start requested, lobby: ' + lobby);
-	// start();
+socket.on('start', function(data) {
+	log(`received start msg with data:`);
+  log(data);
+	ENV["game"] = DeepSpaceGame.start(data);
 });
 
 

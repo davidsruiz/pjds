@@ -81,6 +81,7 @@ var
 
 var shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+var colors = require('colors');
 
 app.use(express.static('public'));
 
@@ -99,7 +100,7 @@ app.get( '/', function( req, res ){
 app.post( '/', function( req, res ){
 
   var lobbyID = shortid.generate();
-  lobbies[lobbyID] = new Lobby(lobbyID); console.log(Object.keys(lobbies));
+  lobbies[lobbyID] = new Lobby(lobbyID); console.log(`new lobby: ${lobbyID}`);
   res.redirect(`/${lobbyID}`);
 
 });
@@ -146,7 +147,7 @@ sio.sockets.on('connection', function (client) {
     client.emit('onconnected', { id: UUID() } );
     client.on('userid', (id) => {
       client.userid = id;
-      console.log('\t socket.io:: player ' + client.userid + ' connected');
+      console.log(`client ${client.userid} +`.green);
     });
 
     client.on('join lobby', lobbyID => {
@@ -167,22 +168,21 @@ sio.sockets.on('connection', function (client) {
     client.on('set name', name => {
       var lobby = client.lobby
       if(lobby) {
-        client.ready = true;
         lobby.players[client.userid].name = name;
         lobby.emit('lobby state', lobby.simplify());
+
+        if(lobby.isFull) lobby.emit('start', lobby.game());
       } else {
         client.emit('error', 'you are not part of this lobby');
       }
     });
 
-    client.on('ready', () => { if(lobby.ready) client.lobby.emit('start') });
-
 
 
     client.on('disconnect', function () {
 
-            //Useful to know when soomeone disconnects
-        console.log('\t socket.io:: client disconnected ' + client.userid + ' ' + client.game_id);
+            //Useful to know when someone disconnects
+        console.log(`client ${client.userid} -`.red);
 
         var lobby = client.lobby
         if(lobby) {
@@ -196,43 +196,33 @@ sio.sockets.on('connection', function (client) {
     }); //client.on disconnect
 
 
-    // game
 
-    // upon arrival
-    /// try to join
-    client.on('join with', function(name) {
-      client.name = name;
-
-      var clients_game_index = lobby.inject(client); // find spot
-      if(clients_game_index != -1) { // if spot
-        // success
-
-        // send all lobby and the client its place in it
-        sio.sockets.emit('lobby snapshot', lobby.spaces.map(function(e){return (e ? e.name : "")}) );
-        client.emit('index', clients_game_index);
-
-        // if server full begin
-        if(lobby.isFull()) {
-          client.emit('start');
-          if(!game.ongoing) {
-            // tell other clients
-            client.broadcast.emit('start');
-            // start local copy
-            game.start()
-            .over(function(){
-              sio.sockets.emit('stop');
-            });
-          }
-        }
-        console.log(lobby.spaces.map(function(e){return (e ? e.name : "")}));
-      } else {
-        // failure
-        // no more space in lobby
-      }
-    });
 
 
     // during game
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     client.on('ship update', function(data) {
@@ -255,12 +245,3 @@ sio.sockets.on('connection', function (client) {
 
 
 }); //sio.sockets.on connection
-
-
-
-
-// var game = new Game();
-// var lobby = new Lobby();
-
-
-// setInterval(function() {}, 500);

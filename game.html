@@ -9,10 +9,19 @@
         <link rel="stylesheet" href="css/style.css" charset="utf-8" />
         <script src="http://chancejs.com/chance.min.js"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+        <script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>
+
 
         <script src="js2/lib.js"></script>
 
-        <script src="js/pool.js"></script>
+
+        <script src="js2/v2d.js"></script>
+        <script src="js2/ship.js"></script>
+        <script src="js2/team.js"></script>
+        <script src="js2/player.js"></script>
+        <script src="js2/deepspace.js"></script>
+
+        <!-- <script src="js/pool.js"></script>
         <script src="js/vec2d.js"></script>
         <script src="js/asteroid.js"></script>
         <script src="js/particle.js"></script>
@@ -21,7 +30,7 @@
         <script src="js/wall-particle.js"></script>
         <script src="js/player.js"></script>
         <script src="js/team.js"></script>
-        <script src="js/canvas-asteroids.js"></script>
+        <script src="js/canvas-asteroids.js"></script> -->
 
     </head>
     <body>
@@ -61,9 +70,10 @@
       <div id="results_layer" class="layer"></div>
 
       <div id="game_layer" class="layer">
-        <div id="overlay"></div>
+        <div id="overlay"><span id="log"></span></div>
+        <canvas id="canvas"></canvas>
       </div>
-      <canvas id="canvas"></canvas>
+
     </body>
 
     <script src="/socket.io/socket.io.js"></script>

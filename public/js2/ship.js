@@ -31,16 +31,16 @@ class Ship extends BasicShip {
 
     this.velocity = new V2D();
     this.acceleration = new V2D();
-    this.friction = 0;
+    // this.friction = 0;
 
-    this.angular_velocity = new V2D();
-    this.angular_acceleration = new V2D();
-    this.angular_friction = 0;
+    this.angular_velocity = 0;
+    this.angular_acceleration = 0;
+    // this.angular_friction = 0;
 
     this.recoil_counter = 0;
     this.respawn_counter = 0;
 
-    this.assignAttr(Ship.type.balanced);
+    this.assignAttrFrom(Ship.type.balanced);
   }
 
   export() {
@@ -56,15 +56,15 @@ class Ship extends BasicShip {
 
   update() {
     if(!this.disabled) {
-      this.velocity.mul(this.friction);
-      this.velocity.add(this.thrust);
+      this.velocity.mul(this.LINEAR_FRICTION);
+      this.velocity.add(this.acceleration);
       this.position.add(this.velocity);
 
       if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
 
       this.angular_velocity += this.angular_acceleration
-      this.angular_velocity *= this.angular_friction
+      this.angular_velocity *= this.ANGULAR_FRICTION
       this.angle += this.angular_velocity
 
       if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
@@ -95,7 +95,7 @@ class Ship extends BasicShip {
   }
 
   reset() {
-    this.position.set(MAP.spawn[this.owner.i]);
+    this.position.set(this.spawn);
     this.velocity.reset()
   }
 
@@ -104,8 +104,10 @@ class Ship extends BasicShip {
 Ship.type = {
   "balanced" : {
     HP_CAPACITY: 24,
+    ANGULAR_FRICTION: 0.9,
     ANGULAR_VELOCITY_LIMIT: 0.12,
     ANGULAR_ACCELERATION_LIMIT: 0.016,
+    LINEAR_FRICTION: 0.97,
     LINEAR_VELOCITY_LIMIT: 5,
     LINEAR_ACCELERATION_LIMIT: 0.18,
     ACCURACY: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.

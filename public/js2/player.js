@@ -1,15 +1,14 @@
 
 class Player {
-  constructor(name) {
-    this.name = name;
-    this.ship = new (Ship(this));
-  }
-}
 
+  constructor(team, id) {
+    this.team = team;
+    this.id = id;
 
-class Game {
-  constructor(lobby) {
-    this.localPlayer =
-    this.players = [];
+    this.name = null;
+    this.type = null;
+    this.ship = null;
+    this.input = null;
   }
+
 }
