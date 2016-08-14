@@ -83,7 +83,10 @@ class Ship extends BasicShip {
 
   shoot() {
     if(this.recoil_counter > this.RECOIL_DELAY) {
-      this.bullets.push(new Bullet(this));
+      var b = new Bullet(this), id = Math.uuid();
+      this.owner.team.game.model.bullets.set()
+
+      this.bullets.push(b);
       this.recoil_counter = 0;
     }
   }

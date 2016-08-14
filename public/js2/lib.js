@@ -42,6 +42,8 @@ String.prototype.padding = function(n = 0, c = " ") { var [s, alt] = [this, true
 
 // GamepadList.prototype.firstPresent = function() { for(i in this) if(this[i] !== undefined) return this[i] }
 
+// not really a uuid, but works here.
+Math.uuid = () => Math.random().toString(36).substring(2, 15);
 
 /* DOCUMENTATION //
 

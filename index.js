@@ -200,7 +200,7 @@ sio.sockets.on('connection', function (client) {
 
 
     // during game
-
+    client.on('ship update', shipData => client.broadcast.emit('ship update', shipData));
 
 
 

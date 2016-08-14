@@ -45,7 +45,7 @@ class Lobby {
     var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
 
     var block = (p, i, id) => {
-      return { name: p.name, team: i%numOfTeams, index: i, id: id }
+      return { name: p.name, team: i%numOfTeams, index: i, id: id, type: "balanced" }
     };
     var players = Object.keys(this.players).map( (key, i) => block(this.players[key], i, key) );
     return {

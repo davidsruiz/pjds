@@ -16,6 +16,6 @@ class Team {
     p.name = name; p.type = type;
 
     this.players.push(p);
-    this.game.players.push(p);
+    this.game.players.set(id, p);
   }
 }
