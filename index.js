@@ -200,9 +200,11 @@ sio.sockets.on('connection', function (client) {
 
 
     // during game
-    client.on('ship update', data => client.broadcast.emit('ship update', data));
+    client.on('ship update', data => client.lobby.broadcast('ship update', data, client));
     client.on('bullet create', data => client.lobby.emit('bullet create', data));
     client.on('bullet destroy', data => client.lobby.emit('bullet destroy', data));
+
+    client.on('ship damage', data => client.lobby.emit('ship damage', data));
 
 
 

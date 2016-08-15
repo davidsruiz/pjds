@@ -33,6 +33,7 @@ class DeepSpaceGame {
     this.setupView();
     this.setupListeners();
     this.setupLoop();
+    this.setupCaches();
   }
 
   setupModel() {
@@ -237,6 +238,11 @@ class DeepSpaceGame {
     function(callback) { window.setTimeout(callback, FPS(60)) };
   }
 
+  setupCaches() {
+    this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
+    this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
+  }
+
   loop() {
     this.update();
     this.draw();
@@ -301,10 +307,39 @@ class DeepSpaceGame {
   }
 
   updateBullets() {
-    this.model.bullets.forEach(b => { b.update(); if(b.dead) NetworkHelper.out_bullet_destroy(b.id) });
+    this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
   }
 
-  checkForCollisions() {}
+  checkForCollisions() {
+    // in theory, the user will only check
+    // collisions of those things which it
+    // created. though in practice, perhaps
+    // just it's attack moves. e.g. bullets
+
+    this.bulletCollisions();
+  }
+
+  bulletCollisions() {
+    this.ships.main.bullets.forEach((id, same, set) => {
+      var b = this.model.bullets.get(id);
+      if(b && !b.disabled) {
+        // check against enemy ships
+        this.enemyPlayers.forEach(player => {
+          var ship = player.ship;
+          if(ship && !ship.disabled) {
+            if(Physics.doTouch(ship, b)) {
+              NetworkHelper.out_ship_damage(player.id, b.hp);
+              // ship.damage(b.hp);
+              b.disabled = true;
+            }
+          }
+        });
+      } else {
+        // remove from tracked bullets list ... this.endBullet
+        // set.delete(id);
+      }
+    });
+  }
 
   draw() {
     this.drawShips();
@@ -318,6 +353,8 @@ class DeepSpaceGame {
 
       var hide = ship.disabled //|| Math.flipCoin(0.02);
       // ship.view.alpha = (hide ? 0 : 1); // randomization for 'flicker effect'
+
+      ship.view.alpha = ship.health;
 
       ship.view.x = ship.position.x;
       ship.view.y = ship.position.y;
@@ -355,7 +392,7 @@ class DeepSpaceGame {
 
     // create a view for it.
     var bv = new createjs.Shape(
-      DeepSpaceGame.graphics.bullet(this.teams[b.team].color)
+      DeepSpaceGame.graphics.particle(this.teams[b.team].color, b.radius)
     );
     this.stage.addChild(bv);
 
@@ -370,6 +407,7 @@ class DeepSpaceGame {
     if(!b) return;
 
     this.model.bullets.delete(id);
+    this.ships.main.bullets.delete(id);
 
     // erase the view for it.
     var v = this.view.bullets.get(id);
@@ -387,7 +425,7 @@ DeepSpaceGame.graphics = {
     "balanced": (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
-  bullet: (color) => DeepSpaceGame.graphics.particle(color, 4)
+  // bullet: (color) => DeepSpaceGame.graphics.particle(color)
 };
 
 DeepSpaceGame.renderingParameters = {

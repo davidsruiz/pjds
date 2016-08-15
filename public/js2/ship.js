@@ -7,11 +7,9 @@ class BasicShip {
     this.disabled = false;
     this.position = new V2D(20, 20);
     this.angle = 0;
-    this.health = 24;
+    this.health = 1;
 
-    this.radius = 8;
-
-    this.bullets = [];
+    this.radius = 10;
   }
 
   update(data) {
@@ -19,8 +17,6 @@ class BasicShip {
     this.position = data.position;
     this.angle = data.angle;
     this.health = data.health;
-
-    this.bullets = data.bullets;
   }
 }
 
@@ -37,10 +33,14 @@ class Ship extends BasicShip {
     this.angular_acceleration = 0;
     // this.angular_friction = 0;
 
+    this.bullets = new Set();
+
     this.recoil_counter = 0;
     this.respawn_counter = 0;
+    this.regen_counter = 0;
 
     this.assignAttrFrom(Ship.type.balanced);
+    this.hp = this.HP_CAPACITY;
   }
 
   export() {
@@ -48,11 +48,12 @@ class Ship extends BasicShip {
       disabled: this.disabled,
       position: this.position,
       angle: this.angle,
-      health: this.health,
-
-      bullets: this.bullets
+      health: this.health
     }
   }
+
+  get health() { return this.hp / this.HP_CAPACITY }
+  set health(percent) { this.hp = percent * this.HP_CAPACITY }
 
   update() {
     if(!this.disabled) {
@@ -73,6 +74,8 @@ class Ship extends BasicShip {
          this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
 
       this.recoil_counter++;
+
+      if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
     } else {
       if(++this.respawn_counter > this.RESPAWN_DELAY) {
         this.respawn_counter = 0;
@@ -86,16 +89,21 @@ class Ship extends BasicShip {
 
       var id = NetworkHelper.out_bullet_create(this);
 
-      this.bullets.push(id);
+      this.bullets.add(id);
       this.recoil_counter = 0;
       ;
     }
   }
 
   damage(hp) {
-    this.health -= hp;
-    if(this.health <= 0) this.disabled = true;
+    this.hp -= hp; this.regen_counter = 0;
+    if(this.hp <= 0) this.disabled = true;
     return this.disabled;
+  }
+
+  heal(hp) {
+    this.hp += hp;
+    if(this.hp > this.HP_CAPACITY) this.hp = this.HP_CAPACITY;
   }
 
   reset() {

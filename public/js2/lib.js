@@ -22,10 +22,13 @@ Math.degrees = function(radians) {
   return radians * 180 / Math.PI;
 };
 
+Math.sqr = x => Math.pow(x, 2);
+
 
 // helpers
 //  system
 var log = m => console.log(m);
+var err = m => console.error(m);
 
 //  game
 var localIDMatches = id => id == ENV["id"];

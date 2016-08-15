@@ -78,6 +78,7 @@ socket.on('start', function(data) {
 socket.on('ship update', (data) => NetworkHelper.setShip(data))
 socket.on('bullet create', (data) => NetworkHelper.in_bullet_create(data))
 socket.on('bullet destroy', (data) => NetworkHelper.in_bullet_destroy(data))
+socket.on('ship damage', (data) => NetworkHelper.in_ship_damage(data))
 // socket.on('bullet make', (bulletData) => NetworkHelper.(bulletData))
 // socket.on('bullet destroy', (bulletID) => NetworkHelper.destoryBullet(bulletID))
 

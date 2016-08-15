@@ -15,19 +15,22 @@ class Bullet {
     this.velocity.length = this.SPEED;
     this.velocity.angle = data.angle;
 
+    this.radius = 4;
+
     this.hp = data.hp;
 
     this.life_counter = 0;
-    this.dead = false;
+    this.disabled = false;
   }
 
   update() {
     this.position.add(this.velocity);
-    if(++this.life_counter > this.LIFESPAN) this.dead = true;
+    if(++this.life_counter > this.LIFESPAN) this.disabled = true;
   }
 }
 
 Bullet.stats = {
+  radius: 8,
   SPEED: 10,
   LIFESPAN: 120
 }

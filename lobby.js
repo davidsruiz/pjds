@@ -27,6 +27,12 @@ class Lobby {
       this.players[key].emit(msg, data);
   }
 
+  broadcast(msg, data, client) {
+    for(var key in this.players)
+      if(key != client.userid)
+        this.players[key].emit(msg, data);
+  }
+
   // to remove circular dependancies and minimize bandwidth consumption,
     // only select data is sent over.
   simplify() {
