@@ -277,6 +277,8 @@ class DeepSpaceGame {
   updateShip() {
     var ship;
     if(ship = this.ships.main) {
+      
+      ship.update();
       if(ship.disabled) return;
 
       var input = ship.owner.input;
@@ -289,7 +291,7 @@ class DeepSpaceGame {
       if(input.get('shoot')) ship.shoot();
       // if(input.get('block')) ship.block();
 
-      ship.update();
+
 
       // validate new position (revise)
       if(ship.position.x < 0) ship.position.x = this.stage.canvas.width;
@@ -459,13 +461,13 @@ DeepSpaceGame.renderingParameters = {
 //
 // ]]
 // );
-//
-// DeepSpaceGame.maps = [
-//   {
-//     name: "The Event Horizon",
-//     spawn: [
-//       [{x: 10, y: 10}, {x: 20, y: 20}],
-//       [{x: 758, y: 1014}, {x: 748, y: 1004}]
-//     ]
-//   }
-// ];
+
+DeepSpaceGame.maps = [
+  {
+    name: "The Event Horizon",
+    spawn: [
+      [{x: 30, y: 30}, {x: 30, y: 60}, {x: 60, y: 60}, {x: 60, y: 30}],
+      [{x: 450, y: 290}, {x: 450, y: 260}]
+    ]
+  }
+];

@@ -41,6 +41,9 @@ class Ship extends BasicShip {
 
     this.assignAttrFrom(Ship.type.balanced);
     this.hp = this.HP_CAPACITY;
+
+    this.spawn = DeepSpaceGame.maps[0].spawn[this.owner.team.number][this.owner.team.players.indexOf(this.owner)];
+    this.reset()
   }
 
   export() {
@@ -109,6 +112,8 @@ class Ship extends BasicShip {
   reset() {
     this.position.set(this.spawn);
     this.velocity.reset()
+    this.health = 1;
+    this.disabled = false;
   }
 
 }

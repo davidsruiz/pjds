@@ -1,7 +1,17 @@
 
 class V2D {
-  constructor(x = 0, y = 0) {
-    [this.x, this.y] = [x, y];
+  constructor() {
+    switch(arguments.length) {
+      case 0:
+      [this.x, this.y] = [0, 0];
+      break;
+      case 1:
+      [this.x, this.y] = [arguments[0].x, arguments[0].y];
+      break;
+      case 2:
+      [this.x, this.y] = [arguments[0], arguments[1]];
+      break;
+    }
   }
 
   set({x, y}) {
