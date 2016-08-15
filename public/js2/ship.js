@@ -83,11 +83,12 @@ class Ship extends BasicShip {
 
   shoot() {
     if(this.recoil_counter > this.RECOIL_DELAY) {
-      var b = new Bullet(this), id = Math.uuid();
-      this.owner.team.game.model.bullets.set()
 
-      this.bullets.push(b);
+      var id = NetworkHelper.out_bullet_create(this);
+
+      this.bullets.push(id);
       this.recoil_counter = 0;
+      ;
     }
   }
 
@@ -117,6 +118,10 @@ Ship.type = {
     MAX_WALL_COUNT: 32,
 
     RECOIL_DELAY: 8,
-    RESPAWN_DELAY: 120
+    RESPAWN_DELAY: 120,
+
+    ATTACK: 8,
+    REGEN_DELAY: 120,
+    REGEN_RATE: 0.4, // hp/frame
   }
 }

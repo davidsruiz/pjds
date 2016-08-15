@@ -200,7 +200,9 @@ sio.sockets.on('connection', function (client) {
 
 
     // during game
-    client.on('ship update', shipData => client.broadcast.emit('ship update', shipData));
+    client.on('ship update', data => client.broadcast.emit('ship update', data));
+    client.on('bullet create', data => client.lobby.emit('bullet create', data));
+    client.on('bullet destroy', data => client.lobby.emit('bullet destroy', data));
 
 
 
@@ -225,22 +227,22 @@ sio.sockets.on('connection', function (client) {
 
 
 
-    client.on('ship update', function(data) {
-      // console.log("P " + data.game_index + " : x " + Math.round(data.shipData.pos._x).toString() + " : y " + Math.round(data.shipData.pos._y).toString());
-      client.broadcast.emit('ship update', data);
-    }); //client.on input update
-
-    client.on('particle update', function(data) {
-      client.broadcast.emit('particle update', data);
-    }); //client.on input update
-
-    client.on('bullet update', function(data) {
-      client.broadcast.emit('bullet update', data);
-    }); //client.on input update
-
-    /// collisions
-    client.on('collide ship', function(player_i) { sio.sockets.emit('collide ship', player_i); });
-    client.on('collide bullet', function(timestamp) { sio.sockets.emit('collide bullet', timestamp); });
+    // client.on('ship update', function(data) {
+    //   // console.log("P " + data.game_index + " : x " + Math.round(data.shipData.pos._x).toString() + " : y " + Math.round(data.shipData.pos._y).toString());
+    //   client.broadcast.emit('ship update', data);
+    // }); //client.on input update
+    //
+    // client.on('particle update', function(data) {
+    //   client.broadcast.emit('particle update', data);
+    // }); //client.on input update
+    //
+    // client.on('bullet update', function(data) {
+    //   client.broadcast.emit('bullet update', data);
+    // }); //client.on input update
+    //
+    // /// collisions
+    // client.on('collide ship', function(player_i) { sio.sockets.emit('collide ship', player_i); });
+    // client.on('collide bullet', function(timestamp) { sio.sockets.emit('collide bullet', timestamp); });
 
 
 

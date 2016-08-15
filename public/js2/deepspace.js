@@ -104,7 +104,7 @@ class DeepSpaceGame {
     var stage = new createjs.Stage();
     stage.canvas = canvas;
 
-    this.view = stage;
+    this.stage = stage;
   }
 
   createViews() {
@@ -115,9 +115,9 @@ class DeepSpaceGame {
   }
 
   createMapView() { // (rethink)
-    var canvas = this.view.canvas, background = new createjs.Shape();
+    var canvas = this.stage.canvas, background = new createjs.Shape();
     background.graphics.beginFill('#455A64').drawRect(0, 0, canvas.width, canvas.height);
-    this.view.addChild(background);
+    this.stage.addChild(background);
   }
 
   createShipViews() {
@@ -126,22 +126,15 @@ class DeepSpaceGame {
         DeepSpaceGame.graphics.ship[ship.owner.type](ship.owner.team.color, ship.isMain ? 4 : 2)
       );
       view.reserve = [], view.using = [];
-      this.view.addChild(ship.view = view);
+      this.stage.addChild(ship.view = view);
     });
   }
 
   createPoolViews() {
-    this.view = {};
-    this.createBulletPoolViews();
-  }
-
-  createBulletPoolViews() {
-    DeepSpaceGame.renderingParameters.times(i => {
-      var view = {};
-
-
-      this.view = view;
-    });
+    this.view = {
+      bullets: new Map()
+    };
+    // this.createBulletPoolViews();
   }
 
   createParticleViews() {
@@ -153,7 +146,7 @@ class DeepSpaceGame {
         view.reserve.push(new createjs.Shape);
       });
 
-      this.view.addChild(ship.view = view);
+      this.stage.addChild(ship.view = view);
     });
   }
 
@@ -271,6 +264,8 @@ class DeepSpaceGame {
   updateModel() {
     this.updateShip();
     this.broadcastShip();
+
+    this.updateBullets();
   }
 
   updateShip() {
@@ -291,10 +286,10 @@ class DeepSpaceGame {
       ship.update();
 
       // validate new position (revise)
-      if(ship.position.x < 0) ship.position.x = this.view.canvas.width;
-      if(ship.position.y < 0) ship.position.y = this.view.canvas.height;
-      if(ship.position.x > this.view.canvas.width) ship.position.x = 0;
-      if(ship.position.y > this.view.canvas.height) ship.position.y = 0;
+      if(ship.position.x < 0) ship.position.x = this.stage.canvas.width;
+      if(ship.position.y < 0) ship.position.y = this.stage.canvas.height;
+      if(ship.position.x > this.stage.canvas.width) ship.position.x = 0;
+      if(ship.position.y > this.stage.canvas.height) ship.position.y = 0;
     }
   }
 
@@ -305,12 +300,17 @@ class DeepSpaceGame {
     }
   }
 
+  updateBullets() {
+    this.model.bullets.forEach(b => { b.update(); if(b.dead) NetworkHelper.out_bullet_destroy(b.id) });
+  }
+
   checkForCollisions() {}
 
   draw() {
     this.drawShips();
+    this.updateBulletViews();
 
-    this.view.update();
+    this.stage.update();
   }
 
   drawShips() {
@@ -326,6 +326,17 @@ class DeepSpaceGame {
     });
   }
 
+  updateBulletViews() {
+    var views = this.view.bullets;
+    this.model.bullets.forEach(b => {
+      var v = views.get(b.id);
+      if(v) {
+        v.x = b.position.x;
+        v.y = b.position.y;
+      }
+    });
+  }
+
   log() {
     // var input = this.ships.main.owner.input;
     // var ship = this.ships.main;
@@ -337,6 +348,37 @@ class DeepSpaceGame {
 //     );
   }
 
+  // maybe..
+
+  startBullet(data) {
+    var b = new Bullet(data);
+
+    // create a view for it.
+    var bv = new createjs.Shape(
+      DeepSpaceGame.graphics.bullet(this.teams[b.team].color)
+    );
+    this.stage.addChild(bv);
+
+    this.model.bullets.set(b.id, b);
+    this.view.bullets.set(b.id, bv);
+
+    return b;
+  }
+
+  endBullet(id) {
+    var b = this.model.bullets.get(id);
+    if(!b) return;
+
+    this.model.bullets.delete(id);
+
+    // erase the view for it.
+    var v = this.view.bullets.get(id);
+    if(v) {
+      this.view.bullets.delete(id);
+      this.stage.removeChild(v);
+    }
+
+  }
 
 }
 
@@ -345,7 +387,7 @@ DeepSpaceGame.graphics = {
     "balanced": (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
-  bullet: (color) => DeepSpaceGame.graphics.particle(color, 6)
+  bullet: (color) => DeepSpaceGame.graphics.particle(color, 4)
 };
 
 DeepSpaceGame.renderingParameters = {

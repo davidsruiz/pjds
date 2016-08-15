@@ -10,6 +10,8 @@ class V2D {
 
   reset() { this.set({x: 0, y: 0}) }
 
+  copy() { return new V2D(this.x, this.y) }
+
   get angle() {
     return Math.atan2(this.y, this.x);
   }
