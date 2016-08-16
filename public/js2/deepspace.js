@@ -13,6 +13,7 @@ class DeepSpaceGame {
     this.interpret(data);
     this.setup();
     this.loop();
+    this.c = 0;
   }
 
   static start(data) {
@@ -277,7 +278,7 @@ class DeepSpaceGame {
   updateShip() {
     var ship;
     if(ship = this.ships.main) {
-      
+
       ship.update();
       if(ship.disabled) return;
 

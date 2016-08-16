@@ -68,7 +68,7 @@ var lobbies = {};
 
 
 var
-    gameport        = process.env.PORT || 80,//4004,
+    gameport        = process.env.PORT || 4004,
 
     io              = require('socket.io'),
     express         = require('express'),

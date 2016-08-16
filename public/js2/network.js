@@ -1,5 +1,6 @@
 class NetworkHelper {
   static sendShip(shipModel) {
+    if(Math.flipCoin(0.8)) return;
     socket.emit('ship update', { senderID: ENV["id"], shipData: shipModel.export() });
   }
   static setShip(data) {
