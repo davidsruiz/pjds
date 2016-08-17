@@ -34,6 +34,7 @@ class Ship extends BasicShip {
     // this.angular_friction = 0;
 
     this.bullets = new Set();
+    this.blocks = new Set();
 
     this.recoil_counter = 0;
     this.respawn_counter = 0;
@@ -109,6 +110,13 @@ class Ship extends BasicShip {
     if(this.hp > this.HP_CAPACITY) this.hp = this.HP_CAPACITY;
   }
 
+  block() {
+    if(this.blocks.size < this.BLOCK_CAPACITY) {
+      var id = NetworkHelper.out_block_create(this);
+      this.blocks.add(id);
+    }
+  }
+
   reset() {
     this.position.set(this.spawn);
     this.velocity.reset()
@@ -127,8 +135,7 @@ Ship.type = {
     LINEAR_FRICTION: 0.97,
     LINEAR_VELOCITY_LIMIT: 5,
     LINEAR_ACCELERATION_LIMIT: 0.18,
-    ACCURACY: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
-    MAX_WALL_COUNT: 32,
+    SHOT_VARIENCE: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
 
     RECOIL_DELAY: 8,
     RESPAWN_DELAY: 120,
@@ -136,5 +143,66 @@ Ship.type = {
     ATTACK: 8,
     REGEN_DELAY: 120,
     REGEN_RATE: 0.4, // hp/frame
+
+    BLOCK_CAPACITY: 32,
+    WALL_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
+    BLOCK_HP_CAPACITY: 8
   }
 }
+//
+//
+//
+// class NetworkShip {
+//
+//   constructor(player) {
+//     this.owner = player;
+//
+//     this.disabled = false;
+//     this.position = new V2D(20, 20);
+//     this.receviedPosition = this.position;
+//     this.angle = 0;
+//     this.receviedAngle = this.angle;
+//     this.health = 1;
+//
+//     this.radius = 10;
+//
+//     // movement
+//     this.velocity = new V2D();
+//     this.acceleration = new V2D();
+//
+//     this.angular_velocity = 0;
+//     this.angular_acceleration = 0;
+//
+//     this.assignAttrFrom(Ship.type.balanced);
+//   }
+//
+//   update(data) {
+//     this.disabled = data.disabled;
+//     this.position = data.position;
+//     this.angle = data.angle;
+//     this.health = data.health;
+//   }
+//
+//   compute() {
+//     if(!this.disabled) {
+//       this.velocity.mul(this.LINEAR_FRICTION);
+//       this.velocity.add(this.acceleration);
+//       this.position.add(this.velocity);
+//
+//       if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
+//          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
+//
+//       this.angular_velocity += this.angular_acceleration
+//       this.angular_velocity *= this.ANGULAR_FRICTION
+//       this.angle += this.angular_velocity
+//
+//       if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
+//          this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
+//       if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
+//          this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
+//
+//       // calculate force needed to move ship towards received position and angle
+//
+//     }
+//   }
+// }

@@ -206,6 +206,8 @@ sio.sockets.on('connection', function (client) {
 
     client.on('ship damage', data => client.lobby.emit('ship damage', data));
 
+    client.on('block create', data => client.lobby.emit('block create', data));
+    client.on('block destroy', data => client.lobby.emit('block destroy', data));
 
 
 

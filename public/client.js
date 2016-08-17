@@ -70,6 +70,7 @@ socket.on('index', function(i) {
 socket.on('start', function(data) {
 	log(`received start msg with data:`);
   log(data);
+  // if(g) g.end();
 	g = ENV["game"] = DeepSpaceGame.start(data);
 });
 
@@ -79,6 +80,8 @@ socket.on('ship update', (data) => NetworkHelper.setShip(data))
 socket.on('bullet create', (data) => NetworkHelper.in_bullet_create(data))
 socket.on('bullet destroy', (data) => NetworkHelper.in_bullet_destroy(data))
 socket.on('ship damage', (data) => NetworkHelper.in_ship_damage(data))
+socket.on('block create', (data) => NetworkHelper.in_block_create(data))
+socket.on('block destroy', (data) => NetworkHelper.in_block_destroy(data))
 // socket.on('bullet make', (bulletData) => NetworkHelper.(bulletData))
 // socket.on('bullet destroy', (bulletID) => NetworkHelper.destoryBullet(bulletID))
 

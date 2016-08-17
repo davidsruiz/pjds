@@ -13,7 +13,6 @@ class DeepSpaceGame {
     this.interpret(data);
     this.setup();
     this.loop();
-    this.c = 0;
   }
 
   static start(data) {
@@ -35,6 +34,7 @@ class DeepSpaceGame {
     this.setupListeners();
     this.setupLoop();
     this.setupCaches();
+    this.setupPhysics();
   }
 
   setupModel() {
@@ -79,6 +79,7 @@ class DeepSpaceGame {
   setupObjectPools() {
     var model = {};
     model.bullets = new Map();
+    model.blocks = new Map();
 
     this.model = model;
   }
@@ -134,9 +135,9 @@ class DeepSpaceGame {
 
   createPoolViews() {
     this.view = {
-      bullets: new Map()
+      bullets: new Map(),
+      blocks: new Map()
     };
-    // this.createBulletPoolViews();
   }
 
   createParticleViews() {
@@ -244,6 +245,19 @@ class DeepSpaceGame {
     this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
   }
 
+  setupPhysics() {
+    this.setupCollisionGroups();
+  }
+
+  setupCollisionGroups() {
+    var groups = {};
+
+    // groups.bullets = Array.new(this.teams.length, () => new Map());
+    groups.blocks = Array.new(this.teams.length, () => new Set());
+
+    this.collisionGroups = groups;
+  }
+
   loop() {
     this.update();
     this.draw();
@@ -273,6 +287,7 @@ class DeepSpaceGame {
     this.broadcastShip();
 
     this.updateBullets();
+    this.updateBlocks();
   }
 
   updateShip() {
@@ -290,8 +305,7 @@ class DeepSpaceGame {
       ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
 
       if(input.get('shoot')) ship.shoot();
-      // if(input.get('block')) ship.block();
-
+      if(input.get('block')) ship.block();
 
 
       // validate new position (revise)
@@ -311,6 +325,13 @@ class DeepSpaceGame {
 
   updateBullets() {
     this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
+  }
+
+  updateBlocks() {
+    this.model.blocks.forEach(b => { b.update();
+      this.collisionGroups.blocks[b.team].add(b.id);
+      if(b.disabled) NetworkHelper.out_block_destroy(b.id)
+    });
   }
 
   checkForCollisions() {
@@ -347,6 +368,7 @@ class DeepSpaceGame {
   draw() {
     this.drawShips();
     this.updateBulletViews();
+    this.updateBlockViews();
 
     this.stage.update();
   }
@@ -377,6 +399,18 @@ class DeepSpaceGame {
     });
   }
 
+  updateBlockViews() {
+    var views = this.view.blocks;
+    this.model.blocks.forEach(b => {
+      var v = views.get(b.id);
+      if(v) {
+        v.x = b.position.x;
+        v.y = b.position.y; //log(v);
+        v.graphics.command.radius = b.radius;
+      }
+    });
+  }
+
   log() {
     // var input = this.ships.main.owner.input;
     // var ship = this.ships.main;
@@ -386,6 +420,10 @@ class DeepSpaceGame {
 //     y: ${ship.position.y.round(2)}
 // angle: ${ship.angle.round(2)}`
 //     );
+  }
+
+  end() {
+    // deinit()
   }
 
   // maybe..
@@ -421,6 +459,40 @@ class DeepSpaceGame {
 
   }
 
+  startBlock(data) {
+    var bl = new Block(data);
+
+    // create a view for it.
+    var blv = new createjs.Shape(
+      DeepSpaceGame.graphics.block(this.teams[bl.team].color, bl.radius)
+    );
+    this.stage.addChild(blv);
+
+    this.model.blocks.set(bl.id, bl);
+    this.view.blocks.set(bl.id, blv);
+
+    return bl;
+  }
+
+  endBlock(id) {
+    var b = this.model.blocks.get(id);
+    if(!b) return false;
+
+    this.model.blocks.delete(id);
+    this.ships.main.blocks.delete(id);
+
+    if(b.locked) this.collisionGroups.blocks[b.team].delete(b.id);
+
+    // erase the view for it.
+    var v = this.view.blocks.get(id);
+    if(v) {
+      this.view.blocks.delete(id);
+      this.stage.removeChild(v);
+    }
+    return true;
+  }
+
+
 }
 
 DeepSpaceGame.graphics = {
@@ -429,6 +501,7 @@ DeepSpaceGame.graphics = {
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
+  block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size)
 };
 
 DeepSpaceGame.renderingParameters = {
