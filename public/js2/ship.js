@@ -39,6 +39,7 @@ class Ship extends BasicShip {
     this.recoil_counter = 0;
     this.respawn_counter = 0;
     this.regen_counter = 0;
+    this.block_recoil_counter = 0;
 
     this.assignAttrFrom(Ship.type.balanced);
     this.hp = this.HP_CAPACITY;
@@ -77,7 +78,7 @@ class Ship extends BasicShip {
       if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
          this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
 
-      this.recoil_counter++;
+      this.recoil_counter++; this.block_recoil_counter++;
 
       if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
     } else {
@@ -111,9 +112,11 @@ class Ship extends BasicShip {
   }
 
   block() {
-    if(this.blocks.size < this.BLOCK_CAPACITY) {
-      var id = NetworkHelper.out_block_create(this);
-      this.blocks.add(id);
+    if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY) {
+      if(this.blocks.size < this.BLOCK_CAPACITY) {
+        var id = NetworkHelper.out_block_create(this);
+        this.blocks.add(id);
+      }
     }
   }
 
@@ -145,8 +148,9 @@ Ship.type = {
     REGEN_RATE: 0.4, // hp/frame
 
     BLOCK_CAPACITY: 32,
-    WALL_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_HP_CAPACITY: 8
+    BLOCK_HP_CAPACITY: 24,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
+    BLOCK_RECOIL_DELAY: 4
   }
 }
 //

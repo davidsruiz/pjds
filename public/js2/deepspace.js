@@ -32,9 +32,9 @@ class DeepSpaceGame {
     this.setupModel();
     this.setupView();
     this.setupListeners();
+    this.setupPhysics();
     this.setupLoop();
     this.setupCaches();
-    this.setupPhysics();
   }
 
   setupModel() {
@@ -229,6 +229,19 @@ class DeepSpaceGame {
     this.ships.main.owner.input = playerInput;
   }
 
+  setupPhysics() {
+    this.setupReferenceGroups();
+  }
+
+  setupReferenceGroups() {
+    var refGroups = {};
+
+    refGroups.enemyBlocks = new Set();
+
+    // this.collisionGroups = groups;
+    this.refGroups = refGroups;
+  }
+
   setupLoop() {
     var FPS = n => 1000 / n;
     window.getAnimationFrame =
@@ -245,18 +258,6 @@ class DeepSpaceGame {
     this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
   }
 
-  setupPhysics() {
-    this.setupCollisionGroups();
-  }
-
-  setupCollisionGroups() {
-    var groups = {};
-
-    // groups.bullets = Array.new(this.teams.length, () => new Map());
-    groups.blocks = Array.new(this.teams.length, () => new Set());
-
-    this.collisionGroups = groups;
-  }
 
   loop() {
     this.update();
@@ -329,7 +330,7 @@ class DeepSpaceGame {
 
   updateBlocks() {
     this.model.blocks.forEach(b => { b.update();
-      this.collisionGroups.blocks[b.team].add(b.id);
+      if(b.locked && b.team != this.ships.main.owner.team.number) this.refGroups.enemyBlocks.add(b.id);
       if(b.disabled) NetworkHelper.out_block_destroy(b.id)
     });
   }
@@ -341,9 +342,15 @@ class DeepSpaceGame {
     // just it's attack moves. e.g. bullets
 
     this.bulletCollisions();
+    this.shipCollisions();
   }
 
   bulletCollisions() {
+    this.bulletShipCollisions();
+    this.bulletBlockCollisions();
+  }
+
+  bulletShipCollisions() {
     this.ships.main.bullets.forEach((id, same, set) => {
       var b = this.model.bullets.get(id);
       if(b && !b.disabled) {
@@ -361,6 +368,43 @@ class DeepSpaceGame {
       } else {
         // remove from tracked bullets list ... this.endBullet
         // set.delete(id);
+      }
+    });
+  }
+
+  bulletBlockCollisions() {
+    this.ships.main.bullets.forEach((id, same, set) => {
+      var b = this.model.bullets.get(id);
+      if(b && !b.disabled) {
+        // check against enemy blocks
+        this.refGroups.enemyBlocks.forEach(blockID => {
+          var block = this.model.blocks.get(blockID);
+          if(block && !block.disabled) {
+            if(Physics.doTouch(block, b)) {
+              NetworkHelper.out_block_damage(block.id, b.hp);
+              b.disabled = true;
+            }
+          }
+        });
+      } else {
+        // remove from tracked bullets list ... this.endBullet
+        // set.delete(id);
+      }
+    });
+  }
+
+  shipCollisions() {
+    this.shipBlockCollisions();
+  }
+
+  shipBlockCollisions() {
+    var ship = this.ships.main;
+    this.refGroups.enemyBlocks.forEach(blockID => {
+      var block = this.model.blocks.get(blockID);
+      if(block && !block.disabled) {
+        if(Physics.doTouch(ship, block)) {
+          NetworkHelper.out_block_destroy(block.id);
+        }
       }
     });
   }
@@ -406,6 +450,7 @@ class DeepSpaceGame {
       if(v) {
         v.x = b.position.x;
         v.y = b.position.y; //log(v);
+        v.alpha = b.health;
         v.graphics.command.radius = b.radius;
       }
     });
@@ -481,7 +526,7 @@ class DeepSpaceGame {
     this.model.blocks.delete(id);
     this.ships.main.blocks.delete(id);
 
-    if(b.locked) this.collisionGroups.blocks[b.team].delete(b.id);
+    if(b.locked) this.refGroups.enemyBlocks.delete(b.id);
 
     // erase the view for it.
     var v = this.view.blocks.get(id);

@@ -18,7 +18,7 @@ class Block {
       this.radius = 4;
       this.locked = false;
 
-      this.hp = data.hp;
+      this.hp = this.HP_CAPACITY = data.hp;
 
       this.life_counter = 0;
       this.disabled = false;
@@ -29,7 +29,7 @@ class Block {
         this.velocity.mul(this.FRICTION);
         this.position.add(this.velocity);
 
-        this.radius = (this.velocity.length + 3);
+        this.radius = (this.velocity.length * 0.9 + 3);
 
         if(this.velocity.length < 0.1) this.locked = true;
       } else {
@@ -38,11 +38,20 @@ class Block {
 
       if(++this.life_counter > this.LIFESPAN) this.disabled = true;
     }
+
+    get health() { return this.hp / this.HP_CAPACITY }
+    set health(percent) { this.hp = percent * this.HP_CAPACITY }
+
+    damage(hp) {
+      this.hp -= hp; log(`block ${this.id} hp: ${this.hp}`)
+      if(this.hp <= 0) this.disabled = true;
+      return this.disabled;
+    }
   }
 
   Block.stats = {
     radius: 8,
-    SPEED: 3,
+    SPEED: 6,
     FRICTION: 0.92,
     DRIFT: 60,
     LIFESPAN: 180

@@ -42,7 +42,8 @@ class NetworkHelper {
       id: id,
       team: ship.owner.team.number,
       position: ship.position.copy(),
-      angle: (ship.angle - Math.PI) + (ship.WALL_SPREAD / 2) * ((Math.random()*2) - 1)
+      angle: (ship.angle - Math.PI) + (ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1),
+      hp: ship.BLOCK_HP_CAPACITY
     }});
     return id;
   }
@@ -54,5 +55,15 @@ class NetworkHelper {
   }
   static in_block_destroy(data) {
     ENV["game"].endBlock(data.blockID);
+  }
+
+  static out_block_damage(blockID, hp) {
+    socket.emit('block damage', { senderID: ENV["id"], blockID: blockID, hp: hp});
+  }
+  static in_block_damage(data) {
+    // damageBlock(data.blockID, data.hp);
+    var block;
+    if(block = ENV["game"].model.blocks.get(data.blockID)) block.damage(data.hp);
+    log(block);
   }
 }
