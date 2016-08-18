@@ -35,6 +35,7 @@ class Ship extends BasicShip {
 
     this.bullets = new Set();
     this.blocks = new Set();
+    this.attractor;
 
     this.recoil_counter = 0;
     this.respawn_counter = 0;
@@ -113,10 +114,11 @@ class Ship extends BasicShip {
 
   block() {
     if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY) {
-      if(this.blocks.size < this.BLOCK_CAPACITY) {
-        var id = NetworkHelper.out_block_create(this);
-        this.blocks.add(id);
-      }
+      if(this.blocks.size > this.BLOCK_CAPACITY)
+        NetworkHelper.out_block_destroy(this.blocks.draw());
+
+      var id = NetworkHelper.out_block_create(this);
+      this.blocks.add(id);
     }
   }
 
@@ -147,8 +149,8 @@ Ship.type = {
     REGEN_DELAY: 120,
     REGEN_RATE: 0.4, // hp/frame
 
-    BLOCK_CAPACITY: 32,
-    BLOCK_HP_CAPACITY: 24,
+    BLOCK_CAPACITY: 120,//32,
+    BLOCK_HP_CAPACITY: 16,
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
     BLOCK_RECOIL_DELAY: 4
   }

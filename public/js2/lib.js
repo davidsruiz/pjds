@@ -7,6 +7,8 @@ Number.prototype.times = function(block) { for(var i = 0; i < this; i++) block(i
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
 Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
 
+Set.prototype.draw = function() { var next = this.values().next().value; this.delete(next); return next }
+
 
 Array.new = function(l = 0, filler) { var a = new Array(); l.times((i)=>{a.push(typeof(filler)=="function" ? filler(i) : filler)}); return a }
 Math.flipCoin = (p = 0.5) => Math.random() < p

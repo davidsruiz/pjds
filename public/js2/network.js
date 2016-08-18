@@ -14,7 +14,7 @@ class NetworkHelper {
       id: id,
       team: ship.owner.team.number,
       position: ship.position.copy(),
-      angle: ship.angle,
+      angle: ship.angle + (ship.SHOT_VARIENCE / 2) * ((Math.random()*2) - 1),
       hp: ship.ATTACK
     }});
     return id;

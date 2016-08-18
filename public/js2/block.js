@@ -31,12 +31,15 @@ class Block {
 
         this.radius = (this.velocity.length * 0.9 + 3);
 
-        if(this.velocity.length < 0.1) this.locked = true;
-      } else {
-        this.radius = 10;
+        if(this.velocity.length < 0.2) this.lock();
       }
 
-      if(++this.life_counter > this.LIFESPAN) this.disabled = true;
+      // if(++this.life_counter > this.LIFESPAN) this.disabled = true;
+    }
+
+    lock() {
+      this.radius = 10;
+      this.qualified = true;
     }
 
     get health() { return this.hp / this.HP_CAPACITY }
@@ -54,5 +57,5 @@ class Block {
     SPEED: 6,
     FRICTION: 0.92,
     DRIFT: 60,
-    LIFESPAN: 180
+    LIFESPAN: 120
   }

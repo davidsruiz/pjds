@@ -101,8 +101,8 @@ class DeepSpaceGame {
 
   setupCanvas() { // (revise)
     var canvas = $('#canvas')[0];
-    canvas.width = 480;
-    canvas.height = 320;
+    canvas.width = 600;
+    canvas.height = 480;
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;
@@ -158,11 +158,12 @@ class DeepSpaceGame {
     // turn    : -1 to 1
     // shoot   : true or false
     // block   : true or false
+    // attract : true or false
 
     var receiver = window;
     var keypressWeight = 0.85;
 
-    var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false]]);
+    var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["attract", false]]);
 
     // KEYBOARD
     var values = [
@@ -175,7 +176,9 @@ class DeepSpaceGame {
       // shoot: z , k
       ["shoot", [90, 75], true, false],
       // block: x , l
-      ["block", [88, 76], true, false]
+      ["block", [88, 76], true, false],
+      // block: c , ;
+      ["attract", [67, 186], true, false]
     ];
 
     var keyHandler = (e) => {
@@ -328,10 +331,14 @@ class DeepSpaceGame {
     this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
   }
 
-  updateBlocks() {
-    this.model.blocks.forEach(b => { b.update();
-      if(b.locked && b.team != this.ships.main.owner.team.number) this.refGroups.enemyBlocks.add(b.id);
-      if(b.disabled) NetworkHelper.out_block_destroy(b.id)
+  updateBlocks() { // needs needs work
+    this.model.blocks.forEach(b => { if(b.locked) return;
+      b.update();
+      if(b.qualified) {
+        if(b.team != this.ships.main.owner.team.number) this.refGroups.enemyBlocks.add(b.id);
+        b.locked = true;
+      }
+      // if(b.disabled) NetworkHelper.out_block_destroy(b.id) // due to aging
     });
   }
 
@@ -398,7 +405,7 @@ class DeepSpaceGame {
   }
 
   shipBlockCollisions() {
-    var ship = this.ships.main;
+    var ship = this.ships.main; if(ship.disabled) return;
     this.refGroups.enemyBlocks.forEach(blockID => {
       var block = this.model.blocks.get(blockID);
       if(block && !block.disabled) {
