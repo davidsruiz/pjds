@@ -60,10 +60,8 @@ class NetworkHelper {
     socket.emit('block damage', { senderID: ENV["id"], blockID: blockID, hp: hp});
   }
   static in_block_damage(data) {
-    // damageBlock(data.blockID, data.hp);
     var block;
     if(block = ENV["game"].model.blocks.get(data.blockID)) block.damage(data.hp);
-    log(block);
   }
 
   static out_pulse_create(ship) {

@@ -13,7 +13,7 @@ class Block {
       this.velocity.length = this.SPEED;
       this.velocity.angle = data.angle;
 
-      this.radius = 4;
+      this.radius = 10;
       this.locked = false;
 
       this.hp = this.HP_CAPACITY = data.hp;
@@ -27,7 +27,8 @@ class Block {
         this.velocity.mul(this.FRICTION);
         this.position.add(this.velocity);
 
-        this.radius = (this.velocity.length * 0.9 + 3);
+        this.radius = (this.velocity.length * 0.9 + 3); //(8 -> 3)
+        this.scale = (this.velocity.length * 0.9 + 3) / 10; //(.8 -> .3)
 
         if(this.velocity.length < 0.2) this.lock();
       }
@@ -36,7 +37,8 @@ class Block {
     }
 
     lock() {
-      this.radius = 10;
+      this.scale = 1;
+      // this.radius = 10;
       this.qualified = true;
     }
 

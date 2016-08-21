@@ -174,7 +174,6 @@ class DeepSpaceGame {
     background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);
     this.view.layer.background.addChild(background);
 
-
     background = new createjs.Shape();
     background.graphics.beginFill('#455A64').drawRect(0, 0, this.mapInfo.width, this.mapInfo.height);
 
@@ -189,17 +188,22 @@ class DeepSpaceGame {
         var centerX = this.mapInfo.width / 2;
         var centerY = this.mapInfo.height / 2;
 
+        var r = DeepSpaceGame.modes["ctf"].ring_radius, s = r * 1.2;
         var ring = new createjs.Shape(
-          DeepSpaceGame.graphics.ring(DeepSpaceGame.modes["ctf"].ring_radius)
+          DeepSpaceGame.graphics.ring(r)
         );
+        ring.cache(-s, -s, s*2, s*2);
 
+        var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
         var flag = new createjs.Shape(
           DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
         );
         flag.shadow = DeepSpaceGame.graphics.flag_shadow();
+        flag.cache(-s, -s, s*2, s*2);
 
         ring.x = centerX; ring.y = centerY;
         flag.x = centerX; flag.y = centerY;
+
 
         this.view.layer.action.addChild(ring);
         this.view.layer.action.addChild(flag);
@@ -378,11 +382,16 @@ class DeepSpaceGame {
   }
 
   setupCaches() {
+
+    // model references
     this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
     this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
 
     this.player = this.ships.main.owner;
     this.team = this.player.team;
+
+    // create js caches
+    this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);
   }
 
 
@@ -462,11 +471,11 @@ class DeepSpaceGame {
 
   updateBlocks() { // needs needs work
     this.model.blocks.forEach(b => { if(b.locked) return;
-      b.update();
       if(b.qualified) {
         if(b.team != this.ships.main.owner.team.number) this.refGroups.enemyBlocks.add(b.id);
         b.locked = true;
       }
+      b.update();
       // if(b.disabled) NetworkHelper.out_block_destroy(b.id) // due to aging
     });
   }
@@ -670,10 +679,12 @@ class DeepSpaceGame {
     this.model.blocks.forEach(b => {
       var v = views.get(b.id);
       if(v) {
-        v.x = b.position.x;
-        v.y = b.position.y; //log(v);
         v.alpha = b.health;
-        v.graphics.command.radius = b.radius;
+        if(!b.locked) {
+          v.x = b.position.x;
+          v.y = b.position.y;
+          v.graphics.command.radius = b.radius;
+        }
       }
     });
   }
@@ -735,6 +746,8 @@ class DeepSpaceGame {
     var bv = new createjs.Shape(
       DeepSpaceGame.graphics.particle(this.teams[b.team].color, b.radius)
     );
+    var s = b.radius * 1.2;
+    bv.cache(-s, -s, s*2, s*2);
     this.view.layer.action.addChild(bv);
 
     this.model.bullets.set(b.id, b);
@@ -766,6 +779,8 @@ class DeepSpaceGame {
     var blv = new createjs.Shape(
       DeepSpaceGame.graphics.block(this.teams[bl.team].color, bl.radius)
     );
+    var s = bl.radius * 1.2;
+    blv.cache(-s, -s, s*2, s*2);
     this.view.layer.action.addChild(blv);
 
     this.model.blocks.set(bl.id, bl);
