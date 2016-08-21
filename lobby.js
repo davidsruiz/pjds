@@ -93,7 +93,9 @@ DeepSpaceGame.colorCombinations = new Map([[2, [
   [4, 3]  // blue, green
 ]],
 [3,[
-
+  [1, 3, 4], // red, green, blue
+  [2, 3, 4], // yellow, green, blue
+  [0, 2, 4]  // pink, yellow, blue
 ]]]
 );
 

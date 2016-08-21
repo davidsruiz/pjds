@@ -18,7 +18,7 @@ class BasicShip {
     this.angle = data.angle;
     this.health = data.health;
   }
-  
+
   pickup(flag) { this.flag = flag }
   drop(flag) { this.flag = undefined }
 }
