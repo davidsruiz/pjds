@@ -18,6 +18,9 @@ class BasicShip {
     this.angle = data.angle;
     this.health = data.health;
   }
+  
+  pickup(flag) { this.flag = flag }
+  drop(flag) { this.flag = undefined }
 }
 
 class Ship extends BasicShip {
@@ -35,12 +38,13 @@ class Ship extends BasicShip {
 
     this.bullets = new Set();
     this.blocks = new Set();
-    this.attractor;
+    this.pulses = new Set();
 
     this.recoil_counter = 0;
     this.respawn_counter = 0;
     this.regen_counter = 0;
     this.block_recoil_counter = 0;
+    this.pulse_recoil_counter = 0;
 
     this.assignAttrFrom(Ship.type.balanced);
     this.hp = this.HP_CAPACITY;
@@ -61,9 +65,12 @@ class Ship extends BasicShip {
   get health() { return this.hp / this.HP_CAPACITY }
   set health(percent) { this.hp = percent * this.HP_CAPACITY }
 
+  get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
+  get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
+
   update() {
     if(!this.disabled) {
-      this.velocity.mul(this.LINEAR_FRICTION);
+      this.velocity.mul(this.LINEAR_FRICTION - ((this.flag) ? this.flag.drag : 0));
       this.velocity.add(this.acceleration);
       this.position.add(this.velocity);
 
@@ -71,15 +78,13 @@ class Ship extends BasicShip {
          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
 
       this.angular_velocity += this.angular_acceleration
-      this.angular_velocity *= this.ANGULAR_FRICTION
+      this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
       this.angle += this.angular_velocity
 
       if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
          this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
       if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
          this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
-
-      this.recoil_counter++; this.block_recoil_counter++;
 
       if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
     } else {
@@ -88,6 +93,7 @@ class Ship extends BasicShip {
         this.reset();
       }
     }
+    this.recoil_counter++; this.block_recoil_counter++; this.pulse_recoil_counter++;
   }
 
   shoot() {
@@ -119,8 +125,25 @@ class Ship extends BasicShip {
 
       var id = NetworkHelper.out_block_create(this);
       this.blocks.add(id);
+      this.block_recoil_counter = 0;
     }
   }
+
+  pulse() {
+    if(!(this.pulses.size < this.PULSE_CAPACITY)) return;
+    if(this.pulse_recoil_counter > this.PULSE_RECOIL_DELAY) {
+      // if(!(this.pulses.size > this.PULSE_CAPACITY))
+      //   NetworkHelper.out_pulse_destroy(this.pulses.draw());
+
+      var id = NetworkHelper.out_pulse_create(this);
+      this.pulses.add(id);
+      this.pulse_recoil_counter = 0;
+    }
+    // if(this.pulses.size > 0) return;
+    // var id = NetworkHelper.out_pulse_create(this);
+    // this.pulses.add(id);
+  }
+
 
   reset() {
     this.position.set(this.spawn);
@@ -136,11 +159,11 @@ Ship.type = {
     HP_CAPACITY: 24,
     ANGULAR_FRICTION: 0.9,
     ANGULAR_VELOCITY_LIMIT: 0.12,
-    ANGULAR_ACCELERATION_LIMIT: 0.016,
+    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
     LINEAR_FRICTION: 0.97,
-    LINEAR_VELOCITY_LIMIT: 5,
-    LINEAR_ACCELERATION_LIMIT: 0.18,
-    SHOT_VARIENCE: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
+    LINEAR_VELOCITY_LIMIT: 6,//5,
+    LINEAR_ACCELERATION_LIMIT: 0.22,//0.18,
+    SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
 
     RECOIL_DELAY: 8,
     RESPAWN_DELAY: 120,
@@ -149,10 +172,13 @@ Ship.type = {
     REGEN_DELAY: 120,
     REGEN_RATE: 0.4, // hp/frame
 
-    BLOCK_CAPACITY: 120,//32,
-    BLOCK_HP_CAPACITY: 16,
+    BLOCK_CAPACITY: 180,//32,
+    BLOCK_HP_CAPACITY: 24,
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 4
+    BLOCK_RECOIL_DELAY: 0,
+
+    PULSE_RECOIL_DELAY: 120,
+    PULSE_CAPACITY: 1
   }
 }
 //

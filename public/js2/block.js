@@ -8,8 +8,6 @@ class Block {
 
       // needs work
       this.position = new V2D(data.position.x, data.position.y);
-      var shift = new V2D(); shift.length = 8*2; shift.angle = data.angle;
-      this.position.add(shift);
 
       this.velocity = new V2D();
       this.velocity.length = this.SPEED;
@@ -46,7 +44,7 @@ class Block {
     set health(percent) { this.hp = percent * this.HP_CAPACITY }
 
     damage(hp) {
-      this.hp -= hp; log(`block ${this.id} hp: ${this.hp}`)
+      this.hp -= hp;
       if(this.hp <= 0) this.disabled = true;
       return this.disabled;
     }

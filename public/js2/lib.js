@@ -50,6 +50,8 @@ String.prototype.padding = function(n = 0, c = " ") { var [s, alt] = [this, true
 // not really a uuid, but works here.
 Math.uuid = () => Math.random().toString(36).substring(2, 15);
 
+FRAMES = {secs: s => s*60, mins: m => FRAMES.secs(m*60), hrs: h => FRAMES.mins(h*60)}
+
 /* DOCUMENTATION //
 
 -- Object.prototype.forEach
@@ -67,5 +69,4 @@ Math.uuid = () => Math.random().toString(36).substring(2, 15);
       The current property value being processed.
     obj
       The obj that forEach() is being applied to.
-
                                                                               */

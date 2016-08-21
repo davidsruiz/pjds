@@ -23,6 +23,8 @@ class DeepSpaceGame {
     // anything pertaining to game
     // object itself gets set
     this.isHost = data.host;
+    this.mapInfo = DeepSpaceGame.maps[0];
+    this.gameMode = 'ctf'; // data.mode;
 
     // everything else:
     this.setupData = data;
@@ -42,6 +44,8 @@ class DeepSpaceGame {
     this.setupPlayers();
     this.setupShips();
     this.setupObjectPools();
+
+    this.setupGame();
   }
 
   setupTeams() {
@@ -80,13 +84,29 @@ class DeepSpaceGame {
     var model = {};
     model.bullets = new Map();
     model.blocks = new Map();
+    model.pulses = new Map();
 
     this.model = model;
+  }
+
+  setupGame() {
+    this.game = {};
+    // this.timer = DeepSpaceGame.modes[this.gameMode];
+    switch(this.gameMode) {
+      case "ctf":
+
+        var centerX = this.mapInfo.width / 2;
+        var centerY = this.mapInfo.height / 2;
+        this.game.flag = new Flag(new V2D(centerX, centerY));
+
+        break;
+    }
   }
 
   setupView() {
     this.setupPalette();
     this.configureCreateJS();
+    this.setupCamera();
   }
 
   setupPalette() {
@@ -101,8 +121,10 @@ class DeepSpaceGame {
 
   setupCanvas() { // (revise)
     var canvas = $('#canvas')[0];
-    canvas.width = 600;
-    canvas.height = 480;
+    // canvas.width = 1024;
+    // canvas.height = 768;
+    canvas.width = 480;
+    canvas.height = 320;
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;
@@ -111,33 +133,76 @@ class DeepSpaceGame {
   }
 
   createViews() {
-    this.createMapView();
+    this.view = {};
+
+    this.createCanvasBackgroundView();
+
+    this.createMapViews();
+    this.createGameViews();
     this.createShipViews();
     this.createPoolViews();
     // this.createParticleViews();
   }
 
-  createMapView() { // (rethink)
+  createCanvasBackgroundView() { // (rethink)
     var canvas = this.stage.canvas, background = new createjs.Shape();
-    background.graphics.beginFill('#455A64').drawRect(0, 0, canvas.width, canvas.height);
+    background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);
     this.stage.addChild(background);
+  }
+
+  createMapViews() {
+    var map = new createjs.Container();
+
+    var background = new createjs.Shape();
+    background.graphics.beginFill('#455A64').drawRect(0, 0, this.mapInfo.width, this.mapInfo.height);
+
+    map.addChild(background);
+    this.stage.addChild(map);
+    this.view.map = map;
+  }
+
+  createGameViews() {
+    switch(this.gameMode) {
+      case "ctf":
+        // ring and flag
+
+        var centerX = this.mapInfo.width / 2;
+        var centerY = this.mapInfo.height / 2;
+
+        var ring = new createjs.Shape(
+          DeepSpaceGame.graphics.ring(DeepSpaceGame.modes["ctf"].ring_radius)
+        );
+
+        var flag = new createjs.Shape(
+          DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
+        );
+
+        ring.x = centerX; ring.y = centerY;
+        flag.x = centerX; flag.y = centerY;
+
+        this.view.map.addChild(ring);
+        this.view.map.addChild(flag);
+
+        this.view.flag = flag;
+
+        break;
+    }
   }
 
   createShipViews() {
     this.ships.forEach((ship) => {
-      var view = new createjs.Shape(
-        DeepSpaceGame.graphics.ship[ship.owner.type](ship.owner.team.color, ship.isMain ? 4 : 2)
-      );
-      view.reserve = [], view.using = [];
-      this.stage.addChild(ship.view = view);
+      var hollow = DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2),
+          filled = DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2);
+      var view = new createjs.Shape(hollow);
+      view.hollow = hollow, view.filled = filled;
+      this.view.map.addChild(ship.view = view);
     });
   }
 
   createPoolViews() {
-    this.view = {
-      bullets: new Map(),
-      blocks: new Map()
-    };
+    this.view.bullets = new Map()
+    this.view.blocks = new Map()
+    this.view.pulses = new Map()
   }
 
   createParticleViews() {
@@ -153,17 +218,21 @@ class DeepSpaceGame {
     });
   }
 
+  setupCamera() {
+    this.camera = new Camera(this.stage.canvas, this.view.map, this.ships.main.view);
+  }
+
   setupListeners() { // (needs work)
     // forward :  0 to 1
     // turn    : -1 to 1
     // shoot   : true or false
     // block   : true or false
-    // attract : true or false
+    // pulse : true or false
 
     var receiver = window;
     var keypressWeight = 0.85;
 
-    var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["attract", false]]);
+    var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["pulse", false]]);
 
     // KEYBOARD
     var values = [
@@ -178,7 +247,7 @@ class DeepSpaceGame {
       // block: x , l
       ["block", [88, 76], true, false],
       // block: c , ;
-      ["attract", [67, 186], true, false]
+      ["pulse", [67, 186], true, false]
     ];
 
     var keyHandler = (e) => {
@@ -240,6 +309,7 @@ class DeepSpaceGame {
     var refGroups = {};
 
     refGroups.enemyBlocks = new Set();
+    refGroups.enemyPulses = new Set();
 
     // this.collisionGroups = groups;
     this.refGroups = refGroups;
@@ -264,7 +334,6 @@ class DeepSpaceGame {
 
   loop() {
     this.update();
-    this.draw();
     this.log();
     getAnimationFrame(()=>this.loop());
   }
@@ -276,8 +345,11 @@ class DeepSpaceGame {
     this.updateInput();
     this.updateModel();
     this.checkForCollisions();
-
     if(this.isHost) this.generateMapEntities();
+
+    this.updateGame();
+
+    this.updateView();
   }
 
   updateInput() {
@@ -292,6 +364,7 @@ class DeepSpaceGame {
 
     this.updateBullets();
     this.updateBlocks();
+    this.updatePulses();
   }
 
   updateShip() {
@@ -310,13 +383,14 @@ class DeepSpaceGame {
 
       if(input.get('shoot')) ship.shoot();
       if(input.get('block')) ship.block();
+      if(input.get('pulse')) ship.pulse();
 
 
       // validate new position (revise)
-      if(ship.position.x < 0) ship.position.x = this.stage.canvas.width;
-      if(ship.position.y < 0) ship.position.y = this.stage.canvas.height;
-      if(ship.position.x > this.stage.canvas.width) ship.position.x = 0;
-      if(ship.position.y > this.stage.canvas.height) ship.position.y = 0;
+      if(ship.position.x < 0) ship.position.x = this.mapInfo.width;
+      if(ship.position.y < 0) ship.position.y = this.mapInfo.height;
+      if(ship.position.x > this.mapInfo.width) ship.position.x = 0;
+      if(ship.position.y > this.mapInfo.height) ship.position.y = 0;
     }
   }
 
@@ -325,6 +399,7 @@ class DeepSpaceGame {
     if(ship = this.ships.main) {
       NetworkHelper.sendShip(ship);
     }
+    if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
   }
 
   updateBullets() {
@@ -342,6 +417,28 @@ class DeepSpaceGame {
     });
   }
 
+  updatePulses() {
+    this.model.pulses.forEach(p => {
+      p.update(); if(p.disabled) NetworkHelper.out_pulse_destroy(p.id);
+
+
+      // field effects
+      var distance, direction;
+      this.model.bullets.forEach((b)=>{
+        if(!b.disabled && p.team != b.team) {
+          if((distance = Physics.distance(b.position, p.position)) < p.RANGE) {
+            var force = new V2D(); direction = p.position.copy(); direction.sub(b.position);
+            force.length = p.INTENSITY_FUNCTION(distance);
+            force.angle = direction.angle;// - Math.PI; // uncomment for repulsion
+            b.velocity.add(force);
+            b.velocity.length *= 0.94; // friction
+          }
+        }
+      });
+    });
+
+  }
+
   checkForCollisions() {
     // in theory, the user will only check
     // collisions of those things which it
@@ -350,6 +447,7 @@ class DeepSpaceGame {
 
     this.bulletCollisions();
     this.shipCollisions();
+    this.pulseCollisions();
   }
 
   bulletCollisions() {
@@ -402,6 +500,7 @@ class DeepSpaceGame {
 
   shipCollisions() {
     this.shipBlockCollisions();
+    this.shipFlagCollisions();
   }
 
   shipBlockCollisions() {
@@ -416,15 +515,59 @@ class DeepSpaceGame {
     });
   }
 
-  draw() {
-    this.drawShips();
-    this.updateBulletViews();
-    this.updateBlockViews();
+  shipFlagCollisions() {
+    if(this.gameMode != 'ctf') return;
+    var ship = this.ships.main, flag = this.game.flag;
+    if(!ship.disabled && flag.idle)
+      if(Physics.doTouch(ship, flag))
+        NetworkHelper.out_flag_pickup(ship.owner.id);
 
-    this.stage.update();
   }
 
-  drawShips() {
+  pulseCollisions() {
+    this.pulseBlockCollisions();
+  }
+
+  pulseBlockCollisions() {
+    var p, b;
+    this.ships.main.pulses.forEach(id => {
+      if((p = this.model.pulses.get(id)) && !p.disabled) {
+        this.refGroups.enemyBlocks.forEach(blockID => {
+          if((b = this.model.blocks.get(blockID)) && !b.disabled) {
+            if(Physics.doTouch(p, b)) {
+              NetworkHelper.out_pulse_destroy(p.id);
+              NetworkHelper.out_block_destroy(b.id);
+            }
+          }
+        });
+      }
+    });
+  }
+
+  updateGame() {
+    var flag = this.game.flag;
+    if(flag.idle) return;
+
+    var p = this.players.get(flag.holderID).ship.position;
+    flag.position.x = p.x;
+    flag.position.y = p.y;
+
+  }
+
+  updateView() {
+    this.updateShipViews();
+    this.updateBulletViews();
+    this.updateBlockViews();
+    this.updatePulseViews();
+
+    this.updateCamera();
+
+    // this.updateGameViews();
+
+    this.stage.update(); // render changes!!
+  }
+
+  updateShipViews() {
     this.ships.forEach((ship)=>{
 
       var hide = ship.disabled //|| Math.flipCoin(0.02);
@@ -436,6 +579,9 @@ class DeepSpaceGame {
       ship.view.y = ship.position.y;
 
       ship.view.rotation = Math.degrees(ship.angle);
+
+      // ship.view.graphics.clear();
+      ship.view.graphics = ((ship.flag) ? ship.view.filled : ship.view.hollow);
     });
   }
 
@@ -463,6 +609,31 @@ class DeepSpaceGame {
     });
   }
 
+  updatePulseViews() {
+    var views = this.view.pulses;
+    this.model.pulses.forEach(p => {
+      var v = views.get(p.id);
+      if(v) {
+        v.x = p.position.x;
+        v.y = p.position.y;
+        v.rotation = Math.degrees(p.rotation);
+      }
+    });
+  }
+
+  updateCamera() {
+    this.camera.update();
+    // if(camera.position)
+  }
+
+  updateGameViews() {
+    var v = this.view.flag, flag = this.game.flag; log(flag.position);
+
+    v.x = flag.position.x;
+    v.y = flag.position.y;
+    v.alpha = flag.idle ? 1 : 0;
+  }
+
   log() {
     // var input = this.ships.main.owner.input;
     // var ship = this.ships.main;
@@ -487,7 +658,7 @@ class DeepSpaceGame {
     var bv = new createjs.Shape(
       DeepSpaceGame.graphics.particle(this.teams[b.team].color, b.radius)
     );
-    this.stage.addChild(bv);
+    this.view.map.addChild(bv);
 
     this.model.bullets.set(b.id, b);
     this.view.bullets.set(b.id, bv);
@@ -506,7 +677,7 @@ class DeepSpaceGame {
     var v = this.view.bullets.get(id);
     if(v) {
       this.view.bullets.delete(id);
-      this.stage.removeChild(v);
+      this.view.map.removeChild(v);
     }
 
   }
@@ -518,7 +689,7 @@ class DeepSpaceGame {
     var blv = new createjs.Shape(
       DeepSpaceGame.graphics.block(this.teams[bl.team].color, bl.radius)
     );
-    this.stage.addChild(blv);
+    this.view.map.addChild(blv);
 
     this.model.blocks.set(bl.id, bl);
     this.view.blocks.set(bl.id, blv);
@@ -539,21 +710,89 @@ class DeepSpaceGame {
     var v = this.view.blocks.get(id);
     if(v) {
       this.view.blocks.delete(id);
-      this.stage.removeChild(v);
+      this.view.map.removeChild(v);
     }
     return true;
   }
 
+  startPulse(data) {
+    var p = new Pulse(data);
+
+    // create a view for it.
+    var pv = new createjs.Shape(
+      DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
+    );
+    this.view.map.addChild(pv);
+
+    this.model.pulses.set(p.id, p);
+    this.view.pulses.set(p.id, pv);
+
+    if(p.team != this.ships.main.owner.team.number) this.refGroups.enemyPulses.add(p.id);
+
+    return p;
+  }
+
+  endPulse(id) {
+    var p = this.model.pulses.get(id);
+    if(!p) return false;
+
+    this.model.pulses.delete(id);
+    this.ships.main.pulses.delete(id);
+
+    this.refGroups.enemyPulses.delete(p.id);
+
+    // erase the view for it.
+    var v = this.view.pulses.get(id);
+    if(v) {
+      this.view.pulses.delete(id);
+      this.view.map.removeChild(v);
+    }
+    return true;
+  }
+
+  pickupFlag(playerID) {
+    var flag = this.game.flag, ship = null;
+    if(!flag.idle) NetworkHelper.out_flag_drop();
+    flag.holderID = playerID;
+
+    if(ship = this.players.get(flag.holderID).ship)
+      ship.pickup(flag);
+
+    this.updateGameViews();
+  }
+
+  dropFlag() {
+    var id, flag = this.game.flag, ship = null;
+    if(id = flag.holderID) {
+      if(ship = this.players.get(flag.holderID).ship)
+        ship.drop(flag);
+
+      flag.reset();
+    }
+
+    this.updateGameViews();
+  }
+
+
+  deinit() {
+
+  }
 
 }
 
 DeepSpaceGame.graphics = {
   ship: {
-    "balanced": (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)
+    "balanced": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)]
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
-  block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size)
+  block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
+  attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
+
+
+  ring: r => new createjs.Graphics().beginStroke("#ECEFF1").setStrokeStyle(16).drawCircle(0, 0, r),
+  flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r)
 };
 
 DeepSpaceGame.renderingParameters = {
@@ -591,9 +830,19 @@ DeepSpaceGame.renderingParameters = {
 DeepSpaceGame.maps = [
   {
     name: "The Event Horizon",
+    // width: 1920, height: 1920,
+    width: 1024, height: 1024,
     spawn: [
       [{x: 30, y: 30}, {x: 30, y: 60}, {x: 60, y: 60}, {x: 60, y: 30}],
       [{x: 450, y: 290}, {x: 450, y: 260}]
     ]
   }
 ];
+
+DeepSpaceGame.modes = {
+  ctf: { // capture the flag
+    ring_radius: 720,
+    flag_radius: 12,
+    time_limit: FRAMES.mins(3)
+  }
+};

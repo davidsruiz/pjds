@@ -93,9 +93,12 @@ console.log('\t :: Express :: Listening on port ' + gameport );
 
 app.get( '/', function( req, res ){
 
-  res.sendfile("home.html");
+  res.sendfile("home2.html");
 
 });
+
+app.get( '/play', function( req, res ){ res.sendfile("play.html") });
+app.get( '/friends', function( req, res ){ res.sendfile("friends.html") });
 
 app.post( '/', function( req, res ){
 
@@ -209,6 +212,13 @@ sio.sockets.on('connection', function (client) {
     client.on('block create', data => client.lobby.emit('block create', data));
     client.on('block destroy', data => client.lobby.emit('block destroy', data));
     client.on('block damage', data => client.lobby.emit('block damage', data));
+
+    client.on('pulse create', data => client.lobby.emit('pulse create', data));
+    client.on('pulse destroy', data => client.lobby.emit('pulse destroy', data));
+
+
+    client.on('flag pickup', data => client.lobby.emit('flag pickup', data));
+    client.on('flag drop', data => client.lobby.emit('flag drop', data));
 
 
 

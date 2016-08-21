@@ -76,7 +76,7 @@ DeepSpaceGame.colors = [
   '#FFEA00', // 2 yellow
   '#00E676', // 3 green
   '#00B0FF', // 4 blue
-  '#AA00FF', // 5 purple
+  '#BB33FF', // 5 purple AA00FF old
   '#ECEFF1', // 6 white
   '#90A4AE', // 7 light
   '#37474F', // 8 dark

@@ -1,18 +1,25 @@
 
 class V2D {
-  constructor() {
-    switch(arguments.length) {
-      case 0:
-      [this.x, this.y] = [0, 0];
-      break;
-      case 1:
-      [this.x, this.y] = [arguments[0].x, arguments[0].y];
-      break;
-      case 2:
-      [this.x, this.y] = [arguments[0], arguments[1]];
-      break;
-    }
+  constructor(x = 0, y = 0) {
+    [this.x, this.y] = [x, y]
   }
+
+  // static new() {
+  //   var v = V2D();
+  //   switch(arguments.length) {
+  //     case 0:
+  //     v.set({x:0, y:0});
+  //     break;
+  //     case 1:
+  //     if(arguments[0].x && arguments[0].y) v.set(arguments[0]);
+  //     if(arguments[0].length && arguments[0].angle) { v.length = arguments[0].length; v.angle = arguments[0].angle; }
+  //     break;
+  //     case 2:
+  //     v.set({x: arguments[0], y: arguments[1]});
+  //     break;
+  //   }
+  //   return v;
+  // }
 
   set({x, y}) {
     [this.x, this.y] = [x, y];

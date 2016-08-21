@@ -83,8 +83,12 @@ socket.on('ship damage', (data) => NetworkHelper.in_ship_damage(data))
 socket.on('block create', (data) => NetworkHelper.in_block_create(data))
 socket.on('block destroy', (data) => NetworkHelper.in_block_destroy(data))
 socket.on('block damage', (data) => NetworkHelper.in_block_damage(data))
-// socket.on('bullet make', (bulletData) => NetworkHelper.(bulletData))
-// socket.on('bullet destroy', (bulletID) => NetworkHelper.destoryBullet(bulletID))
+
+socket.on('pulse create', (data) => NetworkHelper.in_pulse_create(data))
+socket.on('pulse destroy', (data) => NetworkHelper.in_pulse_destroy(data))
+
+socket.on('flag pickup', (data) => NetworkHelper.in_flag_pickup(data))
+socket.on('flag drop', (data) => NetworkHelper.in_flag_drop(data))
 
 
 
@@ -93,12 +97,11 @@ socket.on('block damage', (data) => NetworkHelper.in_block_damage(data))
 
 
 
+// socket.on('disconnect', ()=>alert('connection lost'))
 
 
-
-
-socket.on('reset', function() {
-});
+// socket.on('reset', function() {
+// });
 
 
 
