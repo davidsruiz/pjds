@@ -123,8 +123,8 @@ class DeepSpaceGame {
     var canvas = $('#canvas')[0];
     // canvas.width = 1024;
     // canvas.height = 768;
-    canvas.width = 480;
-    canvas.height = 320;
+    canvas.width = 1024;
+    canvas.height = 768;
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;
@@ -830,8 +830,8 @@ DeepSpaceGame.renderingParameters = {
 DeepSpaceGame.maps = [
   {
     name: "The Event Horizon",
-    // width: 1920, height: 1920,
-    width: 1024, height: 1024,
+    width: 1920, height: 1920,
+    // width: 1024, height: 1024,
     spawn: [
       [{x: 30, y: 30}, {x: 30, y: 60}, {x: 60, y: 60}, {x: 60, y: 30}],
       [{x: 450, y: 290}, {x: 450, y: 260}]

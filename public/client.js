@@ -72,6 +72,7 @@ socket.on('start', function(data) {
   log(data);
   // if(g) g.end();
 	g = ENV["game"] = DeepSpaceGame.start(data);
+  $('#menu_layer').css('opacity', '0');
 });
 
 // during game
