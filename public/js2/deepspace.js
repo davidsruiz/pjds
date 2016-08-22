@@ -472,7 +472,7 @@ class DeepSpaceGame {
   updateBlocks() { // needs needs work
     this.model.blocks.forEach(b => { if(b.locked) return;
       if(b.qualified) {
-        if(b.team != this.ships.main.owner.team.number) this.refGroups.enemyBlocks.add(b.id);
+        if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b);
         b.locked = true;
       }
       b.update();
@@ -545,8 +545,7 @@ class DeepSpaceGame {
       var b = this.model.bullets.get(id);
       if(b && !b.disabled) {
         // check against enemy blocks
-        this.refGroups.enemyBlocks.forEach(blockID => {
-          var block = this.model.blocks.get(blockID);
+        this.refGroups.enemyBlocks.forEach(block => {
           if(block && !block.disabled) {
             if(Physics.doTouch(block, b)) {
               NetworkHelper.out_block_damage(block.id, b.hp);
@@ -796,7 +795,7 @@ class DeepSpaceGame {
     this.model.blocks.delete(id);
     this.ships.main.blocks.delete(id);
 
-    if(b.locked) this.refGroups.enemyBlocks.delete(b.id);
+    if(b.locked) this.refGroups.enemyBlocks.delete(b);
 
     // erase the view for it.
     var v = this.view.blocks.get(id);
@@ -844,7 +843,7 @@ class DeepSpaceGame {
 
   pickupFlag(playerID) {
     var flag = this.game.flag, ship = null;
-    if(!flag.idle) NetworkHelper.out_flag_drop();
+    // if(!flag.idle) NetworkHelper.out_flag_drop();
     flag.holderID = playerID;
 
     var player = this.players.get(flag.holderID);
@@ -876,9 +875,10 @@ class DeepSpaceGame {
           DeepSpaceGame.localizationStrings.colors[c][this.language]
         )
       , us ? undefined : this.team.color);
+
+      this.updateFlagView();
     }
 
-    this.updateFlagView();
   }
 
   alert(msg, color = "#ECEFF1") {
