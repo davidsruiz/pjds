@@ -135,6 +135,7 @@ class DeepSpaceGame {
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;
+    stage.snapToPixel = true;
 
     this.stage = stage;
   }
@@ -275,6 +276,8 @@ class DeepSpaceGame {
 
   setupCamera() {
     this.camera = new Camera(this.stage.canvas, this.view.layer.action, this.ships.main.view);
+    this.camera.width = this.window.width;
+    this.camera.height = this.window.height;
   }
 
   setupListeners() { // (needs work)
@@ -365,6 +368,8 @@ class DeepSpaceGame {
 
     refGroups.enemyBlocks = new Set();
     refGroups.enemyPulses = new Set();
+
+    refGroups.animate = new Set();
 
     // this.collisionGroups = groups;
     this.refGroups = refGroups;
@@ -567,8 +572,7 @@ class DeepSpaceGame {
 
   shipBlockCollisions() {
     var ship = this.ships.main; if(ship.disabled) return;
-    this.refGroups.enemyBlocks.forEach(blockID => {
-      var block = this.model.blocks.get(blockID);
+    this.refGroups.enemyBlocks.forEach(block => {
       if(block && !block.disabled) {
         if(Physics.doTouch(ship, block)) {
           NetworkHelper.out_block_destroy(block.id);
@@ -594,8 +598,8 @@ class DeepSpaceGame {
     var p, b;
     this.ships.main.pulses.forEach(id => {
       if((p = this.model.pulses.get(id)) && !p.disabled) {
-        this.refGroups.enemyBlocks.forEach(blockID => {
-          if((b = this.model.blocks.get(blockID)) && !b.disabled) {
+        this.refGroups.enemyBlocks.forEach(b => {
+          if(b && !b.disabled) {
             if(Physics.doTouch(p, b)) {
               NetworkHelper.out_pulse_destroy(p.id);
               NetworkHelper.out_block_destroy(b.id);
@@ -666,7 +670,7 @@ class DeepSpaceGame {
     var views = this.view.bullets;
     this.model.bullets.forEach(b => {
       var v = views.get(b.id);
-      if(v) {
+      if(v.visible = this.camera.showing(b)) {
         v.x = b.position.x;
         v.y = b.position.y;
       }
@@ -677,7 +681,7 @@ class DeepSpaceGame {
     var views = this.view.blocks;
     this.model.blocks.forEach(b => {
       var v = views.get(b.id);
-      if(v) {
+      if(true) {
         v.alpha = b.health;
         if(!b.locked) {
           v.x = b.position.x;
@@ -685,6 +689,7 @@ class DeepSpaceGame {
           v.graphics.command.radius = b.radius;
         }
       }
+      v.visible = this.camera.showing(b)
     });
   }
 

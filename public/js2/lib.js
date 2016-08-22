@@ -12,6 +12,8 @@ Set.prototype.draw = function() { var next = this.values().next().value; this.de
 
 Array.new = function(l = 0, filler) { var a = new Array(); l.times((i)=>{a.push(typeof(filler)=="function" ? filler(i) : filler)}); return a }
 Math.flipCoin = (p = 0.5) => Math.random() < p
+Math.randomMinMax = (min, max) => (Math.random()*(max - min)) + min
+Math.randomIntMinMax = (min, max) => Math.floor((Math.random()*(max - min)) + min)
 
 
 // Converts from degrees to radians.

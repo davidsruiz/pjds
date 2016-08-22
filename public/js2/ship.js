@@ -175,7 +175,7 @@ Ship.type = {
     BLOCK_CAPACITY: 180,//32,
     BLOCK_HP_CAPACITY: 24,
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 0,
+    BLOCK_RECOIL_DELAY: 3,
 
     PULSE_RECOIL_DELAY: 120,
     PULSE_CAPACITY: 1
