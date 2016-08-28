@@ -17,10 +17,14 @@
 
         <div class="right">
           <div class="menu">
-            <span class="mi selected"><a href="/play/">play</a></span>
-            <!-- <span class="mi"><a href="/play/">practice</a></span> -->
-            <span class="mi"><a href="/play/">options</a></span>
-            <span class="mi"><a href="/play/">about</a></span>
+            <span class="mi selected">
+              <form action="/public" method="POST"><input type="submit" value="play"></form>
+            </span>
+            <span class="mi">
+              <form action="/private" method="POST"><input type="submit" value="host"></form>
+            </span>
+            <span class="mi"><a href="/options">options</a></span>
+            <span class="mi"><a href="/about">about</a></span>
           </div>
         </div>
 

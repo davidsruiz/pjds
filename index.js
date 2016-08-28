@@ -61,8 +61,9 @@ var TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return t
 //   return this.spaces.indexOf(this.nil) == -1;
 // }
 
-
-var lobbies = {};
+LobbyManager = require('./lobby_manager.js');
+var LM = new LobbyManager();
+// var lobbies = {}, public = {}, private = {};
 
 ///////////////
 
@@ -79,13 +80,14 @@ var
     app             = express(),
     server          = http.createServer(app);
 
-var shortid = require('shortid');
+// var shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 var colors = require('colors');
 
 app.use(express.static('public'));
 
     //Tell the server to listen for incoming connections
+    server.listen(80)
 server.listen(gameport)
     //Log something so we know that it succeeded.
 console.log('\t :: Express :: Listening on port ' + gameport );
@@ -97,13 +99,21 @@ app.get( '/', function( req, res ){
 
 });
 
-app.get( '/play', function( req, res ){ res.sendfile("play.html") });
-app.get( '/friends', function( req, res ){ res.sendfile("friends.html") });
+// app.get( '/play', function( req, res ){ res.sendfile("play.html")
 
-app.post( '/', function( req, res ){
+app.post( '/:type', function( req, res ){
 
-  var lobbyID = shortid.generate();
-  lobbies[lobbyID] = new Lobby(lobbyID); console.log(`new lobby: ${lobbyID}`);
+  var lobbyID;
+
+  if(req.params.type == "public") {
+    lobbyID = LM.next();
+  } else
+  if(req.params.type == "private") {
+    lobbyID = LM.new_private();
+  }
+
+  // if(req.params.type == "private") private[lobbyID] = lobbies[lobbyID] = new Lobby(lobbyID);
+  // console.log(`new lobby: ${lobbyID}`);
   res.redirect(`/${lobbyID}`);
 
 });
@@ -113,7 +123,7 @@ app.post( '/', function( req, res ){
 app.get( '/*' , function( req, res, next ) {
 
     var lobbyID = req.params[0];
-    if(lobbies[lobbyID]) {
+    if(LM.exists(lobbyID)) {
       res.sendfile("game.html");
     } else {
       res.redirect(`/`);
@@ -138,7 +148,8 @@ sio.configure(function (){
     //client connections looking for a game, creating games,
     //leaving games, joining games and ending games when they leave.
 // game_server = require('./game.server.js');
-Lobby = require('./lobby.js');
+// Lobby = require('./lobby.js');
+// LobbyManager.
 
     //Socket.io will call this function when a client connects,
     //So we can send that client looking for a game to play,
@@ -154,7 +165,7 @@ sio.sockets.on('connection', function (client) {
     });
 
     client.on('join lobby', lobbyID => {
-      var lobby = lobbies[lobbyID]
+      var lobby = LM.lobby(lobbyID)
       if(lobby) {
         // check if there is room in lobby
         if(lobby.join(client)) {
@@ -193,7 +204,7 @@ sio.sockets.on('connection', function (client) {
           lobby.emit('lobby state', lobby.simplify());
 
           // remove if empty
-          if(Object.keys(lobby.players).length == 0) delete lobbies[lobby.id];
+          if(Object.keys(lobby.players).length == 0) LM.delete(lobby.id);
         }
 
     }); //client.on disconnect

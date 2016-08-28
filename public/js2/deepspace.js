@@ -130,8 +130,8 @@ class DeepSpaceGame {
     var canvas = $('#canvas')[0];
     // canvas.width = 1024;
     // canvas.height = 768;
-    canvas.width = 1024;
-    canvas.height = 768;
+    canvas.width = 512;
+    canvas.height = 480;
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;

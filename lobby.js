@@ -8,9 +8,10 @@ Math.flipCoin = (p = 0.5) => Math.random() < p
 class Lobby {
   constructor(id) {
     this.id = id;
-    this.limit = 2;
+    this.limit = 3;
     this.players = {};
   }
+  get full() {return !(Object.keys(this.players).length < this.limit) }
   join(client) {
     var joined = false;
     if(Object.keys(this.players).length < this.limit) {
@@ -47,7 +48,7 @@ class Lobby {
   get isFull() { return Object.keys(this.players).length >= this.limit }
 
   game() {
-    var numOfTeams = 2;
+    var numOfTeams = 3;
     var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
 
     var block = (p, i, id) => {
