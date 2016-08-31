@@ -1,37 +1,42 @@
 
 "use strict";
 
+var NUM_OF_PLAYERS = 1;
+var NUM_OF_TEAMS = 1;
+
+
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
 Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
+String.prototype.empty = function() { return this.trim() == ""}
 Math.flipCoin = (p = 0.5) => Math.random() < p
 
 class Lobby {
   constructor(id) {
     this.id = id;
-    this.limit = 3;
-    this.players = {};
+    this.limit = NUM_OF_PLAYERS;
+    this.players = new Map();
   }
-  get full() {return !(Object.keys(this.players).length < this.limit) }
+  get full() {return !(this.players.size < this.limit) }
   join(client) {
     var joined = false;
-    if(Object.keys(this.players).length < this.limit) {
-      this.players[client.userid] = client;
+    if(this.players.size < this.limit) {
+      this.players.set(client.userid, client);
       joined = true;
     }
     return joined;
   }
   remove(client) {
-    delete this.players[client.userid];
+    this.players.delete(client.userid);
   }
   emit(msg, data) {
-    for(var key in this.players)
-      this.players[key].emit(msg, data);
+    for (let [key, value] of this.players)
+      this.players.get(key).emit(msg, data);
   }
 
   broadcast(msg, data, client) {
-    for(var key in this.players)
+    for (let [key, value] of this.players)
       if(key != client.userid)
-        this.players[key].emit(msg, data);
+        this.players.get(key).emit(msg, data);
   }
 
   // to remove circular dependancies and minimize bandwidth consumption,
@@ -39,27 +44,35 @@ class Lobby {
   simplify() {
     var obj = {};
     var block = (e) => {
-      return { name: e.name}
+      return { name: e.name }
     };
-    Object.keys(this.players).map( (key) => obj[key] = block(this.players[key]) )
+    this.players.forEach((player)=>{
+      obj[player.userid] = block(player)
+    });
     return { players: obj };
   }
 
-  get isFull() { return Object.keys(this.players).length >= this.limit }
-
   game() {
-    var numOfTeams = 3;
+    var numOfTeams = NUM_OF_TEAMS;
     var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
-
-    var block = (p, i, id) => {
-      return { name: p.name, team: i%numOfTeams, index: i, id: id, type: "balanced" }
+    var players = [], counter = 0;
+    var block = (id, p, i) => {
+      return { name: p.name, team: i%numOfTeams, index: i, id: id, type: p.type }
     };
-    var players = Object.keys(this.players).map( (key, i) => block(this.players[key], i, key) );
+    this.players.forEach((player, id)=>{
+      players.push(block(id, player, counter++));
+    });
     return {
       teams: numOfTeams,
       colors: colors,
       players: players
     };
+  }
+
+  get ready() {
+    for (let [id, player] of this.players)
+      if(!player.type || player.name.empty()) return false;
+    return true;
   }
 
   // get ready() {
@@ -84,7 +97,9 @@ DeepSpaceGame.colors = [
   '#263238'  // 9 black
 ];
 
-DeepSpaceGame.colorCombinations = new Map([[2, [
+DeepSpaceGame.colorCombinations = new Map([
+[1, [[1], [2], [3], [4], [5]]],
+[2, [
   [1, 4], // red, blue
   [1, 2], // red, yellow
   [5, 2], // purple, yellow

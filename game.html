@@ -40,6 +40,9 @@
 
     </head>
     <body>
+      <div id="countdown_layer" class="layer">
+        <span id="countdown">3</span>
+      </div>
       <div id="menu_layer" class="layer">
         <div class="content">
 
@@ -54,8 +57,8 @@
           <div class="right">
             <div class="lobby">
               <header>
-                  <h2>waiting for players</h2>
-                  <h3>share<input id="shortid" value="http://localhost:4004/By1BT7Ic" onClick="this.select();"></h3>
+                  <h2>waiting on players</h2>
+                  <h3>share link > <input id="lobbylink" value="" onClick="this.select();"></h3>
               </header>
               <main>
                 <!-- <span class="mi">fish</span>
@@ -88,6 +91,7 @@
     <script src="client.js"></script>
     <script src="js2/network.js"></script>
     <script src="js2/view.js"></script>
+    <script src="js2/lobby.js"></script>
     <!-- <script type="text/javascript" src="script2.js"></script> -->
 
 </html>

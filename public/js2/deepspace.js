@@ -271,6 +271,12 @@ class DeepSpaceGame {
 
     this.view.layer.overlay.addChild(overlay.message);
 
+    // var imagined_width = 512;
+    overlay.kill_message = new createjs.Text("", "24px Roboto"); overlay.kill_message.textAlign = "center";
+    overlay.kill_message.x = (this.window.width / 2); overlay.kill_message.y = this.window.height - 76;
+
+    this.view.layer.overlay.addChild(overlay.kill_message);
+
     this.view.overlay = overlay;
   }
 
@@ -524,7 +530,8 @@ class DeepSpaceGame {
   }
 
   bulletShipCollisions() {
-    this.ships.main.bullets.forEach((id, same, set) => {
+    var main = this.ships.main;
+    main.bullets.forEach((id, same, set) => {
       var b = this.model.bullets.get(id);
       if(b && !b.disabled) {
         // check against enemy ships
@@ -890,7 +897,33 @@ class DeepSpaceGame {
     clearTimeout(this.alertTimeout)
     var v = this.view.overlay.message;
     v.text = msg; v.color = color;
-    this.alertTimeout = setTimeout(()=>{this.alert("")}, 4000)
+    if(msg.trim() !== '') this.alertTimeout = setTimeout(()=>{this.alert("")}, 4000)
+  }
+
+  alert_kill(msg, color = "#ECEFF1") {
+    clearTimeout(this.alertKillTimeout)
+    var v = this.view.overlay.kill_message;
+    v.text = msg; v.color = color;
+    if(msg.trim() !== '') this.alertKillTimeout = setTimeout(()=>{this.alert_kill("")}, 4000)
+  }
+
+
+  msgShipKill(takerID, giverID) {//alert(`takerID ${takerID}, giverID ${giverID},`)
+    if(takerID == this.player.id) {
+      this.alert_kill(
+        DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](
+          this.players.get(giverID).name
+        )
+      );
+    } else
+    if(giverID == this.player.id) {
+      this.alert_kill(
+        DeepSpaceGame.localizationStrings.alerts['yourKill'][this.language](
+          this.players.get(takerID).name
+        )
+      );
+      this.player.score.kills++;
+    }
   }
 
 
@@ -902,8 +935,20 @@ class DeepSpaceGame {
 
 DeepSpaceGame.graphics = {
   ship: {
+    "damage":   [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10)],
+
+    "speed":    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)],
+
     "balanced": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)]
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)],
+
+    "rate":     [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-6, -10).lineTo(-10, 0).lineTo(-6, 10).lineTo(10, 0).lineTo(-6, -10),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-6, -10).lineTo(-10, 0).lineTo(-6, 10).lineTo(10, 0).lineTo(-6, -10)],
+
+    "defense":  [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(8, -5).lineTo(-10, -10).lineTo(-10, 10).lineTo(8, 5).lineTo(10, 0).lineTo(8, -5),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(8, -5).lineTo(-10, -10).lineTo(-10, 10).lineTo(8, 5).lineTo(10, 0).lineTo(8, -5)]
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
@@ -934,6 +979,12 @@ DeepSpaceGame.localizationStrings = {
     },
     teamDropsFlag: {
       en: () => `We dropped the pearl!`
+    },
+    yourKill: {
+      en: (name) => `you got ${name}`
+    },
+    yourDeath: {
+      en: (name) => `${name} got you!`
     }
   },
   colors: {

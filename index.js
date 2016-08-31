@@ -182,10 +182,20 @@ sio.sockets.on('connection', function (client) {
     client.on('set name', name => {
       var lobby = client.lobby
       if(lobby) {
-        lobby.players[client.userid].name = name;
+        lobby.players.get(client.userid).name = name;
         lobby.emit('lobby state', lobby.simplify());
 
-        if(lobby.isFull) lobby.emit('start', lobby.game());
+        if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
+      } else {
+        client.emit('error', 'you are not part of this lobby');
+      }
+    });
+
+    client.on('set type', type => {
+      var lobby = client.lobby
+      if(lobby) {
+        lobby.players.get(client.userid).type = type;
+        if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
       } else {
         client.emit('error', 'you are not part of this lobby');
       }
@@ -204,7 +214,11 @@ sio.sockets.on('connection', function (client) {
           lobby.emit('lobby state', lobby.simplify());
 
           // remove if empty
-          if(Object.keys(lobby.players).length == 0) LM.delete(lobby.id);
+          setTimeout(()=>{ var del = false;
+            if(lobby.players.size == 0) {LM.delete(lobby.id); del = true}
+            // console.log(del ? `deleted` : `preserved`)
+          }, 5000);
+
         }
 
     }); //client.on disconnect
@@ -231,6 +245,8 @@ sio.sockets.on('connection', function (client) {
     client.on('flag pickup', data => client.lobby.emit('flag pickup', data));
     client.on('flag drop', data => client.lobby.emit('flag drop', data));
 
+
+    client.on('msg ship kill', data => client.lobby.emit('msg ship kill', data));
 
 
 

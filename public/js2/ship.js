@@ -46,7 +46,7 @@ class Ship extends BasicShip {
     this.block_recoil_counter = 0;
     this.pulse_recoil_counter = 0;
 
-    this.assignAttrFrom(Ship.type.balanced);
+    this.assignAttrFrom(Ship.type[player.type]);
     this.hp = this.HP_CAPACITY;
 
     this.spawn = DeepSpaceGame.maps[0].spawn[this.owner.team.number][this.owner.team.players.indexOf(this.owner)];
@@ -156,26 +156,140 @@ class Ship extends BasicShip {
 
 Ship.type = {
   "balanced" : {
+    type: 'balanced',
+
     HP_CAPACITY: 24,
     ANGULAR_FRICTION: 0.9,
     ANGULAR_VELOCITY_LIMIT: 0.12,
     ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
     LINEAR_FRICTION: 0.97,
     LINEAR_VELOCITY_LIMIT: 6,//5,
-    LINEAR_ACCELERATION_LIMIT: 0.22,//0.18,
+    LINEAR_ACCELERATION_LIMIT: 0.22, //0.18,
     SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
 
     RECOIL_DELAY: 8,
     RESPAWN_DELAY: 120,
 
     ATTACK: 8,
-    REGEN_DELAY: 120,
+    REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
-    BLOCK_CAPACITY: 180,//32,
+    BLOCK_CAPACITY: 120, //32,
     BLOCK_HP_CAPACITY: 24,
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
     BLOCK_RECOIL_DELAY: 3,
+
+    PULSE_RECOIL_DELAY: 120,
+    PULSE_CAPACITY: 1
+  },
+
+  "speed" : {
+    type: 'speed',
+
+    HP_CAPACITY: 18, // 24
+    ANGULAR_FRICTION: 0.9,
+    ANGULAR_VELOCITY_LIMIT: 0.12,
+    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
+    LINEAR_FRICTION: 0.97,
+    LINEAR_VELOCITY_LIMIT: 7.6, // 6
+    LINEAR_ACCELERATION_LIMIT: 0.26, // 0.22
+    SHOT_SPREAD: (2 * Math.PI) * (0.005), // (0.5%) angle sweep in radians.
+
+    RECOIL_DELAY: 10, // 8
+    RESPAWN_DELAY: 120,
+
+    ATTACK: 7, // 8
+    REGEN_DELAY: 180,
+    REGEN_RATE: 0.4, // hp/frame
+
+    BLOCK_CAPACITY: 120, // 120
+    BLOCK_HP_CAPACITY: 24,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
+    BLOCK_RECOIL_DELAY: 3,
+
+    PULSE_RECOIL_DELAY: 120,
+    PULSE_CAPACITY: 1
+  },
+
+  "defense" : {
+    type: 'defense',
+
+    HP_CAPACITY: 30, // 24
+    ANGULAR_FRICTION: 0.9,
+    ANGULAR_VELOCITY_LIMIT: 0.12,
+    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
+    LINEAR_FRICTION: 0.97,
+    LINEAR_VELOCITY_LIMIT: 4, // 6
+    LINEAR_ACCELERATION_LIMIT: 0.18, // 0.22
+    SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
+
+    RECOIL_DELAY: 8,
+    RESPAWN_DELAY: 120,
+
+    ATTACK: 8,
+    REGEN_DELAY: 180,
+    REGEN_RATE: 0.4, // hp/frame
+
+    BLOCK_CAPACITY: 120,
+    BLOCK_HP_CAPACITY: 30, // 24
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
+    BLOCK_RECOIL_DELAY: 3,
+
+    PULSE_RECOIL_DELAY: 120,
+    PULSE_CAPACITY: 1
+  },
+
+  "rate" : {
+    type: 'rate',
+
+    HP_CAPACITY: 20, // 24
+    ANGULAR_FRICTION: 0.9,
+    ANGULAR_VELOCITY_LIMIT: 0.12,
+    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
+    LINEAR_FRICTION: 0.97,
+    LINEAR_VELOCITY_LIMIT: 5.2, // 6
+    LINEAR_ACCELERATION_LIMIT: 0.22, // 0.22
+    SHOT_SPREAD: (2 * Math.PI) * (0.05), // (5%) angle sweep in radians.
+
+    RECOIL_DELAY: 5, // 8
+    RESPAWN_DELAY: 120,
+
+    ATTACK: 4, // 8
+    REGEN_DELAY: 180,
+    REGEN_RATE: 0.4, // hp/frame
+
+    BLOCK_CAPACITY: 60, // 120
+    BLOCK_HP_CAPACITY: 24,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.15), // (15%) angle sweep in radians. (10%)
+    BLOCK_RECOIL_DELAY: 2, // 3
+
+    PULSE_RECOIL_DELAY: 120,
+    PULSE_CAPACITY: 1
+  },
+
+  "damage" : {
+    type: 'damage',
+
+    HP_CAPACITY: 24,
+    ANGULAR_FRICTION: 0.9,
+    ANGULAR_VELOCITY_LIMIT: 0.12,
+    ANGULAR_ACCELERATION_LIMIT: 0.02,
+    LINEAR_FRICTION: 0.97,
+    LINEAR_VELOCITY_LIMIT: 5, // 6
+    LINEAR_ACCELERATION_LIMIT: 0.18, // 0.22
+    SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
+
+    RECOIL_DELAY: 8,
+    RESPAWN_DELAY: 120,
+
+    ATTACK: 10,
+    REGEN_DELAY: 180,
+    REGEN_RATE: 0.4, // hp/frame
+
+    BLOCK_CAPACITY: 120,
+    BLOCK_HP_CAPACITY: 12, // 24
+    BLOCK_SPREAD: (2 * Math.PI) * (0.2), // (20%) angle sweep in radians.
+    BLOCK_RECOIL_DELAY: 5, // 3
 
     PULSE_RECOIL_DELAY: 120,
     PULSE_CAPACITY: 1

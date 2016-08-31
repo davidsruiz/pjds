@@ -15,8 +15,26 @@ function refreshLobbyView() {
       input.type = "text";
       input.placeholder = "your name";
       input.value = name;
-      input.onkeydown = function(e) { if(e.keyCode==13) socket.emit('set name', this.value) };
+      input.onkeydown = function(e) { if(e.keyCode==13) $(this).blur() };
+      input.onfocus = function() { editing = true };
+      input.onblur = function() { socket.emit('set name', this.value); editing = false; refreshLobbyView() }
+      var select = document.createElement('select');
+      // var placeholder = document.createElement('option');
+      // placeholder.innerHTML = 'choose type';
+      // placeholder.disabled = 'true';
+      // placeholder.value = "";
+      // select.appendChild(placeholder);
+      types.forEach(t => {
+        var option = document.createElement('option');
+        option.innerHTML = t;
+        select.appendChild(option);
+      });
+      select.value = sessionStorage.type;
+      select.onchange = function(e) { socket.emit('set type', this.value); sessionStorage.type = this.value; };
+
       span.appendChild(input);
+      span.appendChild(select);
+
       $('.lobby > main').append(span);
     } else {
       var span = document.createElement('span'); span.className = 'mi'; span.textContent = name;
@@ -24,3 +42,5 @@ function refreshLobbyView() {
     }
   });
 }
+
+var types = ['damage', 'speed', 'balanced', 'rate', 'defense'];

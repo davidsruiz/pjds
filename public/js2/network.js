@@ -33,8 +33,20 @@ class NetworkHelper {
     socket.emit('ship damage', { senderID: ENV["id"], playerID: playerID, hp: hp});
   }
   static in_ship_damage(data) {
-    if(localIDMatches(data.playerID)) ENV["game"].players.get(data.playerID).ship.damage(data.hp);
+    if(localIDMatches(data.playerID)) {
+      var ship = ENV["game"].players.get(data.playerID).ship;
+      if(ship.damage(data.hp)) NetworkHelper.out_msg_ship_kill(ship.owner.id, data.senderID);
+    }
   }
+
+  static out_msg_ship_kill(takerID, giverID) {
+    socket.emit('msg ship kill', { senderID: ENV["id"], takerID: takerID, giverID: giverID});
+  }
+
+  static in_msg_ship_kill(data) {
+    ENV["game"].msgShipKill(data.takerID, data.giverID);
+  }
+
 
   static out_block_create(ship) {
     var id = Math.uuid();

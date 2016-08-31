@@ -16,9 +16,14 @@ socket.on('onconnected', function(obj) {
   socket.emit('join lobby', lobbyID);
   console.log(lobbyID);
 
-  // send name
+  // send stored info
   var name = sessionStorage.nickname || "";
   socket.emit('set name', name);
+
+  var type = sessionStorage.type;// || "balanced";
+  if(type) socket.emit('set type', type);
+
+  LOBBY.setupLink();
 
 });
 
@@ -26,11 +31,13 @@ socket.on('onconnected', function(obj) {
 socket.on('error', msg => log(msg));
 
 // on join lobby
+var editing;
 socket.on('lobby state', lobby => {
+  // log(`lobby state`);
+  // log(lobby.players);
   ENV["lobby"] = lobby;
   sessionStorage.nickname = lobby.players[sessionStorage.id].name;
-  refreshLobbyView();
-  log(lobby);
+  if(!editing) refreshLobbyView();
 });
 
 
@@ -68,11 +75,15 @@ socket.on('index', function(i) {
 // START game
 
 socket.on('start', function(data) {
-	log(`received start msg with data:`);
-  log(data);
-  // if(g) g.end();
-	g = ENV["game"] = DeepSpaceGame.start(data);
-  $('#menu_layer').css('opacity', '0');
+
+  // log(`received start msg with data:`);
+  // log(data);
+
+  LOBBY.startCountdown(()=>{
+    // if(g) g.end();
+    sud = data
+  	g = ENV["game"] = DeepSpaceGame.start(data);
+  })
 });
 
 // during game
@@ -90,6 +101,8 @@ socket.on('pulse destroy', (data) => NetworkHelper.in_pulse_destroy(data))
 
 socket.on('flag pickup', (data) => NetworkHelper.in_flag_pickup(data))
 socket.on('flag drop', (data) => NetworkHelper.in_flag_drop(data))
+
+socket.on('msg ship kill', (data) => NetworkHelper.in_msg_ship_kill(data))
 
 
 

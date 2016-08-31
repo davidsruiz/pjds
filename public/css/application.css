@@ -2,7 +2,6 @@
 /* FONTS */
 @import 'https://fonts.googleapis.com/css?family=Roboto|Roboto+Condensed:700';
 
-
 /* STRUCTURE */
 html, body {
   width: 100%; height: 100%;
@@ -21,8 +20,27 @@ body { position: relative; }
   height: 100%;
   position: absolute;
   /*opacity: 0;*/
+
+  transition: 1s;
 }
 #log {color: white; z-index: 100; position: absolute; font-family: 'Roboto Mono'; display: inline-block; margin: 20px; white-space: pre} /*FIX*/
+/* COUNTDOWN */
+#countdown_layer {
+  background-color: rgba(38, 50, 56, 0.8);
+  text-align: center;
+  z-index: 40;
+  opacity: 0;
+  display: none;
+}
+
+#countdown_layer > #countdown {
+  color: rgb(176,190,197);
+  font-size: 72pt;
+  font-family: 'Roboto Condensed', sans-serif;
+  margin-top: 360px;
+  display: block;
+}
+
 /* MENU */
 #menu_layer {
   font-family: 'Roboto Condensed', sans-serif;

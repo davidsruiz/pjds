@@ -9,6 +9,8 @@ class Player {
     this.type = null;
     this.ship = null;
     this.input = null;
+
+    this.score = {kills: 0}
   }
 
 }
