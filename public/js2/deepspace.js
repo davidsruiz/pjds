@@ -16,12 +16,14 @@ class DeepSpaceGame {
   }
 
   static start(data) {
-    return new DeepSpaceGame(data);
+    if(DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();
+    return DeepSpaceGame.runningInstance = new DeepSpaceGame(data);
   }
 
   interpret(data) {
     // anything pertaining to game
     // object itself gets set
+    this.spectate = data.spectate;
     this.isHost = data.host;
     this.mapInfo = DeepSpaceGame.maps[0];
     this.gameMode = 'ctf'; // data.mode;
@@ -38,6 +40,8 @@ class DeepSpaceGame {
     this.setupPhysics();
     this.setupLoop();
     this.setupCaches();
+
+    if(this.spectate) this.actualize();
   }
 
   setupModel() {
@@ -281,88 +285,111 @@ class DeepSpaceGame {
   }
 
   setupCamera() {
-    this.camera = new Camera(this.stage.canvas, this.view.layer.action, this.ships.main.view);
+    this.camera = new Camera(this.stage.canvas, this.view.layer.action);
+
+    if(this.spectate) {
+      this.focus = 0;
+      this.playerShipViewList = this.setupData.players.map(p => this.players.get(p.id).ship.view);
+      this.updateCameraFocus();
+    } else {
+      this.camera.focus = this.ships.main.view;
+    }
+
     this.camera.width = this.window.width;
     this.camera.height = this.window.height;
   }
 
-  setupListeners() { // (needs work)
-    // forward :  0 to 1
-    // turn    : -1 to 1
-    // shoot   : true or false
-    // block   : true or false
-    // pulse : true or false
-
+  setupListeners() { // (needs (even more) work)
     var receiver = window;
-    var keypressWeight = 0.85;
 
-    var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["pulse", false]]);
-
-    // KEYBOARD
-    var values = [
-      // up: ▲ , w
-      ["forward", [38, 87], keypressWeight, 0],
-      // right: ▶︎ , d
-      ["turn", [39, 68], keypressWeight, 0],
-      // left: ◀︎ , a
-      ["turn", [37, 65], -keypressWeight, 0],
-      // shoot: z , k
-      ["shoot", [90, 75], true, false],
-      // block: x , l
-      ["block", [88, 76], true, false],
-      // block: c , ;
-      ["pulse", [67, 186], true, false]
-    ];
-
-    var keyHandler = (e) => {
-      var type = e.type;
-
-      if(type == 'keyup' || type == 'keydown') {
-        var eventCode = e.keyCode;
-
-        values.forEach((row) => {
-          row[1].forEach((code) => {
-            if(code == eventCode) playerInput.set(row[0], type.is('keyup') ? row[3] : row[2]);
-          });
-        });
+    if(this.spectate) {
+      var keyHandler = (e) => {
+        if(e.keyCode == 37) {
+          this.focus--; if(this.focus < 0) this.focus = this.players.size - 1;
+        }
+        if(e.keyCode == 39) {
+          this.focus++; if(this.focus >= this.players.size) this.focus = 0;
+        }
+        this.updateCameraFocus();
       }
-    };
+      receiver.addEventListener('keydown', keyHandler); // onkeydown
+    } else {
+      // forward :  0 to 1
+      // turn    : -1 to 1
+      // shoot   : true or false
+      // block   : true or false
+      // pulse : true or false
 
-    receiver.addEventListener('keydown', keyHandler); // onkeydown
-    receiver.addEventListener('keyup', keyHandler); // onkeyup
+      var keypressWeight = 0.85;
+
+      var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["pulse", false]]);
+
+      // KEYBOARD
+      var values = [
+        // up: ▲ , w
+        ["forward", [38, 87], keypressWeight, 0],
+        // right: ▶︎ , d
+        ["turn", [39, 68], keypressWeight, 0],
+        // left: ◀︎ , a
+        ["turn", [37, 65], -keypressWeight, 0],
+        // shoot: z , k
+        ["shoot", [90, 75], true, false],
+        // block: x , l
+        ["block", [88, 76], true, false],
+        // block: c , ;
+        ["pulse", [67, 186], true, false]
+      ];
+
+      var keyHandler = (e) => {
+        var type = e.type;
+
+        if(type == 'keyup' || type == 'keydown') {
+          var eventCode = e.keyCode;
+
+          values.forEach((row) => {
+            row[1].forEach((code) => {
+              if(code == eventCode) playerInput.set(row[0], type.is('keyup') ? row[3] : row[2]);
+            });
+          });
+        }
+      };
+
+      receiver.addEventListener('keydown', keyHandler); // onkeydown
+      receiver.addEventListener('keyup', keyHandler); // onkeyup
 
 
-    // GAMEPAD
-    receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
-    // this closure has access to the playerInput variable.. the alias for this.ships.main.owner.input
-    // .. thus it is left here .. please revise
-    this.updateGamepadInput = () => {
-      var gamepad = navigator.getGamepads()[0];
-      if(!gamepad) return;
+      // GAMEPAD
+      receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
+      // this closure has access to the playerInput variable.. the alias for this.ships.main.owner.input
+      // .. thus it is left here .. please revise
+      this.updateGamepadInput = () => {
+        var gamepad = navigator.getGamepads()[0];
+        if(!gamepad) return;
 
-      var val;
+        var val;
 
-      // UP
-      var deadZone = 0.0;
-      val = gamepad.axes[3]; val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
-      val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-      playerInput.set("forward", val);
+        // UP
+        var deadZone = 0.0;
+        val = gamepad.axes[3]; val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
+        val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
+        playerInput.set("forward", val);
 
-      // LEFT and RIGHT
-      var deadZone = 0.15;
-      val = gamepad.axes[0];
-      val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-      playerInput.set("turn", val);
+        // LEFT and RIGHT
+        var deadZone = 0.15;
+        val = gamepad.axes[0];
+        val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
+        playerInput.set("turn", val);
 
-      // FIRE
-      playerInput.set("shoot", gamepad.buttons[3].pressed);
+        // FIRE
+        playerInput.set("shoot", gamepad.buttons[3].pressed);
 
-      // BLOCK
-      playerInput.set("block", gamepad.buttons[7].pressed);
-    };
+        // BLOCK
+        playerInput.set("block", gamepad.buttons[7].pressed);
+      };
 
-    // ALIAS
-    this.ships.main.owner.input = playerInput;
+      // ALIAS
+      this.ships.main.owner.input = playerInput;
+    }
   }
 
   setupPhysics() {
@@ -393,23 +420,33 @@ class DeepSpaceGame {
   }
 
   setupCaches() {
+    if(!this.spectate) {
+      // model references
+      this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
+      this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
 
-    // model references
-    this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
-    this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
-
-    this.player = this.ships.main.owner;
-    this.team = this.player.team;
-
+      this.player = this.ships.main.owner;
+      this.team = this.player.team;
+    }
     // create js caches
     this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);
+  }
+
+  actualize() {
+    // bring an outside game up to speed
+
+    // flag
+    var holder;
+    setTimeout(()=>{if(holder = this.setupData.state.flagHolder) this.pickupFlag(holder);}, 100);
   }
 
 
   loop() {
     this.update();
     this.log();
-    getAnimationFrame(()=>this.loop());
+    if(this.game.over) {
+      this.endGame();
+    } else { getAnimationFrame(()=>this.loop()) }
   }
 
   update() {
@@ -418,7 +455,7 @@ class DeepSpaceGame {
     // any collisions should be sent back to the server to sync the changes.
     this.updateInput();
     this.updateModel();
-    this.checkForCollisions();
+    if(!this.spectate) this.checkForCollisions();
     if(this.isHost) this.generateMapEntities();
 
     this.updateGame();
@@ -427,7 +464,7 @@ class DeepSpaceGame {
   }
 
   updateInput() {
-    this.updateGamepadInput();
+    if(!this.spectate) this.updateGamepadInput();
   }
 
   // updateGamepadInput() {}
@@ -472,8 +509,8 @@ class DeepSpaceGame {
     var ship;
     if(ship = this.ships.main) {
       NetworkHelper.sendShip(ship);
+      if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
     }
-    if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
   }
 
   updateBullets() {
@@ -483,8 +520,9 @@ class DeepSpaceGame {
   updateBlocks() { // needs needs work
     this.model.blocks.forEach(b => { if(b.locked) return;
       if(b.qualified) {
-        if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b);
+        if(!this.spectate) if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b);
         b.locked = true;
+        b.qualified = false;
       }
       b.update();
       // if(b.disabled) NetworkHelper.out_block_destroy(b.id) // due to aging
@@ -733,6 +771,10 @@ class DeepSpaceGame {
     v.alpha = flag.idle ? 1 : 0;
   }
 
+  updateCameraFocus() {
+    this.camera.focus = this.playerShipViewList[this.focus];
+  }
+
   log() {
     // var input = this.ships.main.owner.input;
     // var ship = this.ships.main;
@@ -772,7 +814,7 @@ class DeepSpaceGame {
     if(!b) return;
 
     this.model.bullets.delete(id);
-    this.ships.main.bullets.delete(id);
+    if(!this.spectate) this.ships.main.bullets.delete(id);
 
     // erase the view for it.
     var v = this.view.bullets.get(id);
@@ -805,7 +847,7 @@ class DeepSpaceGame {
     if(!b) return false;
 
     this.model.blocks.delete(id);
-    this.ships.main.blocks.delete(id);
+    if(!this.spectate) this.ships.main.blocks.delete(id);
 
     if(b.locked) this.refGroups.enemyBlocks.delete(b);
 
@@ -830,7 +872,7 @@ class DeepSpaceGame {
     this.model.pulses.set(p.id, p);
     this.view.pulses.set(p.id, pv);
 
-    if(p.team != this.ships.main.owner.team.number) this.refGroups.enemyPulses.add(p.id);
+    if(!this.spectate) if(p.team != this.ships.main.owner.team.number) this.refGroups.enemyPulses.add(p.id);
 
     return p;
   }
@@ -840,7 +882,7 @@ class DeepSpaceGame {
     if(!p) return false;
 
     this.model.pulses.delete(id);
-    this.ships.main.pulses.delete(id);
+    if(!this.spectate) this.ships.main.pulses.delete(id);
 
     this.refGroups.enemyPulses.delete(p.id);
 
@@ -862,7 +904,7 @@ class DeepSpaceGame {
     if(ship = player.ship)
       ship.pickup(flag);
 
-    var c = player.team.color, us = player.team == this.ships.main.owner.team;
+    var c = player.team.color, us = player.team == this.team;
     this.alert(
       DeepSpaceGame.localizationStrings.alerts[us ? 'teamTakesFlag' : 'enemyTakesFlag'][this.language](
         DeepSpaceGame.localizationStrings.colors[c][this.language]
@@ -881,12 +923,12 @@ class DeepSpaceGame {
 
       flag.reset();
 
-      var c = player.team.color, us = player.team == this.ships.main.owner.team;
+      var c = player.team.color, us = player.team == this.team;
       this.alert(
         DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](
           DeepSpaceGame.localizationStrings.colors[c][this.language]
         )
-      , us ? undefined : this.team.color);
+      , us || this.spectate ? undefined : this.team.color);
 
       this.updateFlagView();
     }
@@ -909,6 +951,7 @@ class DeepSpaceGame {
 
 
   msgShipKill(takerID, giverID) {//alert(`takerID ${takerID}, giverID ${giverID},`)
+    if(this.spectate) return;
     if(takerID == this.player.id) {
       this.alert_kill(
         DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](
@@ -926,8 +969,21 @@ class DeepSpaceGame {
     }
   }
 
+  // inturruptions, closure and game over
+  endGame() {
+    endGame
+  }
 
   deinit() {
+    // it must go in reverse order
+      // as children of root objects will
+      // need to know what to get removed from
+    deinitCaches();
+    (()=>{delete this})()
+  }
+  deinitCaches() {
+    delete this.enemyTeams;
+    delete this.enemyPlayers;
 
   }
 

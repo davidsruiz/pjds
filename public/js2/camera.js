@@ -15,10 +15,10 @@ class Camera {
   showing(obj) {
     var r = obj.radius;
     return (
-      ((obj.position.x+r) + this.plane.x < this.width) &&
-      ((obj.position.x-r) + this.plane.x > 0) &&
-      ((obj.position.y+r) + this.plane.y < this.height) &&
-      ((obj.position.y-r) + this.plane.y > 0)
+      ((obj.position.x-r) + this.plane.x < this.width) &&
+      ((obj.position.x+r) + this.plane.x > 0) &&
+      ((obj.position.y-r) + this.plane.y < this.height) &&
+      ((obj.position.y+r) + this.plane.y > 0)
     )
   }
 

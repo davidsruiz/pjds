@@ -1,8 +1,8 @@
 
 "use strict";
 
-var NUM_OF_PLAYERS = 1;
-var NUM_OF_TEAMS = 1;
+var NUM_OF_PLAYERS = 2;
+var NUM_OF_TEAMS = 2;
 
 
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
@@ -11,10 +11,17 @@ String.prototype.empty = function() { return this.trim() == ""}
 Math.flipCoin = (p = 0.5) => Math.random() < p
 
 class Lobby {
-  constructor(id) {
+  constructor(id, pCount) {
     this.id = id;
-    this.limit = NUM_OF_PLAYERS;
+    this.limit = pCount || NUM_OF_PLAYERS;
+    this.numOfTeams = NUM_OF_TEAMS;
     this.players = new Map();
+    this.started = false;
+    this.connected = new Map();
+
+    this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
+
+    this.state = {};
   }
   get full() {return !(this.players.size < this.limit) }
   join(client) {
@@ -23,20 +30,22 @@ class Lobby {
       this.players.set(client.userid, client);
       joined = true;
     }
+    this.connected.set(client.userid, client);
     return joined;
   }
   remove(client) {
     this.players.delete(client.userid);
+    this.connected.delete(client.userid);
   }
   emit(msg, data) {
-    for (let [key, value] of this.players)
-      this.players.get(key).emit(msg, data);
+    for (let [key, value] of this.connected)
+      this.connected.get(key).emit(msg, data);
   }
 
   broadcast(msg, data, client) {
-    for (let [key, value] of this.players)
+    for (let [key, value] of this.connected)
       if(key != client.userid)
-        this.players.get(key).emit(msg, data);
+        this.connected.get(key).emit(msg, data);
   }
 
   // to remove circular dependancies and minimize bandwidth consumption,
@@ -53,19 +62,19 @@ class Lobby {
   }
 
   game() {
-    var numOfTeams = NUM_OF_TEAMS;
-    var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
+    this.started = true;
     var players = [], counter = 0;
     var block = (id, p, i) => {
-      return { name: p.name, team: i%numOfTeams, index: i, id: id, type: p.type }
+      return { name: p.name, team: i%this.numOfTeams, index: i, id: id, type: p.type }
     };
     this.players.forEach((player, id)=>{
       players.push(block(id, player, counter++));
     });
     return {
-      teams: numOfTeams,
-      colors: colors,
-      players: players
+      teams: this.numOfTeams,
+      colors: this.colors,
+      players: players,
+      state: this.state
     };
   }
 
@@ -75,10 +84,6 @@ class Lobby {
     return true;
   }
 
-  // get ready() {
-  //   Object.keys(this.players).forEach((k) => { if(!this.players[k].ready) return false });
-  //   return true;
-  // }
 }
 
 // GAME PREF to be sent at start
@@ -112,6 +117,9 @@ DeepSpaceGame.colorCombinations = new Map([
   [1, 3, 4], // red, green, blue
   [2, 3, 4], // yellow, green, blue
   [0, 2, 4]  // pink, yellow, blue
+]],
+[4,[
+  [1, 2, 3, 4] // red, yellow, green, blue
 ]]]
 );
 

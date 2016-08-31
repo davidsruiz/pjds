@@ -22,7 +22,7 @@ var LOBBY = {
   revealGame(callback) {
     $('#countdown_layer').css('opacity', '0');
     $('#menu_layer').css('opacity', '0');
-    callback();
+    if(callback) callback();
     setTimeout(()=>{
       $('#countdown_layer').css('display', 'none');
       $('#menu_layer').css('display', 'none');

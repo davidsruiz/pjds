@@ -49,17 +49,17 @@ class LobbyManager {
     return lobby.id;
   }
 
-  new_private() {
-    var lobby = this.new_lobby();
+  new_private(params) {
+    var lobby = this.new_lobby(params);
     this.private.set(lobby.id, lobby);
     return lobby.id;
   }
 
-  new_lobby() {
+  new_lobby(params = {}) {
     var id = this.new_ID();
-    var lobby = new Lobby(id);
+    var lobby = new Lobby(id, params.players);
     this.lobbies.set(id, lobby);
-    console.log(`new lobby: ${id}`);
+    console.log(`new lobby: ${id}`, lobby);
     return lobby;
   }
 

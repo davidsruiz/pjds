@@ -2,70 +2,12 @@
 // EXTENTION //
 Array.new=function(length, filler){var a = []; for(var i = 0; i < length; i++) a.push(filler); return a;}
 var TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
-
-// function toStr(o) {
-//   var cache = [];
-//   var str = JSON.stringify(o, function(key, value) {
-//       if (typeof value === 'object' && value !== null) {
-//           if (cache.indexOf(value) !== -1) {
-//               // Circular reference found, discard key
-//               return;
-//           }
-//           // Store value in our collection
-//           cache.push(value);
-//       }
-//       return value;
-//   });
-//   cache = null; // Enable garbage collection
-//   return str;
-// }
-
-// var Game = function(duration) {
-//   this.ongoing = false;
-//   this.duration = duration || TIME.sec(3);
-//   return this;
-// }
-//
-// Game.prototype.start = function() {
-//   this.ongoing = true;
-//   return this;
-// }
-//
-// Game.prototype.over = function(callback) {
-//   if(this.ongoing) setTimeout(function() { callback(); this.ongoing = false }, this.duration);
-// }
-// var Lobby = function() {
-//   this.nil = 0;
-//   this.size = 2;
-//   this.spaces = Array.new(this.size, this.nil);
-//
-//   return this;
-// }
-//
-// Lobby.prototype.inject = function(client) {
-//   for(var i = 0; i < this.size; i++) {
-//     if(this.spaces[i] == this.nil) {
-//       this.spaces[i] = client;
-//       return i;
-//     }
-//   }
-//   return -1;
-// }
-//
-// Lobby.prototype.remove = function(client) {
-//   var i = this.spaces.indexOf(client);
-//   if(i != -1) this.spaces[i] = 0;
-// }
-//
-// Lobby.prototype.isFull = function() {
-//   return this.spaces.indexOf(this.nil) == -1;
-// }
+///////////////
 
 LobbyManager = require('./lobby_manager.js');
 var LM = new LobbyManager();
 // var lobbies = {}, public = {}, private = {};
 
-///////////////
 
 
 var
@@ -110,6 +52,10 @@ app.post( '/:type', function( req, res ){
   } else
   if(req.params.type == "private") {
     lobbyID = LM.new_private();
+  }
+
+  if(req.params.type == "practice") {
+    lobbyID = LM.new_private({players: 1});
   }
 
   // if(req.params.type == "private") private[lobbyID] = lobbies[lobbyID] = new Lobby(lobbyID);
@@ -172,7 +118,10 @@ sio.sockets.on('connection', function (client) {
           client.lobby = lobby;
           lobby.emit('lobby state', lobby.simplify());
         } else {
-          client.emit('error', 'this lobby is full');
+          client.emit('spectate');
+          if(lobby.started) {
+            client.emit('start', lobby.game());
+          }
         }
       } else {
         client.emit('error', `lobby ${lobbyID} not found`);
@@ -228,25 +177,39 @@ sio.sockets.on('connection', function (client) {
 
 
     // during game
-    client.on('ship update', data => client.lobby.broadcast('ship update', data, client));
-    client.on('bullet create', data => client.lobby.emit('bullet create', data));
-    client.on('bullet destroy', data => client.lobby.emit('bullet destroy', data));
+    client.on('ship update', data => client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop'));
+    client.on('bullet create', data => client.lobby ? client.lobby.emit('bullet create', data) : client.emit('stop'));
+    client.on('bullet destroy', data => client.lobby ? client.lobby.emit('bullet destroy', data) : client.emit('stop'));
 
-    client.on('ship damage', data => client.lobby.emit('ship damage', data));
+    client.on('ship damage', data => client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop'));
 
-    client.on('block create', data => client.lobby.emit('block create', data));
-    client.on('block destroy', data => client.lobby.emit('block destroy', data));
-    client.on('block damage', data => client.lobby.emit('block damage', data));
+    client.on('block create', data => client.lobby ? client.lobby.emit('block create', data) : client.emit('stop'));
+    client.on('block destroy', data => client.lobby ? client.lobby.emit('block destroy', data) : client.emit('stop'));
+    client.on('block damage', data => client.lobby ? client.lobby.emit('block damage', data) : client.emit('stop'));
 
-    client.on('pulse create', data => client.lobby.emit('pulse create', data));
-    client.on('pulse destroy', data => client.lobby.emit('pulse destroy', data));
-
-
-    client.on('flag pickup', data => client.lobby.emit('flag pickup', data));
-    client.on('flag drop', data => client.lobby.emit('flag drop', data));
+    client.on('pulse create', data => client.lobby ? client.lobby.emit('pulse create', data) : client.emit('stop'));
+    client.on('pulse destroy', data => client.lobby ? client.lobby.emit('pulse destroy', data) : client.emit('stop'));
 
 
-    client.on('msg ship kill', data => client.lobby.emit('msg ship kill', data));
+    client.on('flag pickup', data => {
+      if(client.lobby) {
+        client.lobby.emit('flag pickup', data)
+        client.lobby.state.flagHolder = data.playerID;
+      } else {
+        client.emit('stop')
+      }
+    });
+    client.on('flag drop', data => {
+      if(client.lobby) {
+        client.lobby.emit('flag drop', data)
+        client.lobby.state.flagHolder = undefined;
+      } else {
+        client.emit('stop')
+      }
+    });
+
+
+    client.on('msg ship kill', data => client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop'));
 
 
 

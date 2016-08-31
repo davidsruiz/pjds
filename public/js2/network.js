@@ -1,14 +1,15 @@
+var g;
 class NetworkHelper {
-  static sendShip(shipModel) {
+  static sendShip(shipModel) { if(!g) return;
     // if(Math.flipCoin(0.8)) return;
     socket.emit('ship update', { senderID: ENV["id"], shipData: shipModel.export() });
   }
-  static setShip(data) {
+  static setShip(data) { if(!g) return;
     var shipModel = data.shipData;
     ENV["game"].players.get(data.senderID).ship.update(shipModel);
   }
 
-  static out_bullet_create(ship) {
+  static out_bullet_create(ship) { if(!g) return;
     var id = Math.uuid();
     socket.emit('bullet create', { senderID: ENV["id"], bulletData: {
       id: id,
@@ -19,36 +20,36 @@ class NetworkHelper {
     }});
     return id;
   }
-  static in_bullet_create(data) {
+  static in_bullet_create(data) { if(!g) return;
     ENV["game"].startBullet(data.bulletData);
   }
-  static out_bullet_destroy(bulletID) {
+  static out_bullet_destroy(bulletID) { if(!g) return;
     socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
   }
-  static in_bullet_destroy(data) {
+  static in_bullet_destroy(data) { if(!g) return;
     ENV["game"].endBullet(data.bulletID);
   }
 
-  static out_ship_damage(playerID, hp) {
+  static out_ship_damage(playerID, hp) { if(!g) return;
     socket.emit('ship damage', { senderID: ENV["id"], playerID: playerID, hp: hp});
   }
-  static in_ship_damage(data) {
+  static in_ship_damage(data) { if(!g) return;
     if(localIDMatches(data.playerID)) {
       var ship = ENV["game"].players.get(data.playerID).ship;
       if(ship.damage(data.hp)) NetworkHelper.out_msg_ship_kill(ship.owner.id, data.senderID);
     }
   }
 
-  static out_msg_ship_kill(takerID, giverID) {
+  static out_msg_ship_kill(takerID, giverID) { if(!g) return;
     socket.emit('msg ship kill', { senderID: ENV["id"], takerID: takerID, giverID: giverID});
   }
 
-  static in_msg_ship_kill(data) {
+  static in_msg_ship_kill(data) { if(!g) return;
     ENV["game"].msgShipKill(data.takerID, data.giverID);
   }
 
 
-  static out_block_create(ship) {
+  static out_block_create(ship) { if(!g) return;
     var id = Math.uuid();
     socket.emit('block create', { senderID: ENV["id"], blockData: {
       id: id,
@@ -60,24 +61,24 @@ class NetworkHelper {
     }});
     return id;
   }
-  static in_block_create(data) {
+  static in_block_create(data) { if(!g) return;
     ENV["game"].startBlock(data.blockData);
   }
-  static out_block_destroy(blockID) {
+  static out_block_destroy(blockID) { if(!g) return;
     socket.emit('block destroy', { senderID: ENV["id"], blockID: blockID });
   }
-  static in_block_destroy(data) {
+  static in_block_destroy(data) { if(!g) return;
     ENV["game"].endBlock(data.blockID);
   }
-  static out_block_damage(blockID, hp) {
+  static out_block_damage(blockID, hp) { if(!g) return;
     socket.emit('block damage', { senderID: ENV["id"], blockID: blockID, hp: hp});
   }
-  static in_block_damage(data) {
+  static in_block_damage(data) { if(!g) return;
     var block;
     if(block = ENV["game"].model.blocks.get(data.blockID)) block.damage(data.hp);
   }
 
-  static out_pulse_create(ship) {
+  static out_pulse_create(ship) { if(!g) return;
     var id = Math.uuid();
     socket.emit('pulse create', { senderID: ENV["id"], pulseData: {
       id: id,
@@ -87,27 +88,27 @@ class NetworkHelper {
     }});
     return id;
   }
-  static in_pulse_create(data) {
+  static in_pulse_create(data) { if(!g) return;
     ENV["game"].startPulse(data.pulseData);
   }
-  static out_pulse_destroy(pulseID) {
+  static out_pulse_destroy(pulseID) { if(!g) return;
     socket.emit('pulse destroy', { senderID: ENV["id"], pulseID: pulseID });
   }
-  static in_pulse_destroy(data) {
+  static in_pulse_destroy(data) { if(!g) return;
     ENV["game"].endPulse(data.pulseID);
   }
 
   // ctf
-  static out_flag_pickup(playerID) {
+  static out_flag_pickup(playerID) { if(!g) return;
     socket.emit('flag pickup', { senderID: ENV["id"], playerID: playerID });
   }
-  static in_flag_pickup(data) {
+  static in_flag_pickup(data) { if(!g) return;
     ENV["game"].pickupFlag(data.playerID);
   }
-  static out_flag_drop() {
+  static out_flag_drop() { if(!g) return;
     socket.emit('flag drop', { senderID: ENV["id"] });
   }
-  static in_flag_drop(data) {
+  static in_flag_drop(data) { if(!g) return;
     ENV["game"].dropFlag();
   }
 
