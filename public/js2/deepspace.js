@@ -444,9 +444,11 @@ class DeepSpaceGame {
   loop() {
     this.update();
     this.log();
-    if(this.game.over) {
-      this.endGame();
-    } else { getAnimationFrame(()=>this.loop()) }
+    // if(this.game.over) {
+      // this.endGame();
+    // } else {
+      getAnimationFrame(()=>this.loop())
+    // }
   }
 
   update() {
