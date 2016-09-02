@@ -59,7 +59,7 @@ class LobbyManager {
     var id = this.new_ID();
     var lobby = new Lobby(id, params.players);
     this.lobbies.set(id, lobby);
-    console.log(`new lobby: ${id}`, lobby);
+    console.log(`new lobby: ${id}`);
     return lobby;
   }
 

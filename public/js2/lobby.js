@@ -28,6 +28,22 @@ var LOBBY = {
       $('#menu_layer').css('display', 'none');
     }, 1000);
 
+  },
+
+  disconnect(msg = `A network error occured`) {
+    socket.disconnect();
+    alert(msg);
+    location.reset();
+  },
+
+  showResults(g) {
+    alert('somebody won..');
+    this.revealLobby();
+  },
+
+  revealLobby() {
+    $('#menu_layer').css('display', 'initial');
+    $('#menu_layer').css('opacity', '1');
   }
 
 };

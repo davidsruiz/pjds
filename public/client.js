@@ -29,6 +29,7 @@ socket.on('onconnected', function(obj) {
 
 // handle errors
 socket.on('error', msg => log(msg));
+socket.on('game error', msg => LOBBY.disconnect(msg))
 
 // on join lobby
 var editing;
@@ -36,7 +37,8 @@ socket.on('lobby state', lobby => {
   // log(`lobby state`);
   // log(lobby.players);
   ENV["lobby"] = lobby;
-  sessionStorage.nickname = lobby.players[sessionStorage.id].name;
+  var me = lobby.players[sessionStorage.id];
+  if(me) sessionStorage.nickname = me.name;
   if(!editing) refreshLobbyView();
 });
 
@@ -44,7 +46,7 @@ socket.on('spectate', function() {
   if(confirm("This lobby is closed. Join as a spectator?")) {
     ENV["spectate"] = true;
   } else {
-    window.location = window.location.origin;
+    window.location.reset()
   }
 });
 
@@ -99,3 +101,5 @@ socket.on('flag drop', (data) => NetworkHelper.in_flag_drop(data))
 socket.on('msg ship kill', (data) => NetworkHelper.in_msg_ship_kill(data))
 
 socket.on('stop', () => delete g)
+
+socket.on('game over', () => NetworkHelper.in_game_over(data))

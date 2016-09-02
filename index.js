@@ -114,12 +114,10 @@ sio.sockets.on('connection', function (client) {
       var lobby = LM.lobby(lobbyID)
       if(lobby) {
         // check if there is room in lobby
-        if(lobby.join(client)) {
-          client.lobby = lobby;
-          lobby.emit('lobby state', lobby.simplify());
-        } else {
+        lobby.emit('lobby state', lobby.simplify());
+        if(!lobby.join(client)) {
           client.emit('spectate');
-          if(lobby.started) {
+          if(lobby.ongoing) {
             client.emit('start', lobby.game());
           }
         }
@@ -129,24 +127,24 @@ sio.sockets.on('connection', function (client) {
     });
 
     client.on('set name', name => {
-      var lobby = client.lobby
-      if(lobby) {
+      var lobby
+      if((lobby = client.lobby) && client.active) {
         lobby.players.get(client.userid).name = name;
         lobby.emit('lobby state', lobby.simplify());
 
         if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
       } else {
-        client.emit('error', 'you are not part of this lobby');
+        client.emit('error', 'set name request ignored');
       }
     });
 
     client.on('set type', type => {
-      var lobby = client.lobby
-      if(lobby) {
+      var lobby
+      if((lobby = client.lobby) && client.active) {
         lobby.players.get(client.userid).type = type;
         if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
       } else {
-        client.emit('error', 'you are not part of this lobby');
+        client.emit('error', 'set type request ignored');
       }
     });
 
@@ -160,11 +158,14 @@ sio.sockets.on('connection', function (client) {
         var lobby = client.lobby
         if(lobby) {
           lobby.remove(client);
-          lobby.emit('lobby state', lobby.simplify());
+          if(client.active) {
+            lobby.emit('lobby state', lobby.simplify());
+            if(lobby.ongoing && lobby.unsustainable) lobby.emit('game error', 'a communications error occured');
+          }
 
           // remove if empty
           setTimeout(()=>{ var del = false;
-            if(lobby.players.size == 0) {LM.delete(lobby.id); del = true}
+            if(lobby.connected.size == 0) {LM.delete(lobby.id); del = true}
             // console.log(del ? `deleted` : `preserved`)
           }, 5000);
 
@@ -208,9 +209,15 @@ sio.sockets.on('connection', function (client) {
       }
     });
 
-
     client.on('msg ship kill', data => client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop'));
 
+    client.on('game over', () => {
+      var lobby;
+      if(lobby = client.lobby) {
+        lobby.ongoing = false;
+        client.lobby.state.flagHolder = undefined;
+      }
+    });
 
 
 
@@ -225,29 +232,6 @@ sio.sockets.on('connection', function (client) {
 
 
 
-
-
-
-
-
-
-
-    // client.on('ship update', function(data) {
-    //   // console.log("P " + data.game_index + " : x " + Math.round(data.shipData.pos._x).toString() + " : y " + Math.round(data.shipData.pos._y).toString());
-    //   client.broadcast.emit('ship update', data);
-    // }); //client.on input update
-    //
-    // client.on('particle update', function(data) {
-    //   client.broadcast.emit('particle update', data);
-    // }); //client.on input update
-    //
-    // client.on('bullet update', function(data) {
-    //   client.broadcast.emit('bullet update', data);
-    // }); //client.on input update
-    //
-    // /// collisions
-    // client.on('collide ship', function(player_i) { sio.sockets.emit('collide ship', player_i); });
-    // client.on('collide bullet', function(timestamp) { sio.sockets.emit('collide bullet', timestamp); });
 
 
 

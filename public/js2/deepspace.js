@@ -57,6 +57,14 @@ class DeepSpaceGame {
     this.teams = [];
     var teamCount = this.setupData.teams;
     teamCount.times((i) => { this.teams.push(new Team(this, i)) });
+
+    this.setupSpawnCamps();
+  }
+
+  setupSpawnCamps() {
+    this.teams.forEach(team => {
+      team.spawn_camp = {position: V2D.new(DeepSpaceGame.maps[0].spawn[team.game.teams.length][team.number]), radius: 64}
+    });
   }
 
   setupPlayers() {
@@ -132,10 +140,10 @@ class DeepSpaceGame {
 
   setupCanvas() { // (revise)
     var canvas = $('#canvas')[0];
-    // canvas.width = 1024;
-    // canvas.height = 768;
-    canvas.width = 512;
-    canvas.height = 480;
+    canvas.width = 1024;
+    canvas.height = 768;
+    // canvas.width = 512;
+    // canvas.height = 480;
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;
@@ -154,6 +162,7 @@ class DeepSpaceGame {
     this.createLayers();
     this.createBackgroundViews();
     this.createGameModeSpecificViews();
+    this.createSpawnCampViews()
     this.createShipViews();
     this.createPoolViews();
     this.createOverlayViews();
@@ -220,6 +229,20 @@ class DeepSpaceGame {
 
         break;
     }
+  }
+
+  createSpawnCampViews() {
+
+    // DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number]
+    var s = 64 + 2;
+    this.teams.forEach(team => {
+      var camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp()),
+          pos = team.spawn_camp.position;
+      camp.x = pos.x;
+      camp.y = pos.y;
+      camp.cache(-s, -s, s*2, s*2);
+      this.view.layer.action.addChild(camp);
+    });
   }
 
   createShipViews() {
@@ -300,6 +323,7 @@ class DeepSpaceGame {
   }
 
   setupListeners() { // (needs (even more) work)
+    this.inputHandlers = new Map();
     var receiver = window;
 
     if(this.spectate) {
@@ -313,6 +337,7 @@ class DeepSpaceGame {
         this.updateCameraFocus();
       }
       receiver.addEventListener('keydown', keyHandler); // onkeydown
+      this.inputHandlers.set('keydown', keyHandler);
     } else {
       // forward :  0 to 1
       // turn    : -1 to 1
@@ -357,6 +382,8 @@ class DeepSpaceGame {
       receiver.addEventListener('keydown', keyHandler); // onkeydown
       receiver.addEventListener('keyup', keyHandler); // onkeyup
 
+      this.inputHandlers.set('keydown', keyHandler);
+      this.inputHandlers.set('keyup', keyHandler);
 
       // GAMEPAD
       receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
@@ -444,23 +471,21 @@ class DeepSpaceGame {
   loop() {
     this.update();
     this.log();
-    // if(this.game.over) {
-      // this.endGame();
-    // } else {
-      getAnimationFrame(()=>this.loop())
-    // }
+
+    getAnimationFrame(()=>this.loop())
   }
 
   update() {
     // this function duty is as follows:
     // to update all the moving parts pertaining to the current/local user.
     // any collisions should be sent back to the server to sync the changes.
-    this.updateInput();
+    var over = this.game.over;
+    if(!over) this.updateInput();
     this.updateModel();
-    if(!this.spectate) this.checkForCollisions();
+    if(!over) if(!this.spectate) this.checkForCollisions();
     if(this.isHost) this.generateMapEntities();
 
-    this.updateGame();
+    if(!over) this.updateGame();
 
     this.updateView();
   }
@@ -567,6 +592,7 @@ class DeepSpaceGame {
   bulletCollisions() {
     this.bulletShipCollisions();
     this.bulletBlockCollisions();
+    this.bulletSpawnCampCollisions();
   }
 
   bulletShipCollisions() {
@@ -610,6 +636,20 @@ class DeepSpaceGame {
         // set.delete(id);
       }
     });
+  }
+
+  bulletSpawnCampCollisions() {
+    for(let team of this.teams) {
+      if(team == this.team) continue;
+      this.ships.main.bullets.forEach((id, same, set) => {
+        var b = this.model.bullets.get(id);
+        if(b && !b.disabled) {
+          if(Physics.doTouch(team.spawn_camp, b)) {
+            b.disabled = true;
+          }
+        }
+      });
+    }
   }
 
   shipCollisions() {
@@ -674,7 +714,7 @@ class DeepSpaceGame {
           current_score = 100 - Math.round(percent * 100);
       if(current_score < high_score) this.game.scores[player.team.number] = current_score;
 
-      if(!(percent < 1)) this.game.over = true;
+      if(!(percent < 1)) { this.game.winningTeam = this.players.get(flag.holderID).team; this.end() }
     }
 
 
@@ -789,7 +829,11 @@ class DeepSpaceGame {
   }
 
   end() {
-    // deinit()
+    this.game.over = true;
+    if(this.player) this.resetInput();
+    this.deinitListeners();
+    NetworkHelper.out_game_over();
+    LOBBY.showResults(this.game);
   }
 
   // maybe..
@@ -972,26 +1016,80 @@ class DeepSpaceGame {
   }
 
   // inturruptions, closure and game over
-  endGame() {
-    endGame
-  }
+
 
   deinit() {
     // it must go in reverse order
       // as children of root objects will
       // need to know what to get removed from
-    deinitCaches();
-    (()=>{delete this})()
+    this.deinitCaches();
+    this.deinitPhysics();
+    this.deinitInput();
+    this.deinitListeners();
+    this.deinitCamera();
+    this.deinitView();
+    this.deinitGame();
+    this.deinitModel();
+
+    delete DeepSpaceGame.runningInstance;
   }
   deinitCaches() {
     delete this.enemyTeams;
     delete this.enemyPlayers;
+    delete this.player;
+    delete this.team;
+  }
+  deinitPhysics() {
+    delete this.refGroups;
+  }
+  deinitInput() {
+    var main = this.ships.main;
+    if(main) delete main.owner.input;
+  }
+  deinitListeners() {
+    for(let [,handler] of this.inputHandlers) { log(handler);
+      window.removeEventListener('keydown', handler); // onkeydown
+      window.removeEventListener('keyup', handler); // onkeyup
+    }
+  }
+  deinitCamera() {
+    delete this.camera;
+  }
+  deinitView() {
+    delete this.view;
+    delete this.window;
+    this.stage.removeAllChildren();
+    delete this.stage;
+    delete this.colors;
+  }
+  deinitGame() {
+    delete this.game;
+  }
+  deinitModel() {
+    delete this.ships;
+    delete this.players;
+    delete this.teams;
+  }
 
+  reset() {
+
+  }
+
+  resetInput() {
+    var input;
+    if(this.player) if(input = this.player.input) {
+      input.set("forward", 0);
+      input.set("turn", 0);
+      input.set("shoot", false);
+      input.set("block", false);
+      input.set("pulse", false);
+    }
   }
 
 }
 
 DeepSpaceGame.graphics = {
+  spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
   ship: {
     "damage":   [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10),
                  (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10)],
@@ -1131,6 +1229,29 @@ DeepSpaceGame.maps = [
     ]
   }
 ];
+
+DeepSpaceGame.maps = [
+  {
+    name: "The Event Horizon",
+    width: 1920, height: 1920,
+    // width: 1024, height: 1024
+    spawn: [
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]
+    ]
+  }
+];
+
+DeepSpaceGame.spawn_structure = [
+  [{x: 0, y: 0}], // 1 player
+  [{x: 18, y: 0}, {x: -18, y: 0}], // 2
+  [{x: 26, y: 0}, {x: -13, y: 22}, {x: -13, y: -22}], // 3
+  [{x: 34, y: 0}, {x: 0, y: 34}, {x: -34, y: 0}, {x: 0, y: -34}], //4
+  [{x: 34, y: 0}, {x: 10, y: 32}, {x: -28, y: 20}, {x: -28, y: -20}, {x: 10, y: -32}], // 5
+  [{x: 34, y: 0}, {x: 17, y: 30}, {x: -17, y: 30}, {x: -34, y: 0}, {x: -17, y: -30}, {x: 17, y: -30}] // 6
+]
 
 DeepSpaceGame.modes = {
   ctf: { // capture the flag

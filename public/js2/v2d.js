@@ -4,22 +4,22 @@ class V2D {
     [this.x, this.y] = [x, y]
   }
 
-  // static new() {
-  //   var v = V2D();
-  //   switch(arguments.length) {
-  //     case 0:
-  //     v.set({x:0, y:0});
-  //     break;
-  //     case 1:
-  //     if(arguments[0].x && arguments[0].y) v.set(arguments[0]);
-  //     if(arguments[0].length && arguments[0].angle) { v.length = arguments[0].length; v.angle = arguments[0].angle; }
-  //     break;
-  //     case 2:
-  //     v.set({x: arguments[0], y: arguments[1]});
-  //     break;
-  //   }
-  //   return v;
-  // }
+  static new() {
+    var v = new V2D();
+    switch(arguments.length) {
+      case 0:
+      v.set({x:0, y:0});
+      break;
+      case 1:
+      if(arguments[0].x && arguments[0].y) v.set(arguments[0]);
+      if(arguments[0].length && arguments[0].angle) { v.length = arguments[0].length; v.angle = arguments[0].angle; }
+      break;
+      case 2:
+      v.set({x: arguments[0], y: arguments[1]});
+      break;
+    }
+    return v;
+  }
 
   set({x, y}) {
     [this.x, this.y] = [x, y];
@@ -49,8 +49,8 @@ class V2D {
     this.y = Math.sin(a) * l;
   }
 
-  add(v) { this.x += v.x; this.y += v.y }
-  sub(v) { this.x -= v.x; this.y -= v.y }
-  mul(n) { this.x *= n; this.y *= n }
-  div(n) { this.x /= n; this.y /= n }
+  add(v) { this.x += v.x; this.y += v.y; return this; }
+  sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+  mul(n) { this.x *= n; this.y *= n; return this; }
+  div(n) { this.x /= n; this.y /= n; return this; }
 }

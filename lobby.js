@@ -1,8 +1,8 @@
 
 "use strict";
 
-var NUM_OF_PLAYERS = 2;
-var NUM_OF_TEAMS = 2;
+var NUM_OF_PLAYERS = 3;
+var NUM_OF_TEAMS = 3;
 
 
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
@@ -14,9 +14,9 @@ class Lobby {
   constructor(id, pCount) {
     this.id = id;
     this.limit = pCount || NUM_OF_PLAYERS;
-    this.numOfTeams = NUM_OF_TEAMS;
+    this.numOfTeams = (NUM_OF_TEAMS > pCount) ? pCount : NUM_OF_TEAMS;
     this.players = new Map();
-    this.started = false;
+    this.ongoing = false;
     this.connected = new Map();
 
     this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
@@ -26,16 +26,21 @@ class Lobby {
   get full() {return !(this.players.size < this.limit) }
   join(client) {
     var joined = false;
-    if(this.players.size < this.limit) {
+    if(this.players.size < this.limit && !this.ongoing) {
       this.players.set(client.userid, client);
+      client.active = true;
       joined = true;
     }
     this.connected.set(client.userid, client);
+    client.lobby = this;
     return joined;
   }
   remove(client) {
     this.players.delete(client.userid);
     this.connected.delete(client.userid);
+
+    delete client.lobby;
+    client.active = false;
   }
   emit(msg, data) {
     for (let [key, value] of this.connected)
@@ -62,10 +67,11 @@ class Lobby {
   }
 
   game() {
-    this.started = true;
+    this.ongoing = true;
     var players = [], counter = 0;
     var block = (id, p, i) => {
-      return { name: p.name, team: i%this.numOfTeams, index: i, id: id, type: p.type }
+      p.team = i%this.numOfTeams;
+      return { name: p.name, team: p.team, index: i, id: id, type: p.type }
     };
     this.players.forEach((player, id)=>{
       players.push(block(id, player, counter++));
@@ -82,6 +88,15 @@ class Lobby {
     for (let [id, player] of this.players)
       if(!player.type || player.name.empty()) return false;
     return true;
+  }
+
+  get unsustainable() {
+    if(this.limit > 1 && !(this.players.size > 1)) return true;
+    return false;
+  }
+
+  active(userid) {
+    return this.players.has(userid);
   }
 
 }

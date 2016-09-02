@@ -49,7 +49,10 @@ class Ship extends BasicShip {
     this.assignAttrFrom(Ship.type[player.type]);
     this.hp = this.HP_CAPACITY;
 
-    this.spawn = DeepSpaceGame.maps[0].spawn[this.owner.team.number][this.owner.team.players.indexOf(this.owner)];
+    // this.spawn = DeepSpaceGame.maps[0].spawn[this.owner.team.number][this.owner.team.players.indexOf(this.owner)];
+    this.spawn =
+      V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number])
+      .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
     this.reset()
   }
 

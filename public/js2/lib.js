@@ -52,6 +52,8 @@ String.prototype.padding = function(n = 0, c = " ") { var [s, alt] = [this, true
 // not really a uuid, but works here.
 Math.uuid = () => Math.random().toString(36).substring(2, 15);
 
+window.location.reset = () => { window.location = window.location.origin }
+
 FRAMES = {secs: s => s*60, mins: m => FRAMES.secs(m*60), hrs: h => FRAMES.mins(h*60)}
 
 /* DOCUMENTATION //
