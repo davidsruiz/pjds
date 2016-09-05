@@ -16,7 +16,8 @@ class NetworkHelper {
       team: ship.owner.team.number,
       position: ship.front_weapon_position,
       angle: ship.angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
-      hp: ship.ATTACK
+      hp: ship.ATTACK,
+      lifespan: ship.ATTACK_LIFESPAN
     }});
     return id;
   }
@@ -120,6 +121,11 @@ class NetworkHelper {
   static in_game_over() { if(!DeepSpaceGame.runningInstance) return;
     var g = ENV["game"];
     if(!g.game.over) g.end();
+  }
+
+  // disconnect players
+  static in_disconnect_player(userid) { if(!DeepSpaceGame.runningInstance) return;
+    ENV["game"].disconnectPlayer(userid);
   }
 
 }

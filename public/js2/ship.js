@@ -174,6 +174,8 @@ Ship.type = {
     RESPAWN_DELAY: 120,
 
     ATTACK: 8,
+    ATTACK_LIFESPAN: 60,
+
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
@@ -202,6 +204,8 @@ Ship.type = {
     RESPAWN_DELAY: 120,
 
     ATTACK: 7, // 8
+    ATTACK_LIFESPAN: 60,
+
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
@@ -230,6 +234,8 @@ Ship.type = {
     RESPAWN_DELAY: 120,
 
     ATTACK: 8,
+    ATTACK_LIFESPAN: 60,
+
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
@@ -258,6 +264,8 @@ Ship.type = {
     RESPAWN_DELAY: 120,
 
     ATTACK: 4, // 8
+    ATTACK_LIFESPAN: 40, // 120
+
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
@@ -286,6 +294,8 @@ Ship.type = {
     RESPAWN_DELAY: 120,
 
     ATTACK: 10,
+    ATTACK_LIFESPAN: 60,
+
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 

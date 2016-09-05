@@ -1,8 +1,8 @@
 
 "use strict";
 
-var NUM_OF_PLAYERS = 3;
-var NUM_OF_TEAMS = 3;
+var NUM_OF_PLAYERS = 2;
+var NUM_OF_TEAMS = 2;
 
 
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
@@ -22,6 +22,7 @@ class Lobby {
     this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
 
     this.state = {};
+    this.setupData;
   }
   get full() {return !(this.players.size < this.limit) }
   join(client) {
@@ -38,6 +39,9 @@ class Lobby {
   remove(client) {
     this.players.delete(client.userid);
     this.connected.delete(client.userid);
+
+    if(client.active && this.ongoing)
+      this.setupData.disconnects.push(client.userid);
 
     delete client.lobby;
     client.active = false;
@@ -58,7 +62,7 @@ class Lobby {
   simplify() {
     var obj = {};
     var block = (e) => {
-      return { name: e.name }
+      return { name: e.name, cleared: this.playerCleared(e), ready: !!e.ready }
     };
     this.players.forEach((player)=>{
       obj[player.userid] = block(player)
@@ -67,30 +71,41 @@ class Lobby {
   }
 
   game() {
-    this.ongoing = true;
-    var players = [], counter = 0;
-    var block = (id, p, i) => {
-      p.team = i%this.numOfTeams;
-      return { name: p.name, team: p.team, index: i, id: id, type: p.type }
-    };
-    this.players.forEach((player, id)=>{
-      players.push(block(id, player, counter++));
-    });
-    return {
-      teams: this.numOfTeams,
-      colors: this.colors,
-      players: players,
-      state: this.state
-    };
+    if(!this.setupData) {
+      this.ongoing = true;
+      var players = [], counter = 0;
+      var block = (id, p, i) => {
+        p.team = i%this.numOfTeams;
+        return { name: p.name, team: p.team, index: i, id: id, type: p.type }
+      };
+      this.players.forEach((player, id)=>{
+        players.push(block(id, player, counter++));
+      });
+      this.setupData = {
+        teams: this.numOfTeams,
+        colors: this.colors,
+        players: players,
+        state: this.state,
+        disconnects: []
+      };
+
+      for (let [id, player] of this.players) player.ready = false;
+    }
+    return this.setupData;
   }
 
   get ready() {
-    for (let [id, player] of this.players)
-      if(!player.type || player.name.empty()) return false;
+    for (let [id, player] of this.players){console.log(`${player.userid} : ${player.ready}`)
+      if(!player.ready) return false;}
     return true;
   }
 
+  playerCleared(player) {
+    return !(!player.type || player.name.empty())
+  }
+
   get unsustainable() {
+    console.log(this.limit > 1 && !(this.players.size > 1))
     if(this.limit > 1 && !(this.players.size > 1)) return true;
     return false;
   }
@@ -98,6 +113,19 @@ class Lobby {
   active(userid) {
     return this.players.has(userid);
   }
+
+  endCurrentGame() {
+    this.clearLastGame();
+    // this.pickupNewPlayers();
+  }
+
+  clearLastGame() {
+    this.ongoing = false;
+    this.setupData = null;
+    this.state.flagHolder = undefined;
+  }
+
+
 
 }
 

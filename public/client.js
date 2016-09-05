@@ -23,8 +23,10 @@ socket.on('onconnected', function(obj) {
   var type = sessionStorage.type;// || "balanced";
   if(type) socket.emit('set type', type);
 
-  LOBBY.setupLink();
+  // if(sessionStorage.ready = !!(sessionStorage.nickname && sessionStorage.type)) socket.emit('ready');
 
+  LOBBY.setupLink();
+  LOBBY.focusOnInput();
 });
 
 // handle errors
@@ -48,6 +50,10 @@ socket.on('spectate', function() {
   } else {
     window.location.reset()
   }
+});
+
+socket.on('ready', () => {
+  // LOBBY.disableInput();
 });
 
 
@@ -100,6 +106,8 @@ socket.on('flag drop', (data) => NetworkHelper.in_flag_drop(data))
 
 socket.on('msg ship kill', (data) => NetworkHelper.in_msg_ship_kill(data))
 
-socket.on('stop', () => delete g)
+socket.on('stop', () => delete DeepSpaceGame.runningInstance)
 
-socket.on('game over', () => NetworkHelper.in_game_over(data))
+socket.on('game over', () => NetworkHelper.in_game_over())
+
+socket.on('disconnect player', (userid) => NetworkHelper.in_disconnect_player(userid))

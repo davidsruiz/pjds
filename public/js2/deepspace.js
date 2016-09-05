@@ -81,7 +81,7 @@ class DeepSpaceGame {
     this.ships = []
     this.players.forEach((player) => {
       var ship;
-      if( localIDMatches(player.id) ) {
+      if(localIDMatches(player.id) && !this.spectate) {
         ship = new Ship(player);
         ship.isMain = true;
         this.ships.main = ship;
@@ -161,7 +161,7 @@ class DeepSpaceGame {
 
     this.createLayers();
     this.createBackgroundViews();
-    this.createGameModeSpecificViews();
+    this.createGameModeSpecificViewsAction();
     this.createSpawnCampViews()
     this.createShipViews();
     this.createPoolViews();
@@ -194,7 +194,7 @@ class DeepSpaceGame {
     this.view.layer.action.addChild(background);
   }
 
-  createGameModeSpecificViews() {
+  createGameModeSpecificViewsAction() {
     switch(this.gameMode) {
       case "ctf":
         // ring and flag
@@ -208,21 +208,21 @@ class DeepSpaceGame {
         );
         ring.cache(-s, -s, s*2, s*2);
 
-        var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
-        var flag = new createjs.Shape(
-          DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
-        );
-        flag.shadow = DeepSpaceGame.graphics.flag_shadow();
-        flag.cache(-s, -s, s*2, s*2);
-
+        // var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
+        // var flag = new createjs.Shape(
+        //   DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
+        // );
+        // flag.shadow = DeepSpaceGame.graphics.flag_shadow();
+        // flag.cache(-s, -s, s*2, s*2);
+        //
         ring.x = centerX; ring.y = centerY;
-        flag.x = centerX; flag.y = centerY;
+        // flag.x = centerX; flag.y = centerY;
 
 
         this.view.layer.action.addChild(ring);
-        this.view.layer.action.addChild(flag);
+        // this.view.layer.action.addChild(flag);
 
-        this.view.flag = flag;
+        // this.view.flag = flag;
 
         // actual game things
 
@@ -304,6 +304,26 @@ class DeepSpaceGame {
 
     this.view.layer.overlay.addChild(overlay.kill_message);
 
+    switch(this.gameMode) {
+      case "ctf":
+        // var centerX = this.mapInfo.width / 2;
+        // var centerY = this.mapInfo.height / 2;
+
+        var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
+        var flag = new createjs.Shape(
+          DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
+        );
+        flag.shadow = DeepSpaceGame.graphics.flag_shadow();
+        flag.cache(-s, -s, s*2, s*2);
+
+        // flag.x = centerX; flag.y = centerY;
+
+        this.view.layer.overlay.addChild(flag);
+        this.view.flag = flag;
+
+        break;
+    }
+
     this.view.overlay = overlay;
   }
 
@@ -312,7 +332,10 @@ class DeepSpaceGame {
 
     if(this.spectate) {
       this.focus = 0;
-      this.playerShipViewList = this.setupData.players.map(p => this.players.get(p.id).ship.view);
+      this.playerShipViews = new Map();
+      this.setupData.players.forEach((p, i)=>{
+        this.playerShipViews.set(i, this.players.get(p.id).ship.view);
+      });
       this.updateCameraFocus();
     } else {
       this.camera.focus = this.ships.main.view;
@@ -326,13 +349,24 @@ class DeepSpaceGame {
     this.inputHandlers = new Map();
     var receiver = window;
 
-    if(this.spectate) {
+    if(this.spectate) { // this is disgusting.. redo.
+                        // meant to be -> looping through connected players' views
       var keyHandler = (e) => {
-        if(e.keyCode == 37) {
-          this.focus--; if(this.focus < 0) this.focus = this.players.size - 1;
+        if(e.keyCode == 37) { // left: ◀︎ , a
+          while(true) { log(`---`); log(this.focus);
+            this.focus--;
+            if(this.focus < 0) this.focus = this.playerShipViews.size - 1;
+            log(this.playerShipViews.get(this.focus));
+            if(this.playerShipViews.get(this.focus)) break;
+          }
         }
-        if(e.keyCode == 39) {
-          this.focus++; if(this.focus >= this.players.size) this.focus = 0;
+        if(e.keyCode == 39) { // right: ▶︎ , d
+          while(true) { log(`---`); log(this.focus);
+            this.focus++;
+            if(this.focus >= this.playerShipViews.size) this.focus = 0;
+            if(this.playerShipViews.get(this.focus)) break;
+          }
+
         }
         this.updateCameraFocus();
       }
@@ -465,6 +499,8 @@ class DeepSpaceGame {
     // flag
     var holder;
     setTimeout(()=>{if(holder = this.setupData.state.flagHolder) this.pickupFlag(holder);}, 100);
+
+    this.setupData.disconnects.forEach(id => this.disconnectPlayer(id))
   }
 
 
@@ -741,7 +777,7 @@ class DeepSpaceGame {
       var hide = ship.disabled //|| Math.flipCoin(0.02);
       // ship.view.alpha = (hide ? 0 : 1); // randomization for 'flicker effect'
 
-      ship.view.alpha = ship.health;
+      ship.view.alpha = hide ? 0 : ship.health;
 
       ship.view.x = ship.position.x;
       ship.view.y = ship.position.y;
@@ -803,18 +839,27 @@ class DeepSpaceGame {
       text.text = this.game.scores[i];
     })
 
+    this.updateFlagView();
+
   }
 
   updateFlagView() {
     var v = this.view.flag, flag = this.game.flag;
 
-    v.x = flag.position.x;
-    v.y = flag.position.y;
-    v.alpha = flag.idle ? 1 : 0;
+    var not_visible = false;
+    v.x = flag.position.x + this.camera.plane.x;
+    v.y = flag.position.y + this.camera.plane.y;
+    var padding = (flag.radius * 2)
+    if(v.x < padding) { v.x = padding; not_visible = true; }
+    if(v.x > this.window.width - padding) { v.x = this.window.width - padding; not_visible = true; }
+    if(v.y < padding) { v.y = padding; not_visible = true; }
+    if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
+
+    v.alpha = not_visible ? 0.4 : (flag.idle ? 1 : 0);
   }
 
   updateCameraFocus() {
-    this.camera.focus = this.playerShipViewList[this.focus];
+    this.camera.focus = this.playerShipViews.get(this.focus);
   }
 
   log() {
@@ -957,7 +1002,7 @@ class DeepSpaceGame {
       )
     , c);
 
-    this.updateFlagView();
+    // this.updateFlagView();
   }
 
   dropFlag() {
@@ -976,7 +1021,7 @@ class DeepSpaceGame {
         )
       , us || this.spectate ? undefined : this.team.color);
 
-      this.updateFlagView();
+      // this.updateFlagView();
     }
 
   }
@@ -1084,6 +1129,18 @@ class DeepSpaceGame {
       input.set("block", false);
       input.set("pulse", false);
     }
+  }
+
+  disconnectPlayer(id) { log(`disconnecting player ${id}`)
+    var player = this.players.get(id);
+    if(player) {
+      player.disconnected = true;
+      player.ship.disabled = true;
+      if(this.spectate) for(let [i,view] of this.playerShipViews) {
+        if(view == player.ship.view) this.playerShipViews.delete(i);
+      }
+      log(`success`)
+    } else { log(`not found`) }
   }
 
 }

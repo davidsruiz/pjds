@@ -128,11 +128,12 @@ sio.sockets.on('connection', function (client) {
 
     client.on('set name', name => {
       var lobby
-      if((lobby = client.lobby) && client.active) {
-        lobby.players.get(client.userid).name = name;
+      if(lobby = client.lobby) {
+        if(client.active) lobby.players.get(client.userid).name = name;
+
         lobby.emit('lobby state', lobby.simplify());
 
-        if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
+        // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
       } else {
         client.emit('error', 'set name request ignored');
       }
@@ -140,12 +141,28 @@ sio.sockets.on('connection', function (client) {
 
     client.on('set type', type => {
       var lobby
-      if((lobby = client.lobby) && client.active) {
-        lobby.players.get(client.userid).type = type;
-        if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
+      if(lobby = client.lobby) {
+        if(client.active) lobby.players.get(client.userid).type = type;
+        client.emit('lobby state', lobby.simplify());
+        // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
       } else {
         client.emit('error', 'set type request ignored');
       }
+    });
+
+
+    client.on('ready', () => {
+      var lobby
+      if(lobby = client.lobby) {
+        if(lobby.playerCleared(client)) client.ready = true;
+        lobby.emit('lobby state', lobby.simplify());
+console.log('ready')
+        if(lobby.full && lobby.ready)
+          {lobby.emit('start', lobby.game()); }
+      } else {
+        client.emit('error', 'ready request ignored');
+      }
+
     });
 
 
@@ -157,11 +174,14 @@ sio.sockets.on('connection', function (client) {
 
         var lobby = client.lobby
         if(lobby) {
+          var was_active = client.active;
           lobby.remove(client);
-          if(client.active) {
-            lobby.emit('lobby state', lobby.simplify());
-            if(lobby.ongoing && lobby.unsustainable) lobby.emit('game error', 'a communications error occured');
+          if(lobby.ongoing && was_active) {
+            lobby.emit('disconnect player', client.userid);
+            if(lobby.unsustainable)
+              lobby.emit('game error', 'a communications error occured');
           }
+          lobby.emit('lobby state', lobby.simplify());
 
           // remove if empty
           setTimeout(()=>{ var del = false;
@@ -214,8 +234,8 @@ sio.sockets.on('connection', function (client) {
     client.on('game over', () => {
       var lobby;
       if(lobby = client.lobby) {
-        lobby.ongoing = false;
-        client.lobby.state.flagHolder = undefined;
+        lobby.endCurrentGame();
+        client.emit('lobby state', lobby.simplify());
       }
     });
 

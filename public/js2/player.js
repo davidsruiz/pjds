@@ -11,6 +11,7 @@ class Player {
     this.input = null;
 
     this.score = {kills: 0}
+    this.disconnected = false;
   }
 
 }

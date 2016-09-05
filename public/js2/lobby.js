@@ -1,9 +1,14 @@
 
 var LOBBY = {
+
   coundownTime: 3,
 
   setupLink() {
     $('#lobbylink').val(location.href);
+  },
+
+  focusOnInput() {
+    $('#name-input').focus();
   },
 
   startCountdown(callback) { log(`starting countdown...`)
@@ -44,6 +49,18 @@ var LOBBY = {
   revealLobby() {
     $('#menu_layer').css('display', 'initial');
     $('#menu_layer').css('opacity', '1');
-  }
+  },
+
+
+  disableInput() {
+    $('input').attr('disabled')
+    $('select').attr('disabled')
+  },
+
+  enableInput() {
+    $('input').removeAttr('disabled')
+    $('select').removeAttr('disabled')
+  },
+
 
 };

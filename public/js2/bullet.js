@@ -16,6 +16,7 @@ class Bullet {
     this.radius = 4;
 
     this.hp = data.hp;
+    this.LIFESPAN = data.lifespan;
 
     this.life_counter = 0;
     this.disabled = false;

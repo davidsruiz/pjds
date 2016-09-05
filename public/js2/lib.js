@@ -31,7 +31,7 @@ Math.sqr = x => Math.pow(x, 2);
 
 // helpers
 //  system
-var log = m => console.log(m);
+var log = m => {console.log(m); return m};
 var err = m => console.error(m);
 
 //  game
