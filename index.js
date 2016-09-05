@@ -178,8 +178,10 @@ console.log('ready')
           lobby.remove(client);
           if(lobby.ongoing && was_active) {
             lobby.emit('disconnect player', client.userid);
-            if(lobby.unsustainable)
+            if(lobby.unsustainable) {
               lobby.emit('game error', 'a communications error occured');
+              lobby.endCurrentGame();
+            }
           }
           lobby.emit('lobby state', lobby.simplify());
 

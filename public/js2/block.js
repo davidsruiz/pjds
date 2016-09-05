@@ -58,5 +58,7 @@ class Block {
     SPEED: 6,
     FRICTION: 0.92,
     DRIFT: 60,
-    LIFESPAN: 120
+    LIFESPAN: 120,
+
+    DISRUPTIVE_FRICTION: 0.1
   }

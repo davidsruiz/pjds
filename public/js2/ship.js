@@ -30,7 +30,7 @@ class Ship extends BasicShip {
 
     this.velocity = new V2D();
     this.acceleration = new V2D();
-    // this.friction = 0;
+    this.block_friction = 0;
 
     this.angular_velocity = 0;
     this.angular_acceleration = 0;
@@ -73,7 +73,7 @@ class Ship extends BasicShip {
 
   update() {
     if(!this.disabled) {
-      this.velocity.mul(this.LINEAR_FRICTION - ((this.flag) ? this.flag.drag : 0));
+      this.velocity.mul((this.LINEAR_FRICTION - this.block_friction) - ((this.flag) ? this.flag.drag : 0));
       this.velocity.add(this.acceleration);
       this.position.add(this.velocity);
 

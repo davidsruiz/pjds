@@ -105,8 +105,8 @@ class Lobby {
   }
 
   get unsustainable() {
-    console.log(this.limit > 1 && !(this.players.size > 1))
-    if(this.limit > 1 && !(this.players.size > 1)) return true;
+    var unsus = this.players.size < (this.limit == 1 ? 1 : 2 ); console.log(`unsustainable: ${unsus}`)
+    if(unsus) return true;
     return false;
   }
 

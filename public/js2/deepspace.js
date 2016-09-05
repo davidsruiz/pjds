@@ -176,6 +176,12 @@ class DeepSpaceGame {
     layer.action = new createjs.Container();
     layer.overlay = new createjs.Container();
 
+    layer.action.back = new createjs.Container();
+    layer.action.front = new createjs.Container();
+    layer.action.addChild(layer.action.back);
+    layer.action.addChild(layer.action.front);
+
+
     this.stage.addChild(layer.background);
     this.stage.addChild(layer.action);
     this.stage.addChild(layer.overlay);
@@ -191,7 +197,7 @@ class DeepSpaceGame {
     background = new createjs.Shape();
     background.graphics.beginFill('#455A64').drawRect(0, 0, this.mapInfo.width, this.mapInfo.height);
 
-    this.view.layer.action.addChild(background);
+    this.view.layer.action.back.addChild(background);
   }
 
   createGameModeSpecificViewsAction() {
@@ -219,8 +225,8 @@ class DeepSpaceGame {
         // flag.x = centerX; flag.y = centerY;
 
 
-        this.view.layer.action.addChild(ring);
-        // this.view.layer.action.addChild(flag);
+        this.view.layer.action.back.addChild(ring);
+        // this.view.layer.action.back.addChild(flag);
 
         // this.view.flag = flag;
 
@@ -241,7 +247,7 @@ class DeepSpaceGame {
       camp.x = pos.x;
       camp.y = pos.y;
       camp.cache(-s, -s, s*2, s*2);
-      this.view.layer.action.addChild(camp);
+      this.view.layer.action.back.addChild(camp);
     });
   }
 
@@ -251,7 +257,7 @@ class DeepSpaceGame {
           filled = DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2);
       var view = new createjs.Shape(hollow);
       view.hollow = hollow, view.filled = filled;
-      this.view.layer.action.addChild(ship.view = view);
+      this.view.layer.action.front.addChild(ship.view = view);
     });
   }
 
@@ -446,6 +452,9 @@ class DeepSpaceGame {
 
         // BLOCK
         playerInput.set("block", gamepad.buttons[7].pressed);
+
+        // OTHER
+        playerInput.set("pulse", gamepad.buttons[0].pressed);
       };
 
       // ALIAS
@@ -698,8 +707,11 @@ class DeepSpaceGame {
     this.refGroups.enemyBlocks.forEach(block => {
       if(block && !block.disabled) {
         if(Physics.doTouch(ship, block)) {
-          NetworkHelper.out_block_destroy(block.id);
+          // NetworkHelper.out_block_destroy(block.id);
+          ship.acceleration.mul(-0.3);
+          // log('passed')
         }
+        // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
       }
     });
   }
@@ -892,7 +904,7 @@ class DeepSpaceGame {
     );
     var s = b.radius * 1.2;
     bv.cache(-s, -s, s*2, s*2);
-    this.view.layer.action.addChild(bv);
+    this.view.layer.action.back.addChild(bv);
 
     this.model.bullets.set(b.id, b);
     this.view.bullets.set(b.id, bv);
@@ -911,7 +923,7 @@ class DeepSpaceGame {
     var v = this.view.bullets.get(id);
     if(v) {
       this.view.bullets.delete(id);
-      this.view.layer.action.removeChild(v);
+      this.view.layer.action.back.removeChild(v);
     }
 
   }
@@ -925,7 +937,7 @@ class DeepSpaceGame {
     );
     var s = bl.radius * 1.2;
     blv.cache(-s, -s, s*2, s*2);
-    this.view.layer.action.addChild(blv);
+    this.view.layer.action.back.addChild(blv);
 
     this.model.blocks.set(bl.id, bl);
     this.view.blocks.set(bl.id, blv);
@@ -946,7 +958,7 @@ class DeepSpaceGame {
     var v = this.view.blocks.get(id);
     if(v) {
       this.view.blocks.delete(id);
-      this.view.layer.action.removeChild(v);
+      this.view.layer.action.back.removeChild(v);
     }
     return true;
   }
@@ -958,7 +970,7 @@ class DeepSpaceGame {
     var pv = new createjs.Shape(
       DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
     );
-    this.view.layer.action.addChild(pv);
+    this.view.layer.action.back.addChild(pv);
 
     this.model.pulses.set(p.id, p);
     this.view.pulses.set(p.id, pv);
@@ -981,7 +993,7 @@ class DeepSpaceGame {
     var v = this.view.pulses.get(id);
     if(v) {
       this.view.pulses.delete(id);
-      this.view.layer.action.removeChild(v);
+      this.view.layer.action.back.removeChild(v);
     }
     return true;
   }

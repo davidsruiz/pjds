@@ -62,5 +62,9 @@ var LOBBY = {
     $('select').removeAttr('disabled')
   },
 
+  lobbyStatus(m) {
+    $('#lobby-status').text(m)
+  }
+
 
 };
