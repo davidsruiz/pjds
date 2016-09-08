@@ -337,11 +337,12 @@ class DeepSpaceGame {
     this.camera = new Camera(this.stage.canvas, this.view.layer.action);
 
     if(this.spectate) {
-      this.focus = 0;
-      this.playerShipViews = new Map();
-      this.setupData.players.forEach((p, i)=>{
-        this.playerShipViews.set(i, this.players.get(p.id).ship.view);
-      });
+      this.activePlayerIndex = 0;
+      // this.playerShipViews = new Map();
+      // this.setupData.players.forEach((p, i)=>{
+      //   this.playerShipViews.set(i, this.players.get(p.id).ship.view);
+      // });
+      this.activePlayers = this.setupData.players.map(p => this.players.get(p.id));
       this.updateCameraFocus();
     } else {
       this.camera.focus = this.ships.main.view;
@@ -355,24 +356,15 @@ class DeepSpaceGame {
     this.inputHandlers = new Map();
     var receiver = window;
 
-    if(this.spectate) { // this is disgusting.. redo.
-                        // meant to be -> looping through connected players' views
+    if(this.spectate) {
       var keyHandler = (e) => {
-        if(e.keyCode == 37) { // left: ◀︎ , a
-          while(true) { log(`---`); log(this.focus);
-            this.focus--;
-            if(this.focus < 0) this.focus = this.playerShipViews.size - 1;
-            log(this.playerShipViews.get(this.focus));
-            if(this.playerShipViews.get(this.focus)) break;
-          }
+        if(e.keyCode == 37) { // left: ◀︎
+          this.activePlayerIndex--;
+          if(this.activePlayerIndex < 0) this.activePlayerIndex = this.activePlayers.length - 1;
         }
-        if(e.keyCode == 39) { // right: ▶︎ , d
-          while(true) { log(`---`); log(this.focus);
-            this.focus++;
-            if(this.focus >= this.playerShipViews.size) this.focus = 0;
-            if(this.playerShipViews.get(this.focus)) break;
-          }
-
+        if(e.keyCode == 39) { // right: ▶︎
+          this.activePlayerIndex++;
+          if(this.activePlayerIndex >= this.activePlayers.length) this.activePlayerIndex = 0;
         }
         this.updateCameraFocus();
       }
@@ -708,7 +700,7 @@ class DeepSpaceGame {
       if(block && !block.disabled) {
         if(Physics.doTouch(ship, block)) {
           // NetworkHelper.out_block_destroy(block.id);
-          ship.acceleration.mul(-0.3);
+          ship.acceleration.mul(0.1);
           // log('passed')
         }
         // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
@@ -871,7 +863,7 @@ class DeepSpaceGame {
   }
 
   updateCameraFocus() {
-    this.camera.focus = this.playerShipViews.get(this.focus);
+    this.camera.focus = this.activePlayers[this.activePlayerIndex].ship.view;
   }
 
   log() {
@@ -1143,15 +1135,12 @@ class DeepSpaceGame {
     }
   }
 
-  disconnectPlayer(id) { log(`disconnecting player ${id}`)
+  disconnectPlayer(id) {
     var player = this.players.get(id);
     if(player) {
       player.disconnected = true;
       player.ship.disabled = true;
-      if(this.spectate) for(let [i,view] of this.playerShipViews) {
-        if(view == player.ship.view) this.playerShipViews.delete(i);
-      }
-      log(`success`)
+      if(this.spectate) this.activePlayers.delete(player)
     } else { log(`not found`) }
   }
 
