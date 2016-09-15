@@ -1,6 +1,7 @@
 
 /* FONTS */
 @import 'https://fonts.googleapis.com/css?family=Roboto|Roboto+Condensed:700';
+@import 'https://fonts.googleapis.com/icon?family=Material+Icons';
 
 /* STRUCTURE */
 html, body {
@@ -24,6 +25,12 @@ body { position: relative; }
   transition: 1s;
 }
 #log {color: white; z-index: 100; position: absolute; font-family: 'Roboto Mono'; display: inline-block; margin: 20px; white-space: pre} /*FIX*/
+.layer > .content {
+  width: 1024px;
+  height: 768px;
+
+  box-sizing: border-box;
+}
 /* COUNTDOWN */
 #countdown_layer {
   background-color: rgba(38, 50, 56, 0.8);
@@ -50,11 +57,13 @@ body { position: relative; }
   /*opacity: 0;*/
 }
 
-#menu_layer .content {
-  width: 1024px;
-  height: 768px;
+#menu_layer > #space {
+  z-index: 31;
+}
 
-  box-sizing: border-box;
+#menu_layer .content {
+  z-index: 32;
+  position: relative;
 }
 
 #menu_layer .content > * {
@@ -161,3 +170,10 @@ input[type="submit"] {
   width: 100%;
   margin-bottom: 24px;
 }
+
+/* Material Icons */
+.material-icons {
+  color: #546E7A;
+}
+
+/*volume*/

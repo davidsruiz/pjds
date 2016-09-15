@@ -3,11 +3,12 @@
     <head>
         <meta charset="utf-8">
         <title>DEEP SPACE</title>
-        <link rel="stylesheet" href="/css/normalization.css" charset="utf-8">
-        <link rel="stylesheet" href="/css/application.css" charset="utf-8">
-        <link rel="stylesheet" href="/css/lobby.css" charset="utf-8">
+        <link rel="stylesheet" href="/styles/normalization.css" charset="utf-8">
+        <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
+        <link rel="stylesheet" href="/styles/lobby.css" charset="utf-8">
+        <link rel="stylesheet" href="/styles/stars.min.css" charset="utf-8">
 
-        <link rel="stylesheet" href="css/style.css" charset="utf-8" />
+        <link rel="stylesheet" href="styles/style.css" charset="utf-8" />
         <script src="http://chancejs.com/chance.min.js"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
         <script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>
@@ -82,8 +83,10 @@
       <div id="results_layer" class="layer"></div>
 
       <div id="game_layer" class="layer">
-        <div id="overlay"><span id="log"></span></div>
-        <canvas id="canvas"></canvas>
+        <div class="content">
+          <div id="overlay"><span id="log"></span></div>
+          <canvas id="canvas"></canvas>
+        </div>
       </div>
 
     </body>

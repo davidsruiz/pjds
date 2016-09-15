@@ -3,12 +3,31 @@
   <head>
     <meta charset="utf-8">
     <title>DEEP SPACE</title>
-    <link rel="stylesheet" href="/css/normalization.css" charset="utf-8">
-    <link rel="stylesheet" href="/css/application.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/normalization.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/stars.min.css" charset="utf-8">
+
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="https://code.createjs.com/soundjs-0.6.2.min.js"></script>
+    <script src="/sound.js"></script>
+    <script src="/js2/home.js"></script>
   </head>
   <body>
-
+    <div class="volume">
+      <button id="muted"><i class="material-icons">volume_mute</i></button>
+      <button id="not_muted"><i class="material-icons">volume_up</i></button>
+    </div>
     <div id="menu_layer" class="layer">
+      <div id="space" class="layer">
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+      </div>
       <div class="content">
 
         <div class="left">
@@ -33,7 +52,6 @@
 
       </div>
     </div>
-
 
     <div id="results_layer" class="layer"></div>
 
