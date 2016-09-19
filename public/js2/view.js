@@ -16,7 +16,7 @@ function refreshLobbyView() {
       input.placeholder = "your name";
       input.value = name;
       input.onkeydown = function(e) { if(e.keyCode==13) $(this).blur() };
-      input.oninput = function() { ENV.sound.play('item-hover') };
+      input.oninput = function() { ENV.sound.play('type') };
       input.onfocus = function() { editing = true };
       input.onblur = function() { socket.emit('set name', this.value); editing = false; refreshLobbyView() }
       var row = document.createElement('span'); row.className = 'mi-row';
@@ -37,7 +37,7 @@ function refreshLobbyView() {
       select.onchange = function(e) { socket.emit('set type', this.value); sessionStorage.type = this.value; };
       var right = document.createElement('span');
       var checkbox = document.createElement('input'); checkbox.type = "checkbox"; checkbox.name = "checkbox";
-      checkbox.onchange = function() { if(this.checked) { socket.emit('ready'); sessionStorage.ready = true } }
+      checkbox.onchange = function() { if(this.checked) { socket.emit('ready'); sessionStorage.ready = true; ENV.sound.play('ready') } }
 
       row.appendChild(select);
       if(player.cleared) row.appendChild(document.createTextNode("ready?"))

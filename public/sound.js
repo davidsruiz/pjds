@@ -9,22 +9,23 @@ class Sound {
     this._mute = 0;
     this.activated = new Map();
     createjs.Sound.on("fileload", this.loadHandler, this);
-    if(set) this.load(set);
-  }
 
-  load(set) {
       // every loaded sound is here
     this.loaded = new Set();
       // loading sounds waiting play
     this.waiting = new Set();
       // where looping information is stored if needed
     this.looping = new Map();
+    if(set) this.load(set);
+  }
+
+  load(set) {
 
     set = Sound.sets[set];
 
     for(var item of set) {
       createjs.Sound.registerSound(this.root + item[1], item[0]);
-      if(item[2]) this.looping.set(item[0], {start: item[2], end: item[3]})
+      if(item[2] !== undefined) this.looping.set(item[0], {start: item[2], end: item[3]})
     }
   }
 
@@ -39,7 +40,8 @@ class Sound {
 
   play(id) {
     if(this.activated.has(id)) {
-      this.activated.get(id).play();
+      var instance = this.activated.get(id);
+      (instance.playState == "playFinished") ? instance.play() : instance.position = 0;
     } else if(this.loaded.has(id)) {
       var instance = createjs.Sound.play(id);
       this.activated.set(id, instance);
@@ -61,6 +63,14 @@ class Sound {
     if(this.activated.has(id)) {
       var instance = this.activated.get(id);
       instance.paused = true;
+    }
+  }
+
+  stop(id) {
+    if(this.activated.has(id)) {
+      var instance = this.activated.get(id);
+      instance.paused = true;
+      instance.position = 0;
     }
   }
 
@@ -107,10 +117,19 @@ Sound.sets = {
     ['item-hover', 'blip0.mp3']
   ],
   lobby: [
-    // ['lobby-waiting', 'DB-T.mp3', TIME.sec(10.0)],
-    // ['item-hover', 'blip0.mp3']
+    ['chill', 'lounge.mp3', 10, TIME.sec(36.571)],
+    ['ready', 'blip1.mp3'],
+    ['type', 'blip2.mp3']
   ],
   level: [
     ['track1', 'DR-T.mp3']
+  ],
+  game: [
+    ['pulse', '.mp3'],
+    ['shoot', '.mp3'],
+    ['damp', '.mp3'],
+    ['rise', '.mp3'],
+    ['fall', '.mp3'],
+    ['drop', '.mp3']
   ]
 }

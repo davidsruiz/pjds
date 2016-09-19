@@ -173,6 +173,11 @@ input[type="submit"] {
   margin-bottom: 24px;
 }
 
+#sound_layer {
+  height: 64px;
+  z-index: 50;
+}
+
 /* Material Icons */
 .material-icons {
   color: #546E7A;

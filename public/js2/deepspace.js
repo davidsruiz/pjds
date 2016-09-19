@@ -28,6 +28,7 @@ class DeepSpaceGame {
     this.mapInfo = DeepSpaceGame.maps[0];
     this.gameMode = 'ctf'; // data.mode;
     this.language = 'en';
+    this.soundHelper = SoundHelper.start();
 
     // everything else:
     this.setupData = data;

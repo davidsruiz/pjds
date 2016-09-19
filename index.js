@@ -37,7 +37,7 @@ console.log('\t :: Express :: Listening on port ' + gameport );
 
 app.get( '/', function( req, res ){
 
-  res.sendfile("home2.html");
+  res.sendfile("home.html");
 
 });
 

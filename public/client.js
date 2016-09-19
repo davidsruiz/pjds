@@ -83,6 +83,7 @@ socket.on('start', function(data) {
 
   data.spectate = !!ENV["spectate"];
   // LOBBY.lobbyStatus('starting!');
+  ENV.sound.stop('chill');
   LOBBY.startCountdown(()=>{
   	g = ENV["game"] = DeepSpaceGame.start(data);
   })
