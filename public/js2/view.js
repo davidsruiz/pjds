@@ -16,6 +16,7 @@ function refreshLobbyView() {
       input.placeholder = "your name";
       input.value = name;
       input.onkeydown = function(e) { if(e.keyCode==13) $(this).blur() };
+      input.oninput = function() { ENV.sound.play('item-hover') };
       input.onfocus = function() { editing = true };
       input.onblur = function() { socket.emit('set name', this.value); editing = false; refreshLobbyView() }
       var row = document.createElement('span'); row.className = 'mi-row';

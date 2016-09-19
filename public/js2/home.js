@@ -7,6 +7,7 @@ ENV.sound.play('ambiance');
 
 $(() => {
   $('.mi').mouseover(jqEvent => {
+    $('.mi').removeClass('selected');
     var span = jqEvent.currentTarget;
     span.classList.add('selected')
     ENV.sound.play('item-hover');

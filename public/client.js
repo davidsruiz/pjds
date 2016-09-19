@@ -1,5 +1,5 @@
 
-var ENV = {};
+var ENV = ENV || {};
 
 // NETWORK INTERACTION
 

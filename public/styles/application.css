@@ -23,6 +23,8 @@ body { position: relative; }
   /*opacity: 0;*/
 
   transition: 1s;
+
+  text-align: center;
 }
 #log {color: white; z-index: 100; position: absolute; font-family: 'Roboto Mono'; display: inline-block; margin: 20px; white-space: pre} /*FIX*/
 .layer > .content {
@@ -66,7 +68,7 @@ body { position: relative; }
   position: relative;
 }
 
-#menu_layer .content > * {
+#menu_layer .content > .left, #menu_layer .content > .right {
   float: left;
   padding: 0px 12px;
   box-sizing: border-box;
@@ -176,4 +178,27 @@ input[type="submit"] {
   color: #546E7A;
 }
 
-/*volume*/
+/* volume */
+#volume {
+  position: absolute;
+  left: 0px;
+  padding: 6px;
+}
+
+#muted, #not_muted {display: none}
+
+/* viginette */
+#viginette {
+  overflow:hidden;
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+
+  background-image: radial-gradient(center center, circle cover, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.25));
+  background-image: -o-radial-gradient(center center, circle cover, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.25));
+  background-image: -ms-radial-gradient(center center, circle cover, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.25));
+  background-image: -moz-radial-gradient(center center, circle cover, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.25));
+  background-image: -webkit-radial-gradient(center center, circle cover, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.25));
+}

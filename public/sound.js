@@ -105,5 +105,12 @@ Sound.sets = {
   menu: [
     ['ambiance', 'DB-T.mp3', TIME.sec(10.0)],
     ['item-hover', 'blip0.mp3']
+  ],
+  lobby: [
+    // ['lobby-waiting', 'DB-T.mp3', TIME.sec(10.0)],
+    // ['item-hover', 'blip0.mp3']
+  ],
+  level: [
+    ['track1', 'DR-T.mp3']
   ]
 }
