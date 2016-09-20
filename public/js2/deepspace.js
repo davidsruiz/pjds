@@ -423,8 +423,8 @@ class DeepSpaceGame {
       // this closure has access to the playerInput variable.. the alias for this.ships.main.owner.input
       // .. thus it is left here .. please revise
       this.updateGamepadInput = () => {
-        var gamepad = navigator.getGamepads()[0];
-        if(!gamepad) return;
+        var gamepad = navigator.getGamepads();
+        if(!gamepad || !(gamepad = gamepad[0]) return;
 
         var val;
 
