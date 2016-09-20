@@ -3,18 +3,37 @@
   <head>
     <meta charset="utf-8">
     <title>DEEP SPACE</title>
-    <link rel="stylesheet" href="/css/normalization.css" charset="utf-8">
-    <link rel="stylesheet" href="/css/application.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/normalization.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/stars.min.css" charset="utf-8">
+
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="https://code.createjs.com/soundjs-0.6.2.min.js"></script>
+    <script src="/sound.js"></script>
+    <script src="/js2/home.js"></script>
+    <script src="/js2/friends.js"></script>
+    <script src="/ui.js"></script>
   </head>
   <body>
-
     <div id="menu_layer" class="layer">
+      <div id="space" class="layer">
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+      </div>
+      <div id="viginette" class="layer"></div>
       <div class="content">
 
         <div class="left">
           <a href="/">
           <div class="title">
-            DEEP SPACE<br/>FRIENDS
+            DEEP SPACE
+            <!-- <br/>LOBBY -->
           </div>
           </a>
         </div>
@@ -22,21 +41,27 @@
         <div class="right">
           <div class="menu">
             <span class="mi selected">
-              <form action="/" method="POST"><input type="submit" value="create lobby"></form></span>
+              <form action="/create" method="POST"><input type="submit" value="host"></form>
+            </span>
+            <!-- <span class="mi">
+              <a href="/friends"><input type="submit" value="with friends"></a> -->
+              <!-- <form action="/history" method="POST"></form> -->
+            <!-- </span>
             <span class="mi">
-              join <input type="text" name="name" value="" placeholder="code" autocomplete="off"></span>
+              <form action="/practice" method="POST"><input type="submit" value="practice"></form>
+            </span> -->
+            <!-- <span class="mi"><a href="/options">options</a></span>
+            <span class="mi"><a href="/about">about</a></span> -->
           </div>
         </div>
 
       </div>
     </div>
-
-
-    <div id="results_layer" class="layer"></div>
-
-    <div id="game_layer" class="layer">
-      <div id="overlay"></div>
+    <div id="sound_layer" class="layer">
+      <div id="volume">
+        <button id="muted"><i class="material-icons">volume_mute</i></button>
+        <button id="not_muted"><i class="material-icons">volume_up</i></button>
+      </div>
     </div>
-
   </body>
 </html>

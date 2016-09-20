@@ -7,9 +7,10 @@ Number.prototype.times = function(block) { for(var i = 0; i < this; i++) block(i
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
 Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
 Array.prototype.delete = function(el) { var i = this.indexOf(el); if(i!=-1) { this.splice(i, 1); return true } return false }
+Array.prototype.toSet = function() { return new Set(this) }
 
 Set.prototype.draw = function() { var next = this.values().next().value; this.delete(next); return next }
-
+Set.prototype.toArray = function() { return Array.from(this) }
 
 Array.new = function(l = 0, filler) { var a = new Array(); l.times((i)=>{a.push(typeof(filler)=="function" ? filler(i) : filler)}); return a }
 Math.flipCoin = (p = 0.5) => Math.random() < p

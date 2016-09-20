@@ -6,6 +6,7 @@ var TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return t
 
 LobbyManager = require('./lobby_manager.js');
 var LM = new LobbyManager();
+var clients = new Map();
 // var lobbies = {}, public = {}, private = {};
 
 
@@ -25,6 +26,8 @@ var
 // var shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 var colors = require('colors');
+var bodyParser = require('body-parser');
+app.use(bodyParser.json());
 
 app.use(express.static('public'));
 
@@ -45,25 +48,60 @@ app.get( '/', function( req, res ){
 
 app.post( '/:type', function( req, res ){
 
-  var lobbyID;
+  var lobbyID,
+      type = req.params.type;
 
-  if(req.params.type == "public") {
-    lobbyID = LM.next();
-  } else
-  if(req.params.type == "private") {
-    lobbyID = LM.new_private();
+  switch(type) {
+    case "pool":
+    case "create":
+    case "practice":
+      if(type == "pool") lobbyID = LM.next();
+      if(type == "create") lobbyID = LM.new_private();
+      if(type == "practice") lobbyID = LM.new_private({players: 1});
+      res.redirect(`/${lobbyID}`);
+    break;
+
+    case "online_status":
+      console.log(`online_status`, req.body.history);
+      var list = req.body.history;
+      var online = []; var c = 0;
+      for(var id of list) {
+        var client = clients.get(id);
+        if(client && client.lobby) {
+          var entry = [client.name, client.lobby.id];
+          online.push(entry);
+        }
+      }
+      res.json(online);
+    break;
   }
 
-  if(req.params.type == "practice") {
-    lobbyID = LM.new_private({players: 1});
-  }
-
-  // if(req.params.type == "private") private[lobbyID] = lobbies[lobbyID] = new Lobby(lobbyID);
-  // console.log(`new lobby: ${lobbyID}`);
-  res.redirect(`/${lobbyID}`);
+  // if(req.params.type == "pool") {
+  //   lobbyID = LM.next();
+  // } else
+  // if(req.params.type == "create") {
+  //   lobbyID = LM.new_private();
+  // } else
+  // if(req.params.type == "history") {
+  //   lobbyID = LM.new_private();
+  // }
+  //
+  // if(req.params.type == "practice") {
+  //   lobbyID = LM.new_private({players: 1});
+  // }
+  //
+  // // if(req.params.type == "private") private[lobbyID] = lobbies[lobbyID] = new Lobby(lobbyID);
+  // // console.log(`new lobby: ${lobbyID}`);
+  // res.redirect(`/${lobbyID}`);
 
 });
 
+
+app.get( '/friends' , function( req, res, next ) {
+
+  res.sendfile("friends.html")
+
+}); //app.get /friends
 
 // routing to lobby
 app.get( '/*' , function( req, res, next ) {
@@ -121,6 +159,7 @@ sio.sockets.on('connection', function (client) {
             client.emit('start', lobby.game());
           }
         }
+        clients.set(client.userid, client);
       } else {
         client.emit('error', `lobby ${lobbyID} not found`);
       }
@@ -171,6 +210,8 @@ console.log('ready')
 
             //Useful to know when someone disconnects
         console.log(`client ${client.userid} -`.red);
+
+        clients.delete(client.userid);
 
         var lobby = client.lobby
         if(lobby) {

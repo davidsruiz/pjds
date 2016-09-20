@@ -80,6 +80,7 @@ socket.on('start', function(data) {
   // log(`received start msg with data:`);
   // log(data);
   sud = data
+  recordHistory(data);
 
   data.spectate = !!ENV["spectate"];
   // LOBBY.lobbyStatus('starting!');
@@ -112,3 +113,12 @@ socket.on('stop', () => delete DeepSpaceGame.runningInstance)
 socket.on('game over', () => NetworkHelper.in_game_over())
 
 socket.on('disconnect player', (userid) => NetworkHelper.in_disconnect_player(userid))
+
+function recordHistory(data) {
+  var pp = sessionStorage.getItem("previous_players");
+
+  if(pp) { pp = JSON.parse(pp).toSet() } else { pp = new Set() }
+  for(var player of data.players) if(player.id !== ENV["id"]) {pp.delete(player.id); pp.add(player.id);}//pp.add(`${player.id}::${player.name}`);
+
+  sessionStorage.setItem("previous_players", JSON.stringify(pp.toArray()));
+}
