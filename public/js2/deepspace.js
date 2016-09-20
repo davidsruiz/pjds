@@ -422,9 +422,9 @@ class DeepSpaceGame {
       receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
       // this closure has access to the playerInput variable.. the alias for this.ships.main.owner.input
       // .. thus it is left here .. please revise
-      this.updateGamepadInput = () => {
-        var gamepad = navigator.getGamepads();
-        if(!gamepad || !(gamepad = gamepad[0]) return;
+      this.updateGamepadInput = (!navigator.getGamepads) ? () => {} : () => {
+        var gamepad = navigator.getGamepads()[0];
+        if(!gamepad) return;
 
         var val;
 
