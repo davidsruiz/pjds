@@ -56,7 +56,7 @@ class Block {
     MIN_RADIUS: 10,
     MAX_RADIUS: 20,
     SPEED: 6,
-    FRICTION: 0.92,
+    FRICTION: 0.95,
     DRIFT: 60,
     LIFESPAN: 120,
 

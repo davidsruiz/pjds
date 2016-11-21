@@ -24,8 +24,8 @@ function listHistory(callback) {
         // <a href="/friends"><input type="submit" value="with friends"></a>
 
         console.log(user)
-        callback();
       }
+      callback();
     });
 
   }
@@ -34,13 +34,13 @@ function listHistory(callback) {
 $(() => {
   listHistory(()=>{
 
-    $('.mi').mouseover(jqEvent => {
+    $('.mi:not([disabled])').mouseover(jqEvent => {
       $('.mi').removeClass('selected');
       var span = jqEvent.currentTarget;
       span.classList.add('selected')
       ENV.sound.play('item-hover');
     });
-    $('.mi').mouseout(jqEvent => {
+    $('.mi:not([disabled])').mouseout(jqEvent => {
       var span = jqEvent.currentTarget;
       span.classList.remove('selected')
     });
