@@ -71,6 +71,8 @@ class Sound {
       var instance = this.activated.get(id);
       instance.paused = true;
       instance.position = 0;
+    } else if(this.waiting.has(id)) {
+      this.waiting.delete(id)
     }
   }
 

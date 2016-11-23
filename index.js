@@ -242,8 +242,8 @@ console.log('ready')
 
     // during game
     client.on('ship update', data => client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop'));
-    client.on('bullet create', data => client.lobby ? client.lobby.emit('bullet create', data) : client.emit('stop'));
-    client.on('bullet destroy', data => client.lobby ? client.lobby.emit('bullet destroy', data) : client.emit('stop'));
+    client.on('bullet create', data => client.lobby ? client.lobby.broadcast('bullet create', data, client) : client.emit('stop'));
+    client.on('bullet destroy', data => client.lobby ? client.lobby.broadcast('bullet destroy', data, client) : client.emit('stop'));
 
     client.on('ship damage', data => client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop'));
 

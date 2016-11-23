@@ -17,7 +17,8 @@ $rate: 3;
 $duration: 24;
 
 .stars{
-background-image: radial-gradient(1px 1px at 10px 30px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 40px 70px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 50px 160px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 90px 40px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 130px 80px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 160px 110px, #B0BEC5, rgba(176,190,197, 0));
+background-image: url(/images/star_pattern.png);
+// background-image: radial-gradient(1px 1px at 10px 30px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 40px 70px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 50px 160px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 90px 40px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 130px 80px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 160px 110px, #B0BEC5, rgba(176,190,197, 0));
 background-repeat:repeat;
 /*background-size*/
 -webkit-background-size:200px 200px;
