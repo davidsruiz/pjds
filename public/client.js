@@ -92,7 +92,9 @@ socket.on('start', function(data) {
 
 // during game
 
-socket.on('ship update', (data) => NetworkHelper.setShip(data))
+// socket.on('ship update', (data) => NetworkHelper.setShip(data))
+socket.on('ship update', (data) => NetworkHelper.in_ship_update(data))
+socket.on('ship override', (data) => NetworkHelper.in_ship_override(data))
 socket.on('bullet create', (data) => NetworkHelper.in_bullet_create(data))
 socket.on('bullet destroy', (data) => NetworkHelper.in_bullet_destroy(data))
 socket.on('ship damage', (data) => NetworkHelper.in_ship_damage(data))

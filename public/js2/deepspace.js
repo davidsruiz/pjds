@@ -480,6 +480,8 @@ class DeepSpaceGame {
     window.oRequestAnimationFrame ||
     window.msRequestAnimationFrame ||
     function(callback) { window.setTimeout(callback, FPS(60)) };
+
+    // this.ship_override_interval = window.setInterval()
   }
 
   setupCaches() {
@@ -535,7 +537,7 @@ class DeepSpaceGame {
   // updateGamepadInput() {}
 
   updateModel() {
-    this.updateShip();
+    this.updateShips();
     this.broadcastShip();
 
     this.updateBullets();
@@ -543,24 +545,26 @@ class DeepSpaceGame {
     this.updatePulses();
   }
 
-  updateShip() {
-    var ship;
-    if(ship = this.ships.main) {
+  updateShips() {
+    for(var ship of this.ships) {
 
       ship.update();
-      if(ship.disabled) return;
 
-      var input = ship.owner.input;
+      if(ship == this.ships.main) {
 
-      ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT * input.get('forward');
-      ship.acceleration.angle = ship.angle;
+        if(ship.disabled) return;
 
-      ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
+        var input = ship.owner.input;
 
-      if(input.get('shoot')) ship.shoot();
-      if(input.get('block')) ship.block();
-      if(input.get('pulse')) ship.pulse();
+        ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT * input.get('forward');
+        ship.acceleration.angle = ship.angle;
 
+        ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
+
+        if(input.get('shoot')) ship.shoot();
+        if(input.get('block')) ship.block();
+        if(input.get('pulse')) ship.pulse();
+      }
 
       // validate new position (revise)
       if(ship.position.x < 0) ship.position.x = this.mapInfo.width;
@@ -573,7 +577,8 @@ class DeepSpaceGame {
   broadcastShip() {
     var ship;
     if(ship = this.ships.main) {
-      NetworkHelper.sendShip(ship);
+      NetworkHelper.out_ship_update(ship.export_update());
+      if((new Date()).getTime()%60 < 2) NetworkHelper.out_ship_override(ship.export_override());
       if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
     }
   }

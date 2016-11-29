@@ -1,5 +1,18 @@
 var g;
 class NetworkHelper {
+
+  static out_ship_update(data) { if(!DeepSpaceGame.runningInstance) return;
+    socket.emit('ship update', { senderID: ENV["id"], shipData: data });
+  }
+  static in_ship_update(data) { if(!DeepSpaceGame.runningInstance) return;
+    ENV["game"].players.get(data.senderID).ship.apply(data.shipData);
+  }
+  static out_ship_override(data) { if(!DeepSpaceGame.runningInstance) return;
+    socket.emit('ship override', { senderID: ENV["id"], shipData: data });
+  }
+  static in_ship_override(data) { if(!DeepSpaceGame.runningInstance) return;
+    ENV["game"].players.get(data.senderID).ship.override(data.shipData);
+  }
   static sendShip(shipModel) { if(!DeepSpaceGame.runningInstance) return;
     // if(Math.flipCoin(0.8)) return;
     socket.emit('ship update', { senderID: ENV["id"], shipData: shipModel.export() });

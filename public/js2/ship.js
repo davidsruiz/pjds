@@ -6,74 +6,25 @@ class BasicShip {
 
     this.disabled = false;
     this.position = new V2D(20, 20);
+        this.velocity = new V2D();
+        this.acceleration = new V2D();
     this.angle = 0;
+        this.angular_velocity = 0;
+        this.angular_acceleration = 0;
     this.health = 1;
-
     this.radius = 10;
-  }
-
-  update(data) {
-    this.disabled = data.disabled;
-    this.position = data.position;
-    this.angle = data.angle;
-    this.health = data.health;
-  }
-
-  pickup(flag) { this.flag = flag }
-  drop(flag) { this.flag = undefined }
-}
-
-class Ship extends BasicShip {
-
-  constructor(player) {
-    super(player);
-
-    this.velocity = new V2D();
-    this.acceleration = new V2D();
-    this.block_friction = 0;
-
-    this.angular_velocity = 0;
-    this.angular_acceleration = 0;
-    // this.angular_friction = 0;
-
-    this.bullets = new Set();
-    this.blocks = new Set();
-    this.pulses = new Set();
-
-    this.recoil_counter = 0;
-    this.respawn_counter = 0;
-    this.regen_counter = 0;
-    this.block_recoil_counter = 0;
-    this.pulse_recoil_counter = 0;
 
     this.assignAttrFrom(Ship.type[player.type]);
-    this.hp = this.HP_CAPACITY;
 
-    // this.spawn = DeepSpaceGame.maps[0].spawn[this.owner.team.number][this.owner.team.players.indexOf(this.owner)];
     this.spawn =
       V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number])
       .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
     this.reset()
   }
 
-  export() {
-    return {
-      disabled: this.disabled,
-      position: this.position,
-      angle: this.angle,
-      health: this.health
-    }
-  }
-
-  get health() { return this.hp / this.HP_CAPACITY }
-  set health(percent) { this.hp = percent * this.HP_CAPACITY }
-
-  get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
-  get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
-
   update() {
     if(!this.disabled) {
-      this.velocity.mul((this.LINEAR_FRICTION - this.block_friction) - ((this.flag) ? this.flag.drag : 0));
+      this.velocity.mul((this.LINEAR_FRICTION) - ((this.flag) ? this.flag.drag : 0));
       this.velocity.add(this.acceleration);
       this.position.add(this.velocity);
 
@@ -88,7 +39,100 @@ class Ship extends BasicShip {
          this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
       if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
          this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
+    }
+  }
 
+  // adjusts forces letting the simulation continue
+  apply(data) {
+    this.disabled = data.disabled;
+    this.acceleration = data.acceleration;
+    this.angular_acceleration = data.angular_acceleration;
+    this.health = data.health;
+  }
+  // replaces the state of the ship
+  override(data) {
+    this.position.set(data.position);
+    this.angle = data.angle;
+  }
+
+  // update(data) {
+  //   this.disabled = data.disabled;
+  //   this.position = data.position;
+  //   this.angle = data.angle;
+  //   this.health = data.health;
+  // }
+
+  reset() {
+    this.position.set(this.spawn);
+    this.velocity.reset()
+    this.health = 1;
+    this.disabled = false;
+  }
+
+  pickup(flag) { this.flag = flag }
+  drop(flag) { this.flag = undefined }
+}
+
+class Ship extends BasicShip {
+
+  constructor(player) {
+    super(player);
+
+    this.block_friction = 0;
+
+    this.bullets = new Set();
+    this.blocks = new Set();
+    this.pulses = new Set();
+
+    this.recoil_counter = 0;
+    this.respawn_counter = 0;
+    this.regen_counter = 0;
+    this.block_recoil_counter = 0;
+    this.pulse_recoil_counter = 0;
+
+    // this.assignAttrFrom(Ship.type[player.type]);
+    this.hp = this.HP_CAPACITY;
+
+    // this.spawn =
+    //   V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number])
+    //   .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
+    // this.reset()
+  }
+
+  // export() {
+  //   return {
+  //     disabled: this.disabled,
+  //     position: this.position,
+  //     angle: this.angle,
+  //     health: this.health
+  //   }
+  // }
+
+  export_update() {
+    return {
+      disabled: this.disabled,
+      acceleration: this.acceleration,
+      angular_acceleration: this.angular_acceleration,
+      health: this.health
+    }
+  }
+
+  export_override() {
+    return {
+      position: this.position,
+      angle: this.angle
+    }
+  }
+
+  get health() { return this.hp / this.HP_CAPACITY }
+  set health(percent) { this.hp = percent * this.HP_CAPACITY }
+
+  get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
+  get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
+
+  update() {
+    super.update();
+    if(!this.disabled) {
       if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
     } else {
       if(++this.respawn_counter > this.RESPAWN_DELAY) {
@@ -153,6 +197,8 @@ class Ship extends BasicShip {
     this.velocity.reset()
     this.health = 1;
     this.disabled = false;
+
+    NetworkHelper.out_ship_override(this.export_override());
   }
 
 }
