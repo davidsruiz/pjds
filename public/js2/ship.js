@@ -102,7 +102,7 @@ class Ship extends BasicShip {
   shoot() {
     if(this.recoil_counter > this.RECOIL_DELAY) {
 
-      var id = NetworkHelper.out_bullet_create(this);
+      var id = NetworkHelper.bullet_create(this);
 
       this.bullets.add(id);
       this.recoil_counter = 0;

@@ -99,6 +99,7 @@ socket.on('ship damage', (data) => NetworkHelper.in_ship_damage(data))
 socket.on('block create', (data) => NetworkHelper.in_block_create(data))
 socket.on('block destroy', (data) => NetworkHelper.in_block_destroy(data))
 socket.on('block damage', (data) => NetworkHelper.in_block_damage(data))
+socket.on('block change', (data) => NetworkHelper.in_block_change(data))
 
 socket.on('pulse create', (data) => NetworkHelper.in_pulse_create(data))
 socket.on('pulse destroy', (data) => NetworkHelper.in_pulse_destroy(data))

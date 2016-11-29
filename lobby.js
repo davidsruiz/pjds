@@ -1,7 +1,8 @@
 
 "use strict";
 
-var NUM_OF_PLAYERS = 2;
+var MAX_PLAYER_LIMIT = 8;
+var MIN_PLAYER_LIMIT = 2;
 var NUM_OF_TEAMS = 2;
 
 
@@ -11,15 +12,18 @@ String.prototype.empty = function() { return this.trim() == ""}
 Math.flipCoin = (p = 0.5) => Math.random() < p
 
 class Lobby {
-  constructor(id, pCount) {
+  constructor(id, options = {}) {
     this.id = id;
-    this.limit = pCount || NUM_OF_PLAYERS;
-    this.numOfTeams = (NUM_OF_TEAMS > pCount) ? pCount : NUM_OF_TEAMS;
+    this.required_players = options.players || MIN_PLAYER_LIMIT;
+    this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
+    // this.limit = pCount || NUM_OF_PLAYERS;
+    this.numOfTeams = options.teams;
     this.players = new Map();
     this.ongoing = false;
     this.connected = new Map();
 
-    this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
+    this.colors;
+    // this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
 
     this.state = {};
     this.setupData;
@@ -73,17 +77,19 @@ class Lobby {
   game() {
     if(!this.setupData) {
       this.ongoing = true;
+      var numOfTeams = this.numOfTeams || this.players.size;
+      var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
       var players = [], counter = 0;
       var block = (id, p, i) => {
-        p.team = i%this.numOfTeams;
+        p.team = i%numOfTeams;
         return { name: p.name, team: p.team, index: i, id: id, type: p.type }
       };
       this.players.forEach((player, id)=>{
         players.push(block(id, player, counter++));
       });
       this.setupData = {
-        teams: this.numOfTeams,
-        colors: this.colors,
+        teams: numOfTeams,
+        colors: colors,
         players: players,
         state: this.state,
         disconnects: []
@@ -102,6 +108,10 @@ class Lobby {
 
   playerCleared(player) {
     return !(!player.type || player.name.empty())
+  }
+
+  get sustainable() {
+    return this.players.size >= this.required_players;
   }
 
   get unsustainable() {

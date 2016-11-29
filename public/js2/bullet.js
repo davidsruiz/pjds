@@ -13,7 +13,7 @@ class Bullet {
     this.velocity.length = this.SPEED;
     this.velocity.angle = data.angle;
 
-    this.radius = 4;
+    // this.radius = 4;
 
     this.hp = data.hp;
     this.LIFESPAN = data.lifespan;
@@ -24,12 +24,15 @@ class Bullet {
 
   update() {
     this.position.add(this.velocity);
-    if(++this.life_counter > this.LIFESPAN) this.disabled = true;
+    if(++this.life_counter > this.LIFESPAN) {
+      this.disabled = true;
+      ENV["game"].endBullet(this.id);
+    }
   }
 }
 
 Bullet.stats = {
-  radius: 8,
-  SPEED: 14,//10,
-  LIFESPAN: 120
+  radius: 8, //8,
+  SPEED: 20, //14, //10,
+  LIFESPAN: 60 //120
 }

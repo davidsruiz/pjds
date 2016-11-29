@@ -579,7 +579,8 @@ class DeepSpaceGame {
   }
 
   updateBullets() {
-    this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
+    this.model.bullets.forEach(b => { b.update() });
+    // this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
   }
 
   updateBlocks() { // needs needs work
@@ -644,8 +645,9 @@ class DeepSpaceGame {
           if(ship && !ship.disabled) {
             if(Physics.doTouch(ship, b)) {
               NetworkHelper.out_ship_damage(player.id, b.hp);
-              // ship.damage(b.hp);
-              b.disabled = true;
+              NetworkHelper.bullet_destroy(b.id);
+
+              // b.disabled = true;
             }
           }
         });
@@ -665,7 +667,7 @@ class DeepSpaceGame {
           if(block && !block.disabled) {
             if(Physics.doTouch(block, b)) {
               NetworkHelper.out_block_damage(block.id, b.hp);
-              b.disabled = true;
+              NetworkHelper.bullet_destroy(b.id);
             }
           }
         });
@@ -683,7 +685,7 @@ class DeepSpaceGame {
         var b = this.model.bullets.get(id);
         if(b && !b.disabled) {
           if(Physics.doTouch(team.spawn_camp, b)) {
-            b.disabled = true;
+            NetworkHelper.bullet_destroy(b.id);
           }
         }
       });
@@ -701,8 +703,9 @@ class DeepSpaceGame {
       if(block && !block.disabled) {
         if(Physics.doTouch(ship, block)) {
           // NetworkHelper.out_block_destroy(block.id);
-          ship.acceleration.mul(0.1);
-          // log('passed')
+          NetworkHelper.block_change(block.id);
+          // ship.acceleration.mul(0.1);
+          // log('ship-block')
         }
         // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
       }
@@ -817,7 +820,8 @@ class DeepSpaceGame {
           v.graphics.command.radius = b.radius;
         }
       }
-      v.visible = this.camera.showing(b)
+      v.visible = this.camera.showing(b);
+      if(v.x==0&&v.y==0) log(b.position);
     });
   }
 
@@ -936,6 +940,40 @@ class DeepSpaceGame {
     this.view.blocks.set(bl.id, blv);
 
     return bl;
+  }
+
+  changeBlock(id, team) {
+    // retrieve and store block
+    var b = this.model.blocks.get(id);
+    if(!b) return false;
+
+    // begin change if locked
+    if(b.locked) {
+
+      // skip if change is unnecessary
+      if(b.team != team) {
+
+        // assign new team
+        b.team = team;
+
+        // if not spectating add or remove from ref group
+        if(!this.spectate) {
+          if(b.team != this.team.number) {
+            this.refGroups.enemyBlocks.add(b);
+          } else {
+            this.refGroups.enemyBlocks.delete(b);
+          }
+        }
+
+        // replace and delete old view
+        var v = this.view.blocks.get(id);
+        if(v) {
+          v.graphics = DeepSpaceGame.graphics.block(this.teams[b.team].color, b.radius);
+          v.updateCache();
+        }
+
+      }
+    }
   }
 
   endBlock(id) {
@@ -1165,7 +1203,7 @@ DeepSpaceGame.graphics = {
     "defense":  [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(8, -5).lineTo(-10, -10).lineTo(-10, 10).lineTo(8, 5).lineTo(10, 0).lineTo(8, -5),
                  (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(8, -5).lineTo(-10, -10).lineTo(-10, 10).lineTo(8, 5).lineTo(10, 0).lineTo(8, -5)]
   },
-  particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
+  particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
   block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
   attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),

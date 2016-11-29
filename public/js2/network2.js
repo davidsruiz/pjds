@@ -9,31 +9,48 @@ class NetworkHelper {
     ENV["game"].players.get(data.senderID).ship.update(shipModel);
   }
 
-  static out_bullet_create(ship) { if(!DeepSpaceGame.runningInstance) return;
+  static bullet_create(ship) { if(!DeepSpaceGame.runningInstance) return;
     var id = Math.uuid();
-    var data = { senderID: ENV["id"], bulletData: {
+    var data = {
       id: id,
       team: ship.owner.team.number,
       position: ship.front_weapon_position,
       angle: ship.angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
       hp: ship.ATTACK,
       lifespan: ship.ATTACK_LIFESPAN
-    }}
-    socket.emit('bullet create', data);
-    ENV["game"].startBullet(data.bulletData);
+    }
+    socket.emit('bullet create', { senderID: ENV["id"], bulletData: data});
+    ENV["game"].startBullet(data);
     return id;
   }
+  // static out_bullet_create(ship) { if(!DeepSpaceGame.runningInstance) return;
+  //   var id = Math.uuid();
+  //   socket.emit('bullet create', { senderID: ENV["id"], bulletData: {
+  //     id: id,
+  //     team: ship.owner.team.number,
+  //     position: ship.front_weapon_position,
+  //     angle: ship.angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
+  //     hp: ship.ATTACK,
+  //     lifespan: ship.ATTACK_LIFESPAN
+  //   }});
+  //   return id;
+  // }
   static in_bullet_create(data) { if(!DeepSpaceGame.runningInstance) return;
     ENV["game"].startBullet(data.bulletData);
   }
-  static out_bullet_destroy(bulletID) { if(!DeepSpaceGame.runningInstance) return;
+  static bullet_destroy(bulletID) { if(!DeepSpaceGame.runningInstance) return;
     socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
     ENV["game"].endBullet(bulletID);
   }
+  // static out_bullet_destroy(bulletID) { if(!DeepSpaceGame.runningInstance) return;
+  //   socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
+  // }
   static in_bullet_destroy(data) { if(!DeepSpaceGame.runningInstance) return;
     ENV["game"].endBullet(data.bulletID);
   }
 
+  // ask server(other players) first for effect
+  // TODO break up as: ask_to_damage, perform_damage. in/out as needed
   static out_ship_damage(playerID, hp) { if(!DeepSpaceGame.runningInstance) return;
     socket.emit('ship damage', { senderID: ENV["id"], playerID: playerID, hp: hp});
   }
@@ -80,6 +97,17 @@ class NetworkHelper {
   static in_block_damage(data) { if(!DeepSpaceGame.runningInstance) return;
     var block;
     if(block = ENV["game"].model.blocks.get(data.blockID)) block.damage(data.hp);
+  }
+  static block_change(blockID) { if(!DeepSpaceGame.runningInstance) return;
+    var block, sender;
+    // if(block = ENV["game"].model.blocks.get(blockID)) if(sender = ENV["game"].players.get(ENV["id"])) block.team = sender.team.number;
+    if(block = ENV["game"].model.blocks.get(blockID)) if(sender = ENV["game"].players.get(ENV["id"])) ENV["game"].changeBlock(block.id, sender.team.number);
+
+    socket.emit('block change', { senderID: ENV["id"], blockID: blockID});
+  }
+  static in_block_change(data) { if(!DeepSpaceGame.runningInstance) return;
+    var block, sender;
+    if(block = ENV["game"].model.blocks.get(data.blockID)) if(sender = ENV["game"].players.get(data.senderID)) ENV["game"].changeBlock(block.id, sender.team.number);
   }
 
   static out_pulse_create(ship) { if(!DeepSpaceGame.runningInstance) return;

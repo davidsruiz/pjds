@@ -196,7 +196,7 @@ sio.sockets.on('connection', function (client) {
         if(lobby.playerCleared(client)) client.ready = true;
         lobby.emit('lobby state', lobby.simplify());
 console.log('ready')
-        if(lobby.full && lobby.ready)
+        if(lobby.sustainable && lobby.ready)
           {lobby.emit('start', lobby.game()); }
       } else {
         client.emit('error', 'ready request ignored');
@@ -250,6 +250,7 @@ console.log('ready')
     client.on('block create', data => client.lobby ? client.lobby.emit('block create', data) : client.emit('stop'));
     client.on('block destroy', data => client.lobby ? client.lobby.emit('block destroy', data) : client.emit('stop'));
     client.on('block damage', data => client.lobby ? client.lobby.emit('block damage', data) : client.emit('stop'));
+    client.on('block change', data => client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop'));
 
     client.on('pulse create', data => client.lobby ? client.lobby.emit('pulse create', data) : client.emit('stop'));
     client.on('pulse destroy', data => client.lobby ? client.lobby.emit('pulse destroy', data) : client.emit('stop'));
@@ -258,6 +259,7 @@ console.log('ready')
     client.on('flag pickup', data => {
       if(client.lobby) {
         client.lobby.emit('flag pickup', data)
+        // client.lobby.first.emit('begin create asteroids')
         client.lobby.state.flagHolder = data.playerID;
       } else {
         client.emit('stop')
@@ -266,6 +268,7 @@ console.log('ready')
     client.on('flag drop', data => {
       if(client.lobby) {
         client.lobby.emit('flag drop', data)
+        // client.lobby.emit('stop create asteroids')
         client.lobby.state.flagHolder = undefined;
       } else {
         client.emit('stop')

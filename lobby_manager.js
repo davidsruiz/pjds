@@ -43,21 +43,21 @@ class LobbyManager {
   new_ID() {return shortid.generate()}
 
   new_public() {
-    var lobby = this.new_lobby();
+    var lobby = this.new_lobby({players: 4, teams: 2});
     this.public.set(lobby.id, lobby);
     this.joinable.set(lobby.id, lobby);
     return lobby.id;
   }
 
-  new_private(params) {
-    var lobby = this.new_lobby(params);
+  new_private(options) {
+    var lobby = this.new_lobby(options);
     this.private.set(lobby.id, lobby);
     return lobby.id;
   }
 
-  new_lobby(params = {}) {
+  new_lobby(options) {
     var id = this.new_ID();
-    var lobby = new Lobby(id, params.players);
+    var lobby = new Lobby(id, options);
     this.lobbies.set(id, lobby);
     console.log(`new lobby: ${id}`);
     return lobby;
