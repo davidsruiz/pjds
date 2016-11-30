@@ -53,8 +53,8 @@ class Block {
   }
 
   Block.stats = {
-    MIN_RADIUS: 10,
-    MAX_RADIUS: 20,
+    MIN_RADIUS: 16, //10,
+    MAX_RADIUS: 30, //20,
     SPEED: 6,
     FRICTION: 0.95,
     DRIFT: 60,

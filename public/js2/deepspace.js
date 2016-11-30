@@ -380,23 +380,58 @@ class DeepSpaceGame {
 
       var keypressWeight = 0.85;
 
-      var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["pulse", false]]);
+      // var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["pulse", false]]);
+      // var playerInput = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["pulse", false]]);
+      var playerInput = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["pulse", false]]);
 
       // KEYBOARD
+      // key mappings, have multiple ('values') so you can switch between key bindings
       var values = [
-        // up: ▲ , w
-        ["forward", [38, 87], keypressWeight, 0],
-        // right: ▶︎ , d
-        ["turn", [39, 68], keypressWeight, 0],
-        // left: ◀︎ , a
-        ["turn", [37, 65], -keypressWeight, 0],
-        // shoot: z , k
-        ["shoot", [90, 75], true, false],
-        // block: x , l
-        ["block", [88, 76], true, false],
-        // block: c , ;
-        ["pulse", [67, 186], true, false]
+        // up: ▲
+        ["move_v_axis", [38], keypressWeight, 0],
+        // down: ▼
+        ["move_v_axis", [40], -keypressWeight, 0],
+        // right: ▶︎
+        ["move_h_axis", [39], keypressWeight, 0],
+        // left: ◀︎
+        ["move_h_axis", [37], -keypressWeight, 0],
+        // up: w
+        ["shoot_v_axis", [87], keypressWeight, 0],
+        // down: s
+        ["shoot_v_axis", [83], -keypressWeight, 0],
+        // right: d
+        ["shoot_h_axis", [68], keypressWeight, 0],
+        // left: a
+        ["shoot_h_axis", [65], -keypressWeight, 0],
+        // block: space
+        ["block", [32], true, false],
+        // pulse: e
+        ["pulse", [69], true, false]
       ];
+
+      // var values = [
+      //   // up: ▲ , w
+      //   ["forward", [38, 87], keypressWeight, 0],
+      //   // right: ▶︎ , d
+      //   ["turn", [39, 68], keypressWeight, 0],
+      //   // left: ◀︎ , a
+      //   ["turn", [37, 65], -keypressWeight, 0],
+      //   // shoot: z , k
+      //   ["shoot", [90, 75], true, false],
+      //   // block: x , l
+      //   ["block", [88, 76], true, false],
+      //   // block: c , ;
+      //   ["pulse", [67, 186], true, false]
+
+        // // up: ▲ , w
+        // ["move_v_axis", [38, 87], keypressWeight, 0],
+        // // down: ▼ , s
+        // ["move_v_axis", [40, 83], -keypressWeight, 0],
+        // // right: ▶︎ , d
+        // ["move_h_axis", [39, 68], keypressWeight, 0],
+        // // left: ◀︎ , a
+        // ["move_h_axis", [37, 65], -keypressWeight, 0],
+      // ];
 
       var keyHandler = (e) => {
         var type = e.type;
@@ -406,7 +441,19 @@ class DeepSpaceGame {
 
           values.forEach((row) => {
             row[1].forEach((code) => {
-              if(code == eventCode) playerInput.set(row[0], type.is('keyup') ? row[3] : row[2]);
+              if(code == eventCode) {
+
+                var val = playerInput.get(row[0]);
+                if(!type.is('keyup')) {
+                  val = row[2];
+                } else {
+                  if(playerInput.get(row[0]) == row[2]) val = row[3];
+                }
+                playerInput.set(row[0], val);
+              }
+              //
+              // if(code == eventCode) playerInput.set(row[0], type.is('keyup') ? row[3] : row[2]);
+
             });
           });
         }
@@ -550,20 +597,32 @@ class DeepSpaceGame {
 
       ship.update();
 
-      if(ship == this.ships.main) {
-
-        if(ship.disabled) return;
+      if(ship == this.ships.main && !ship.disabled) {
 
         var input = ship.owner.input;
 
-        ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT * input.get('forward');
-        ship.acceleration.angle = ship.angle;
+        ship.acceleration.set({x: input.get('move_h_axis'), y: -input.get('move_v_axis')})
+        if(ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
 
-        ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
+        // ship.acceleration.angle = ship.angle;
+        if(ship.acceleration.length) ship.angle = ship.acceleration.angle
+        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
 
-        if(input.get('shoot')) ship.shoot();
+        // ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT * input.get('forward');
+        // ship.acceleration.angle = ship.angle;
+        //
+        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
+
+        var direction_v = new V2D(input.get('shoot_h_axis'), -input.get('shoot_v_axis'))
+        ship.shoot_angle = direction_v.angle; console.log(direction_v)
+
+        if(direction_v.length) ship.shoot();
+
+        // if(input.get('shoot')) ship.shoot();
         if(input.get('block')) ship.block();
         if(input.get('pulse')) ship.pulse();
+        // option to drop with pulse button
+        // if(input.get('pulse')) ship.flag ? NetworkHelper.out_flag_drop() : ship.pulse();
       }
 
       // validate new position (revise)

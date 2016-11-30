@@ -27,8 +27,8 @@ class NetworkHelper {
     var data = {
       id: id,
       team: ship.owner.team.number,
-      position: ship.front_weapon_position,
-      angle: ship.angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
+      position: ship.shoot_position,
+      angle: ship.shoot_angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
       hp: ship.ATTACK,
       lifespan: ship.ATTACK_LIFESPAN
     }

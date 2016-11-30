@@ -33,6 +33,6 @@ class Bullet {
 
 Bullet.stats = {
   radius: 8, //8,
-  SPEED: 20, //14, //10,
-  LIFESPAN: 60 //120
+  SPEED: 20//, //14, //10,
+  // LIFESPAN: 60 //120
 }

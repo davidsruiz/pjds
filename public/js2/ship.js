@@ -31,14 +31,14 @@ class BasicShip {
       if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
 
-      this.angular_velocity += this.angular_acceleration
-      this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
-      this.angle += this.angular_velocity
-
-      if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
-         this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
-      if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
-         this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
+      // this.angular_velocity += this.angular_acceleration
+      // this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
+      // this.angle += this.angular_velocity
+      //
+      // if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
+      //    this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
+      // if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
+      //    this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
     }
   }
 
@@ -46,13 +46,14 @@ class BasicShip {
   apply(data) {
     this.disabled = data.disabled;
     this.acceleration = data.acceleration;
-    this.angular_acceleration = data.angular_acceleration;
+    // this.angular_acceleration = data.angular_acceleration;
+    this.angle = data.angle;
     this.health = data.health;
   }
   // replaces the state of the ship
   override(data) {
     this.position.set(data.position);
-    this.angle = data.angle;
+    // this.angle = data.angle;
   }
 
   // update(data) {
@@ -79,6 +80,8 @@ class Ship extends BasicShip {
     super(player);
 
     this.block_friction = 0;
+
+    this.shoot_angle = 0;
 
     this.bullets = new Set();
     this.blocks = new Set();
@@ -112,20 +115,23 @@ class Ship extends BasicShip {
     return {
       disabled: this.disabled,
       acceleration: this.acceleration,
-      angular_acceleration: this.angular_acceleration,
+      // angular_acceleration: this.angular_acceleration,
+      angle: this.angle,
       health: this.health
     }
   }
 
   export_override() {
     return {
-      position: this.position,
-      angle: this.angle
+      position: this.position//,
+      // angle: this.angle
     }
   }
 
   get health() { return this.hp / this.HP_CAPACITY }
   set health(percent) { this.hp = percent * this.HP_CAPACITY }
+
+  get shoot_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.shoot_angle; fwp.add(shift); return fwp; }
 
   get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
   get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
@@ -220,13 +226,13 @@ Ship.type = {
     RESPAWN_DELAY: 120,
 
     ATTACK: 8,
-    ATTACK_LIFESPAN: 60,
+    ATTACK_LIFESPAN: 30, //60,
 
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
     BLOCK_CAPACITY: 120, //32,
-    BLOCK_HP_CAPACITY: 24,
+    BLOCK_HP_CAPACITY: 16, //24,
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
     BLOCK_RECOIL_DELAY: 3,
 
