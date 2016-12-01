@@ -29,6 +29,7 @@ class NetworkHelper {
       team: ship.owner.team.number,
       position: ship.shoot_position,
       angle: ship.shoot_angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
+      radius: ship.SHOT_RADIUS,
       hp: ship.ATTACK,
       lifespan: ship.ATTACK_LIFESPAN
     }

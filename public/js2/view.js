@@ -26,14 +26,14 @@ function refreshLobbyView() {
       // placeholder.disabled = 'true';
       // placeholder.value = "";
       // select.appendChild(placeholder);
-      var defoption = document.createElement('option'); defoption.disabled = true; defoption.textContent = "choose a type";
+      var defoption = document.createElement('option'); defoption.disabled = true; defoption.textContent = "choose ship type";
       select.appendChild(defoption);
       types.forEach(t => {
         var option = document.createElement('option');
         option.innerHTML = t;
         select.appendChild(option);
       });
-      select.value = sessionStorage.type || defoption.textContent;
+      select.value = sessionStorage.type || 'balanced';//defoption.textContent;
       select.onchange = function(e) { socket.emit('set type', this.value); sessionStorage.type = this.value; };
       var right = document.createElement('span');
       var checkbox = document.createElement('input'); checkbox.type = "checkbox"; checkbox.name = "checkbox";

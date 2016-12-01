@@ -213,14 +213,15 @@ Ship.type = {
   "balanced" : {
     type: 'balanced',
 
-    HP_CAPACITY: 24,
-    ANGULAR_FRICTION: 0.8,//0.9,
-    ANGULAR_VELOCITY_LIMIT: 0.12,
-    ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
+    HP_CAPACITY: 20,
+    // ANGULAR_FRICTION: 0.8,//0.9,
+    // ANGULAR_VELOCITY_LIMIT: 0.12,
+    // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
     LINEAR_FRICTION: 0.9,//0.97,
     LINEAR_VELOCITY_LIMIT: 8,//6,//5,
     LINEAR_ACCELERATION_LIMIT: 0.6,//0.22, //0.18,
     SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
+    SHOT_RADIUS: 8,
 
     RECOIL_DELAY: 8,
     RESPAWN_DELAY: 120,
@@ -234,7 +235,7 @@ Ship.type = {
     BLOCK_CAPACITY: 120, //32,
     BLOCK_HP_CAPACITY: 16, //24,
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 3,
+    BLOCK_RECOIL_DELAY: 4,
 
     PULSE_RECOIL_DELAY: 120,
     PULSE_CAPACITY: 1
@@ -243,118 +244,110 @@ Ship.type = {
   "speed" : {
     type: 'speed',
 
-    HP_CAPACITY: 18, // 24
-    ANGULAR_FRICTION: 0.9,
-    ANGULAR_VELOCITY_LIMIT: 0.12,
-    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
-    LINEAR_FRICTION: 0.97,
-    LINEAR_VELOCITY_LIMIT: 7.6, // 6
-    LINEAR_ACCELERATION_LIMIT: 0.26, // 0.22
-    SHOT_SPREAD: (2 * Math.PI) * (0.005), // (0.5%) angle sweep in radians.
+    HP_CAPACITY: 18, // 20
+    LINEAR_FRICTION: 0.9,
+    LINEAR_VELOCITY_LIMIT: 10, // 8
+    LINEAR_ACCELERATION_LIMIT: 0.8, // 0.6
+    SHOT_SPREAD: (2 * Math.PI) * (0.02), // (0.01)
+    SHOT_RADIUS: 8,
 
-    RECOIL_DELAY: 10, // 8
+    RECOIL_DELAY: 8,
     RESPAWN_DELAY: 120,
 
     ATTACK: 7, // 8
-    ATTACK_LIFESPAN: 60,
+    ATTACK_LIFESPAN: 20, // 30
 
     REGEN_DELAY: 180,
-    REGEN_RATE: 0.4, // hp/frame
+    REGEN_RATE: 0.4,
 
-    BLOCK_CAPACITY: 120, // 120
-    BLOCK_HP_CAPACITY: 24,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 3,
+    BLOCK_CAPACITY: 120,
+    BLOCK_HP_CAPACITY: 16,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
+    BLOCK_RECOIL_DELAY: 4,
 
-    PULSE_RECOIL_DELAY: 120,
-    PULSE_CAPACITY: 1
+    PULSE_RECOIL_DELAY: 30, // 120
+    PULSE_CAPACITY: 2
   },
 
   "defense" : {
     type: 'defense',
 
-    HP_CAPACITY: 30, // 24
-    ANGULAR_FRICTION: 0.9,
-    ANGULAR_VELOCITY_LIMIT: 0.12,
-    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
-    LINEAR_FRICTION: 0.97,
-    LINEAR_VELOCITY_LIMIT: 4, // 6
-    LINEAR_ACCELERATION_LIMIT: 0.18, // 0.22
-    SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
+    HP_CAPACITY: 26, // 20
+    LINEAR_FRICTION: 0.9,
+    LINEAR_VELOCITY_LIMIT: 6, // 8
+    LINEAR_ACCELERATION_LIMIT: 0.6,
+    SHOT_SPREAD: (2 * Math.PI) * (0.01),
+    SHOT_RADIUS: 8,
 
-    RECOIL_DELAY: 8,
+    RECOIL_DELAY: 10, // 8
     RESPAWN_DELAY: 120,
 
-    ATTACK: 8,
-    ATTACK_LIFESPAN: 60,
+    ATTACK: 6, // 8
+    ATTACK_LIFESPAN: 36, // 30
 
     REGEN_DELAY: 180,
-    REGEN_RATE: 0.4, // hp/frame
+    REGEN_RATE: 0.5, // 0.4
 
     BLOCK_CAPACITY: 120,
-    BLOCK_HP_CAPACITY: 30, // 24
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 3,
+    BLOCK_HP_CAPACITY: 18, // 16
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
+    BLOCK_RECOIL_DELAY: 4,
 
-    PULSE_RECOIL_DELAY: 120,
+    PULSE_RECOIL_DELAY: 30, // 120
     PULSE_CAPACITY: 1
   },
 
   "rate" : {
     type: 'rate',
 
-    HP_CAPACITY: 20, // 24
-    ANGULAR_FRICTION: 0.9,
-    ANGULAR_VELOCITY_LIMIT: 0.12,
-    ANGULAR_ACCELERATION_LIMIT: 0.02,//0.016,
-    LINEAR_FRICTION: 0.97,
-    LINEAR_VELOCITY_LIMIT: 5.2, // 6
-    LINEAR_ACCELERATION_LIMIT: 0.22, // 0.22
-    SHOT_SPREAD: (2 * Math.PI) * (0.05), // (5%) angle sweep in radians.
+    HP_CAPACITY: 20,
+    LINEAR_FRICTION: 0.9,
+    LINEAR_VELOCITY_LIMIT: 8,
+    LINEAR_ACCELERATION_LIMIT: 0.6,
+    SHOT_SPREAD: (2 * Math.PI) * (0.01),
+    SHOT_RADIUS: 6,
 
     RECOIL_DELAY: 5, // 8
-    RESPAWN_DELAY: 120,
+    RESPAWN_DELAY: 100, // 120
 
-    ATTACK: 4, // 8
-    ATTACK_LIFESPAN: 40, // 120
+    ATTACK: 6, // 8
+    ATTACK_LIFESPAN: 30,
 
     REGEN_DELAY: 180,
-    REGEN_RATE: 0.4, // hp/frame
+    REGEN_RATE: 0.4,
 
-    BLOCK_CAPACITY: 60, // 120
-    BLOCK_HP_CAPACITY: 24,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.15), // (15%) angle sweep in radians. (10%)
-    BLOCK_RECOIL_DELAY: 2, // 3
+    BLOCK_CAPACITY: 120,
+    BLOCK_HP_CAPACITY: 12, // 16
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
+    BLOCK_RECOIL_DELAY: 6,
 
-    PULSE_RECOIL_DELAY: 120,
+    PULSE_RECOIL_DELAY: 240, // 120
     PULSE_CAPACITY: 1
   },
 
   "damage" : {
     type: 'damage',
 
-    HP_CAPACITY: 24,
-    ANGULAR_FRICTION: 0.9,
-    ANGULAR_VELOCITY_LIMIT: 0.12,
-    ANGULAR_ACCELERATION_LIMIT: 0.02,
-    LINEAR_FRICTION: 0.97,
-    LINEAR_VELOCITY_LIMIT: 5, // 6
-    LINEAR_ACCELERATION_LIMIT: 0.18, // 0.22
-    SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
+    HP_CAPACITY: 22, // 20
+    LINEAR_FRICTION: 0.9,
+    LINEAR_VELOCITY_LIMIT: 6, // 8
+    LINEAR_ACCELERATION_LIMIT: 0.6,
+    SHOT_SPREAD: (2 * Math.PI) * (0.01),
+    SHOT_RADIUS: 12, // 8
 
-    RECOIL_DELAY: 8,
+    RECOIL_DELAY: 60, // 8
     RESPAWN_DELAY: 120,
 
-    ATTACK: 10,
-    ATTACK_LIFESPAN: 60,
+    ATTACK: 22, // 8
+    ATTACK_LIFESPAN: 42, // 30
 
     REGEN_DELAY: 180,
-    REGEN_RATE: 0.4, // hp/frame
+    REGEN_RATE: 0.4,
 
     BLOCK_CAPACITY: 120,
-    BLOCK_HP_CAPACITY: 12, // 24
-    BLOCK_SPREAD: (2 * Math.PI) * (0.2), // (20%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 5, // 3
+    BLOCK_HP_CAPACITY: 16,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
+    BLOCK_RECOIL_DELAY: 4,
 
     PULSE_RECOIL_DELAY: 120,
     PULSE_CAPACITY: 1

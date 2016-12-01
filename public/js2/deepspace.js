@@ -106,6 +106,7 @@ class DeepSpaceGame {
   setupGame() {
     this.game = {};
     this.game.over = false;
+    this.game.abort = false;
     // this.timer = DeepSpaceGame.modes[this.gameMode];
     switch(this.gameMode) {
       case "ctf":
@@ -559,7 +560,7 @@ class DeepSpaceGame {
     this.update();
     this.log();
 
-    getAnimationFrame(()=>this.loop())
+    getAnimationFrame(()=> this.game.abort ? true : this.loop())
   }
 
   update() {
@@ -614,15 +615,15 @@ class DeepSpaceGame {
         // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
 
         var direction_v = new V2D(input.get('shoot_h_axis'), -input.get('shoot_v_axis'))
-        ship.shoot_angle = direction_v.angle; console.log(direction_v)
+        ship.shoot_angle = direction_v.angle;
 
         if(direction_v.length) ship.shoot();
 
         // if(input.get('shoot')) ship.shoot();
         if(input.get('block')) ship.block();
-        if(input.get('pulse')) ship.pulse();
         // option to drop with pulse button
-        // if(input.get('pulse')) ship.flag ? NetworkHelper.out_flag_drop() : ship.pulse();
+        // if(input.get('pulse')) ship.pulse();
+        if(input.get('pulse')) ship.flag ? NetworkHelper.out_flag_drop() : ship.pulse();
       }
 
       // validate new position (revise)
@@ -837,6 +838,7 @@ class DeepSpaceGame {
     this.updatePulseViews();
 
     this.updateCamera();
+    this.updateGrid();
 
     this.updateGameViews();
 
@@ -906,6 +908,11 @@ class DeepSpaceGame {
     // if(camera.position)
   }
 
+  updateGrid() {
+    var focus = this.camera.focus;
+    if(focus) GRID.offset(-focus.x, -focus.y)
+  }
+
   updateGameViews() {
 
     this.view.overlay.score.team.forEach((text, i)=>{
@@ -928,7 +935,7 @@ class DeepSpaceGame {
     if(v.y < padding) { v.y = padding; not_visible = true; }
     if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
 
-    v.alpha = not_visible ? 0.4 : (flag.idle ? 1 : 0);
+    v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);
   }
 
   updateCameraFocus() {
@@ -948,6 +955,7 @@ class DeepSpaceGame {
 
   end() {
     this.game.over = true;
+    setTimeout(()=>{this.game.abort = true})
     if(this.player) this.resetInput();
     this.deinitListeners();
     NetworkHelper.out_game_over();
@@ -1417,7 +1425,7 @@ DeepSpaceGame.spawn_structure = [
 DeepSpaceGame.modes = {
   ctf: { // capture the flag
     ring_radius: 720,
-    flag_radius: 12,
+    flag_radius: 18,
     time_limit: FRAMES.mins(3)
   }
 };

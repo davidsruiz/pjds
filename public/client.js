@@ -20,7 +20,7 @@ socket.on('onconnected', function(obj) {
   var name = sessionStorage.nickname || "";
   socket.emit('set name', name);
 
-  var type = sessionStorage.type;// || "balanced";
+  var type = sessionStorage.type || "balanced"; // TODO: double hard-coded see view.js:36
   if(type) socket.emit('set type', type);
 
   // if(sessionStorage.ready = !!(sessionStorage.nickname && sessionStorage.type)) socket.emit('ready');

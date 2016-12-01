@@ -2,10 +2,10 @@ class Flag {
 
   constructor(p) {
     this.spawn = p;
-    this.radius = 12;
+    this.radius = 18;
     this.reset();
 
-    this.drag = 0.16; // additional friction
+    this.drag = .4; //0.16; // additional friction
   }
 
   reset() {

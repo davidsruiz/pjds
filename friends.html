@@ -5,7 +5,7 @@
     <title>DEEP SPACE</title>
     <link rel="stylesheet" href="/styles/normalization.css" charset="utf-8">
     <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
-    <link rel="stylesheet" href="/styles/stars.min.css" charset="utf-8">
+    <!-- <link rel="stylesheet" href="/styles/stars.min.css" charset="utf-8"> -->
 
     <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
     <script src="https://code.createjs.com/soundjs-0.6.2.min.js"></script>
@@ -13,19 +13,24 @@
     <script src="/js2/home.js"></script>
     <script src="/js2/friends.js"></script>
     <script src="/ui.js"></script>
+    <script src="/js2/particles.js"></script>
   </head>
   <body>
     <div id="menu_layer" class="layer">
       <div id="space" class="layer">
-        <div class="stars"></div>
-        <div class="stars"></div>
-        <div class="stars"></div>
-        <div class="stars"></div>
-        <div class="stars"></div>
-        <div class="stars"></div>
-        <div class="stars"></div>
-        <div class="stars"></div>
+        <canvas id="particles"></canvas>
       </div>
+
+      <!-- <div id="space" class="layer">
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+        <div class="stars"></div>
+      </div> -->
       <div id="viginette" class="layer"></div>
       <div class="content">
 

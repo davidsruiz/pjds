@@ -13,7 +13,7 @@ class Bullet {
     this.velocity.length = this.SPEED;
     this.velocity.angle = data.angle;
 
-    // this.radius = 4;
+    this.radius = data.radius;
 
     this.hp = data.hp;
     this.LIFESPAN = data.lifespan;
@@ -32,7 +32,7 @@ class Bullet {
 }
 
 Bullet.stats = {
-  radius: 8, //8,
+  // radius: 8, //8,
   SPEED: 20//, //14, //10,
   // LIFESPAN: 60 //120
 }

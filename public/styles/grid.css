@@ -1,0 +1,19 @@
+
+
+/*#grid {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+  margin: 0px;
+}*/
+
+#lines { background: url(../images/grid_lines_tile.png) repeat; background-size: 60px 60px; }
+/*#dots { background: url(../images/grid_dots_tile.png) repeat; background-size: 240px 240px; }*/
+
+.grid {
+  transition-duration: 0s;
+  z-index: 20;
+}
