@@ -85,13 +85,13 @@ class Ship extends BasicShip {
 
     this.bullets = new Set();
     this.blocks = new Set();
-    this.pulses = new Set();
+    this.subs = new Set();
 
     this.recoil_counter = 0;
     this.respawn_counter = 0;
     this.regen_counter = 0;
     this.block_recoil_counter = 0;
-    this.pulse_recoil_counter = 0;
+    this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
 
     // this.assignAttrFrom(Ship.type[player.type]);
     this.hp = this.HP_CAPACITY;
@@ -146,7 +146,7 @@ class Ship extends BasicShip {
         this.reset();
       }
     }
-    this.recoil_counter++; this.block_recoil_counter++; this.pulse_recoil_counter++;
+    this.recoil_counter++; this.block_recoil_counter++; this.sub_recoil_counter++;
   }
 
   shoot() {
@@ -182,21 +182,17 @@ class Ship extends BasicShip {
     }
   }
 
-  pulse() {
-    if(!(this.pulses.size < this.PULSE_CAPACITY)) return;
-    if(this.pulse_recoil_counter > this.PULSE_RECOIL_DELAY) {
-      // if(!(this.pulses.size > this.PULSE_CAPACITY))
-      //   NetworkHelper.out_pulse_destroy(this.pulses.draw());
+  sub() {
+    if(!(this.subs.size < this.SUB_CAPACITY)) return;
+    if(this.sub_recoil_counter > this.SUB_RECOIL_DELAY) {
+      // if(!(this.subs.size > this.PULSE_CAPACITY))
+      //   NetworkHelper.out_sub_destroy(this.subs.draw());
 
-      var id = NetworkHelper.out_pulse_create(this);
-      this.pulses.add(id);
-      this.pulse_recoil_counter = 0;
+      var id = NetworkHelper.sub_create(this);
+      this.subs.add(id);
+      this.sub_recoil_counter = 0;
     }
-    // if(this.pulses.size > 0) return;
-    // var id = NetworkHelper.out_pulse_create(this);
-    // this.pulses.add(id);
   }
-
 
   reset() {
     this.position.set(this.spawn);
@@ -237,8 +233,9 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
     BLOCK_RECOIL_DELAY: 4,
 
-    PULSE_RECOIL_DELAY: 120,
-    PULSE_CAPACITY: 1
+    SUB_TYPE: 'block_bomb',
+    SUB_RECOIL_DELAY: 120,
+    SUB_CAPACITY: 1
   },
 
   "speed" : {
@@ -265,8 +262,9 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1),
     BLOCK_RECOIL_DELAY: 4,
 
-    PULSE_RECOIL_DELAY: 30, // 120
-    PULSE_CAPACITY: 2
+    SUB_TYPE: 'repulsor',
+    SUB_RECOIL_DELAY: 30, // 120
+    SUB_CAPACITY: 2
   },
 
   "defense" : {
@@ -293,8 +291,9 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1),
     BLOCK_RECOIL_DELAY: 4,
 
-    PULSE_RECOIL_DELAY: 30, // 120
-    PULSE_CAPACITY: 1
+    SUB_TYPE: 'repulsor',
+    SUB_RECOIL_DELAY: 30, // 120
+    SUB_CAPACITY: 1
   },
 
   "rate" : {
@@ -321,8 +320,9 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1),
     BLOCK_RECOIL_DELAY: 6,
 
-    PULSE_RECOIL_DELAY: 240, // 120
-    PULSE_CAPACITY: 1
+    SUB_TYPE: 'repulsor',
+    SUB_RECOIL_DELAY: 240, // 120
+    SUB_CAPACITY: 1
   },
 
   "damage" : {
@@ -335,7 +335,7 @@ Ship.type = {
     SHOT_SPREAD: (2 * Math.PI) * (0.01),
     SHOT_RADIUS: 12, // 8
 
-    RECOIL_DELAY: 60, // 8
+    RECOIL_DELAY: 50, // 8
     RESPAWN_DELAY: 120,
 
     ATTACK: 22, // 8
@@ -349,8 +349,9 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1),
     BLOCK_RECOIL_DELAY: 4,
 
-    PULSE_RECOIL_DELAY: 120,
-    PULSE_CAPACITY: 1
+    SUB_TYPE: 'attractor',
+    SUB_RECOIL_DELAY: 120,
+    SUB_CAPACITY: 1
   }
 }
 //

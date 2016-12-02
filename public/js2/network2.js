@@ -124,24 +124,44 @@ class NetworkHelper {
     if(block = ENV["game"].model.blocks.get(data.blockID)) if(sender = ENV["game"].players.get(data.senderID)) ENV["game"].changeBlock(block.id, sender.team.number);
   }
 
-  static out_pulse_create(ship) { if(!DeepSpaceGame.runningInstance) return;
+  // static out_pulse_create(ship) { if(!DeepSpaceGame.runningInstance) return;
+  //   var id = Math.uuid();
+  //   socket.emit('pulse create', { senderID: ENV["id"], pulseData: {
+  //     id: id,
+  //     team: ship.owner.team.number,
+  //     position: ship.front_weapon_position,
+  //     angle: ship.angle
+  //   }});
+  //   return id;
+  // }
+
+  static sub_create(ship) { if(!DeepSpaceGame.runningInstance) return;
     var id = Math.uuid();
-    socket.emit('pulse create', { senderID: ENV["id"], pulseData: {
+    var send_data = { senderID: ENV["id"], subData: {
       id: id,
+      type: ship.SUB_TYPE,
       team: ship.owner.team.number,
       position: ship.front_weapon_position,
       angle: ship.angle
-    }});
+    }};
+    socket.emit('sub create', send_data);
+    NetworkHelper.in_sub_create(send_data);
     return id;
   }
-  static in_pulse_create(data) { if(!DeepSpaceGame.runningInstance) return;
-    ENV["game"].startPulse(data.pulseData);
+  static in_sub_create(data) { if(!DeepSpaceGame.runningInstance) return;
+    ENV["game"].startSub(data.subData);
   }
-  static out_pulse_destroy(pulseID) { if(!DeepSpaceGame.runningInstance) return;
-    socket.emit('pulse destroy', { senderID: ENV["id"], pulseID: pulseID });
+  static sub_destroy(subID) { if(!DeepSpaceGame.runningInstance) return;
+    var send_data = { senderID: ENV["id"], subID: subID };
+    socket.emit('sub destroy', send_data);
+    NetworkHelper.in_sub_destroy(send_data);
   }
-  static in_pulse_destroy(data) { if(!DeepSpaceGame.runningInstance) return;
-    ENV["game"].endPulse(data.pulseID);
+  static out_only_sub_destroy(subID) { if(!DeepSpaceGame.runningInstance) return;
+    var send_data = { senderID: ENV["id"], subID: subID };
+    socket.emit('sub destroy', send_data);
+  }
+  static in_sub_destroy(data) { if(!DeepSpaceGame.runningInstance) return;
+    ENV["game"].endSub(data.subID);
   }
 
   // ctf

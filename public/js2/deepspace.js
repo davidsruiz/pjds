@@ -98,7 +98,7 @@ class DeepSpaceGame {
     var model = {};
     model.bullets = new Map();
     model.blocks = new Map();
-    model.pulses = new Map();
+    model.subs = new Map();
 
     this.model = model;
   }
@@ -266,7 +266,7 @@ class DeepSpaceGame {
   createPoolViews() {
     this.view.bullets = new Map()
     this.view.blocks = new Map()
-    this.view.pulses = new Map()
+    this.view.subs = new Map()
   }
 
   createParticleViews() {
@@ -377,13 +377,13 @@ class DeepSpaceGame {
       // turn    : -1 to 1
       // shoot   : true or false
       // block   : true or false
-      // pulse : true or false
+      // sub : true or false
 
       var keypressWeight = 0.85;
 
-      // var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["pulse", false]]);
-      // var playerInput = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["pulse", false]]);
-      var playerInput = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["pulse", false]]);
+      // var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["sub", false]]);
+      // var playerInput = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["sub", false]]);
+      var playerInput = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["sub", false]]);
 
       // KEYBOARD
       // key mappings, have multiple ('values') so you can switch between key bindings
@@ -406,8 +406,8 @@ class DeepSpaceGame {
         ["shoot_h_axis", [65], -keypressWeight, 0],
         // block: space
         ["block", [32], true, false],
-        // pulse: e
-        ["pulse", [69], true, false]
+        // sub: e
+        ["sub", [69], true, false]
       ];
 
       // var values = [
@@ -422,7 +422,7 @@ class DeepSpaceGame {
       //   // block: x , l
       //   ["block", [88, 76], true, false],
       //   // block: c , ;
-      //   ["pulse", [67, 186], true, false]
+      //   ["sub", [67, 186], true, false]
 
         // // up: ▲ , w
         // ["move_v_axis", [38, 87], keypressWeight, 0],
@@ -495,7 +495,7 @@ class DeepSpaceGame {
         playerInput.set("block", gamepad.buttons[7].pressed);
 
         // OTHER
-        playerInput.set("pulse", gamepad.buttons[0].pressed);
+        playerInput.set("sub", gamepad.buttons[0].pressed);
       };
 
       // ALIAS
@@ -511,7 +511,7 @@ class DeepSpaceGame {
     var refGroups = {};
 
     refGroups.enemyBlocks = new Set();
-    refGroups.enemyPulses = new Set();
+    refGroups.enemySubs = new Set();
 
     refGroups.animate = new Set();
 
@@ -590,7 +590,7 @@ class DeepSpaceGame {
 
     this.updateBullets();
     this.updateBlocks();
-    this.updatePulses();
+    this.updateSubs();
   }
 
   updateShips() {
@@ -621,9 +621,9 @@ class DeepSpaceGame {
 
         // if(input.get('shoot')) ship.shoot();
         if(input.get('block')) ship.block();
-        // option to drop with pulse button
-        // if(input.get('pulse')) ship.pulse();
-        if(input.get('pulse')) ship.flag ? NetworkHelper.out_flag_drop() : ship.pulse();
+        // option to drop with sub button
+        // if(input.get('sub')) ship.sub();
+        if(input.get('sub')) ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
       }
 
       // validate new position (revise)
@@ -660,24 +660,58 @@ class DeepSpaceGame {
     });
   }
 
-  updatePulses() {
-    this.model.pulses.forEach(p => {
-      p.update(); if(p.disabled) NetworkHelper.out_pulse_destroy(p.id);
+  updateSubs() {
+    this.model.subs.forEach(p => {
+      p.update();
+
+      switch(p.type) {
+        case 'attractor':
+        case 'repulsor':
+
+          // field effects
+          var distance, direction;
+          this.model.bullets.forEach((b)=>{
+            if(!b.disabled && p.team != b.team) {
+              if((distance = Physics.distance(b.position, p.position)) < p.RANGE) {
+                var force = new V2D(); direction = p.position.copy(); direction.sub(b.position);
+                force.length = p.INTENSITY_FUNCTION(distance);
+                force.angle = direction.angle;
+                if(p.type == 'repulsor') force.angle = force.angle - Math.PI;
+                b.velocity.add(force);
+                b.velocity.length *= 0.94; // friction
+              }
+            }
+          });
+
+          break;
+        case 'block_bomb':
 
 
-      // field effects
-      var distance, direction;
-      this.model.bullets.forEach((b)=>{
-        if(!b.disabled && p.team != b.team) {
-          if((distance = Physics.distance(b.position, p.position)) < p.RANGE) {
-            var force = new V2D(); direction = p.position.copy(); direction.sub(b.position);
-            force.length = p.INTENSITY_FUNCTION(distance);
-            force.angle = direction.angle;// - Math.PI; // uncomment for repulsion
-            b.velocity.add(force);
-            b.velocity.length *= 0.94; // friction
+          if(p.exploding) {
+
+            // only the player who created it hands out damage to the blocks so it is done once
+            var ship;
+            if((ship = this.ships.main) && (ship.subs.has(p.id))) {
+              var distance;
+              this.refGroups.enemyBlocks.forEach(block => {
+                if(block && !block.disabled) {
+                  if((distance = Physics.distance(block.position, p.position)) < p.EXPLOSION_RANGE) {
+                    NetworkHelper.out_block_damage(block.id, p.EXPLOSION_DAMAGE_FUNCTION(distance));
+                  }
+                }
+              });
+            }
+
+            // the player is the only one who must wait, the others have been notified to endSub
+            this.endSub(p.id);
           }
-        }
-      });
+
+          break;
+        default:
+          break;
+      }
+
+
     });
 
   }
@@ -690,7 +724,7 @@ class DeepSpaceGame {
 
     this.bulletCollisions();
     this.shipCollisions();
-    this.pulseCollisions();
+    this.subCollisions();
   }
 
   bulletCollisions() {
@@ -786,24 +820,38 @@ class DeepSpaceGame {
 
   }
 
-  pulseCollisions() {
-    this.pulseBlockCollisions();
+  subCollisions() {
+    this.subBlockCollisions();
   }
 
-  pulseBlockCollisions() {
+  subBlockCollisions() {
     var p, b;
-    this.ships.main.pulses.forEach(id => {
-      if((p = this.model.pulses.get(id)) && !p.disabled) {
-        this.refGroups.enemyBlocks.forEach(b => {
-          if(b && !b.disabled) {
-            if(Physics.doTouch(p, b)) {
-              NetworkHelper.out_pulse_destroy(p.id);
-              NetworkHelper.out_block_destroy(b.id);
+    this.ships.main.subs.forEach(id => {
+      if((p = this.model.subs.get(id)) && !p.disabled) {
+
+        if(p.type != 'stealth') { // stealth does not collide
+          this.refGroups.enemyBlocks.forEach(b => {
+            if(b && !b.disabled) {
+              if(Physics.doTouch(p, b)) {
+                switch(p.type) {
+                  case 'attractor':
+                  case 'repulsor':
+                    NetworkHelper.sub_destroy(p.id);
+                    NetworkHelper.out_block_destroy(b.id);
+                    break;
+                  case 'block_bomb':
+                  case 'missile':
+                    p.explode();
+                  break;
+                }
+              }
             }
-          }
-        });
+          });
+        }
+
       }
     });
+
   }
 
   updateGame() {
@@ -835,7 +883,7 @@ class DeepSpaceGame {
     this.updateShipViews();
     this.updateBulletViews();
     this.updateBlockViews();
-    this.updatePulseViews();
+    this.updateSubViews();
 
     this.updateCamera();
     this.updateGrid();
@@ -891,9 +939,9 @@ class DeepSpaceGame {
     });
   }
 
-  updatePulseViews() {
-    var views = this.view.pulses;
-    this.model.pulses.forEach(p => {
+  updateSubViews() {
+    var views = this.view.subs;
+    this.model.subs.forEach(p => {
       var v = views.get(p.id);
       if(v) {
         v.x = p.position.x;
@@ -1066,36 +1114,61 @@ class DeepSpaceGame {
     return true;
   }
 
-  startPulse(data) {
-    var p = new Pulse(data);
+  startSub(data) {
+    var p;
+    switch(data.type) {
+      case 'attractor':
+        p = new Attractor(data)
+        break;
+      case 'repulsor':
+        p = new Repulsor(data)
+        break;
+      case 'block_bomb':
+        p = new BlockBomb(data)
+        break;
+      default:
+        break;
+    }
 
     // create a view for it.
-    var pv = new createjs.Shape(
-      DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
-    );
+    var graphics;
+    switch(data.type) {
+      case 'attractor':
+        graphics = DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
+        break;
+      case 'repulsor':
+        graphics = DeepSpaceGame.graphics.repulsor(this.teams[p.team].color)
+        break;
+      case 'block_bomb':
+        graphics = DeepSpaceGame.graphics.block_bomb(this.teams[p.team].color)
+        break;
+      default:
+        break;
+    }
+    var pv = new createjs.Shape(graphics);
     this.view.layer.action.back.addChild(pv);
 
-    this.model.pulses.set(p.id, p);
-    this.view.pulses.set(p.id, pv);
+    this.model.subs.set(p.id, p);
+    this.view.subs.set(p.id, pv);
 
-    if(!this.spectate) if(p.team != this.ships.main.owner.team.number) this.refGroups.enemyPulses.add(p.id);
+    if(!this.spectate) if(p.team != this.ships.main.owner.team.number) this.refGroups.enemySubs.add(p.id);
 
     return p;
   }
 
-  endPulse(id) {
-    var p = this.model.pulses.get(id);
+  endSub(id) {
+    var p = this.model.subs.get(id);
     if(!p) return false;
 
-    this.model.pulses.delete(id);
-    if(!this.spectate) this.ships.main.pulses.delete(id);
+    this.model.subs.delete(id);
+    if(!this.spectate) this.ships.main.subs.delete(id);
 
-    this.refGroups.enemyPulses.delete(p.id);
+    this.refGroups.enemySubs.delete(p.id);
 
     // erase the view for it.
-    var v = this.view.pulses.get(id);
+    var v = this.view.subs.get(id);
     if(v) {
-      this.view.pulses.delete(id);
+      this.view.subs.delete(id);
       this.view.layer.action.back.removeChild(v);
     }
     return true;
@@ -1242,7 +1315,7 @@ class DeepSpaceGame {
       input.set("turn", 0);
       input.set("shoot", false);
       input.set("block", false);
-      input.set("pulse", false);
+      input.set("sub", false);
     }
   }
 
@@ -1278,7 +1351,10 @@ DeepSpaceGame.graphics = {
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
   block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
+
   attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
+  repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
+  block_bomb: color => new createjs.Graphics().beginFill(color).moveTo(-10, 0).arcTo(-10, -10, 0, -10, 10).lineTo(0, 10).arcTo(-9, 9, -10, 0, 10),
 
 
   ring: r => new createjs.Graphics().beginStroke("#ECEFF1").setStrokeStyle(16).drawCircle(0, 0, r),

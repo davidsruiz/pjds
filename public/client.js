@@ -103,8 +103,8 @@ socket.on('block destroy', (data) => NetworkHelper.in_block_destroy(data))
 socket.on('block damage', (data) => NetworkHelper.in_block_damage(data))
 socket.on('block change', (data) => NetworkHelper.in_block_change(data))
 
-socket.on('pulse create', (data) => NetworkHelper.in_pulse_create(data))
-socket.on('pulse destroy', (data) => NetworkHelper.in_pulse_destroy(data))
+socket.on('sub create', (data) => NetworkHelper.in_sub_create(data))
+socket.on('sub destroy', (data) => NetworkHelper.in_sub_destroy(data))
 
 socket.on('flag pickup', (data) => NetworkHelper.in_flag_pickup(data))
 socket.on('flag drop', (data) => NetworkHelper.in_flag_drop(data))

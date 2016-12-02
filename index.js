@@ -253,8 +253,8 @@ console.log('ready')
     client.on('block damage', data => client.lobby ? client.lobby.emit('block damage', data) : client.emit('stop'));
     client.on('block change', data => client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop'));
 
-    client.on('pulse create', data => client.lobby ? client.lobby.emit('pulse create', data) : client.emit('stop'));
-    client.on('pulse destroy', data => client.lobby ? client.lobby.emit('pulse destroy', data) : client.emit('stop'));
+    client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));
+    client.on('sub destroy', data => client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop'));
 
 
     client.on('flag pickup', data => {
