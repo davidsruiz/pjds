@@ -47,6 +47,7 @@ var LOBBY = {
   },
 
   revealLobby() {
+    PARTICLES.start();
     $('#menu_layer').css('display', 'initial');
     $('#menu_layer').css('opacity', '1');
   },

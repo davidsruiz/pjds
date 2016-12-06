@@ -13,6 +13,7 @@ class BasicShip {
         this.angular_acceleration = 0;
     this.health = 1;
     this.radius = 10;
+    this.stealth = false;
 
     this.assignAttrFrom(Ship.type[player.type]);
 
@@ -174,9 +175,9 @@ class Ship extends BasicShip {
   block() {
     if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY) {
       if(this.blocks.size > this.BLOCK_CAPACITY)
-        NetworkHelper.out_block_destroy(this.blocks.draw());
+        NetworkHelper.block_destroy(this.blocks.draw());
 
-      var id = NetworkHelper.out_block_create(this);
+      var id = NetworkHelper.block_create(this);
       this.blocks.add(id);
       this.block_recoil_counter = 0;
     }
@@ -234,7 +235,7 @@ Ship.type = {
     BLOCK_RECOIL_DELAY: 4,
 
     SUB_TYPE: 'block_bomb',
-    SUB_RECOIL_DELAY: 120,
+    SUB_RECOIL_DELAY: 360,
     SUB_CAPACITY: 1
   },
 
@@ -291,8 +292,8 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1),
     BLOCK_RECOIL_DELAY: 4,
 
-    SUB_TYPE: 'repulsor',
-    SUB_RECOIL_DELAY: 30, // 120
+    SUB_TYPE: 'stealth_cloak',
+    SUB_RECOIL_DELAY: 900, // 120
     SUB_CAPACITY: 1
   },
 
@@ -320,7 +321,7 @@ Ship.type = {
     BLOCK_SPREAD: (2 * Math.PI) * (0.1),
     BLOCK_RECOIL_DELAY: 6,
 
-    SUB_TYPE: 'repulsor',
+    SUB_TYPE: 'missile',
     SUB_RECOIL_DELAY: 240, // 120
     SUB_CAPACITY: 1
   },

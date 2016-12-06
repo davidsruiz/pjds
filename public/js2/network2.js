@@ -84,40 +84,47 @@ class NetworkHelper {
   }
 
 
-  static out_block_create(ship) { if(!DeepSpaceGame.runningInstance) return;
+  static block_create(ship) { if(!DeepSpaceGame.runningInstance) return;
     var id = Math.uuid();
-    socket.emit('block create', { senderID: ENV["id"], blockData: {
+    var send_data = { senderID: ENV["id"], blockData: {
       id: id,
       team: ship.owner.team.number,
       position: ship.back_weapon_position,
       angle: (ship.angle - Math.PI) + (ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1),
       hp: ship.BLOCK_HP_CAPACITY,
       radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)
-    }});
+    }};
+    socket.emit('block create', send_data);
+    NetworkHelper.in_block_create(send_data);
     return id;
   }
   static in_block_create(data) { if(!DeepSpaceGame.runningInstance) return;
     ENV["game"].startBlock(data.blockData);
   }
-  static out_block_destroy(blockID) { if(!DeepSpaceGame.runningInstance) return;
-    socket.emit('block destroy', { senderID: ENV["id"], blockID: blockID });
+  static block_destroy(blockID) { if(!DeepSpaceGame.runningInstance) return;
+    var send_data = { senderID: ENV["id"], blockID: blockID };
+    socket.emit('block destroy', send_data);
+    NetworkHelper.in_block_destroy(send_data);
   }
   static in_block_destroy(data) { if(!DeepSpaceGame.runningInstance) return;
     ENV["game"].endBlock(data.blockID);
   }
-  static out_block_damage(blockID, hp) { if(!DeepSpaceGame.runningInstance) return;
-    socket.emit('block damage', { senderID: ENV["id"], blockID: blockID, hp: hp});
+  static block_damage(blockID, hp) { if(!DeepSpaceGame.runningInstance) return;
+    var send_data = { senderID: ENV["id"], blockID: blockID, hp: hp};
+    socket.emit('block damage', send_data);
+    NetworkHelper.in_block_damage(send_data);
   }
   static in_block_damage(data) { if(!DeepSpaceGame.runningInstance) return;
     var block;
     if(block = ENV["game"].model.blocks.get(data.blockID)) block.damage(data.hp);
   }
   static block_change(blockID) { if(!DeepSpaceGame.runningInstance) return;
-    var block, sender;
-    // if(block = ENV["game"].model.blocks.get(blockID)) if(sender = ENV["game"].players.get(ENV["id"])) block.team = sender.team.number;
-    if(block = ENV["game"].model.blocks.get(blockID)) if(sender = ENV["game"].players.get(ENV["id"])) ENV["game"].changeBlock(block.id, sender.team.number);
-
-    socket.emit('block change', { senderID: ENV["id"], blockID: blockID});
+    var send_data = { senderID: ENV["id"], blockID: blockID};
+    socket.emit('block change', send_data);
+    NetworkHelper.in_block_change(send_data);
+    
+    // var block, sender;
+    // if(block = ENV["game"].model.blocks.get(blockID)) if(sender = ENV["game"].players.get(ENV["id"])) ENV["game"].changeBlock(block.id, sender.team.number);
   }
   static in_block_change(data) { if(!DeepSpaceGame.runningInstance) return;
     var block, sender;
@@ -141,6 +148,7 @@ class NetworkHelper {
       id: id,
       type: ship.SUB_TYPE,
       team: ship.owner.team.number,
+      player: ENV["id"],
       position: ship.front_weapon_position,
       angle: ship.angle
     }};

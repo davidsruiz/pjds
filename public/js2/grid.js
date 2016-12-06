@@ -12,6 +12,6 @@ var GRID = {
 }
 
 window.addEventListener('load', ()=>{
-  // GRID.load(document.getElementById('lines'), 1)
+  GRID.load(document.getElementById('lines'), 1)
   // GRID.load(document.getElementById('dots'), 2)
 })

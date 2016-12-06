@@ -86,6 +86,7 @@ socket.on('start', function(data) {
   // LOBBY.lobbyStatus('starting!');
   ENV.sound.stop('chill');
   LOBBY.startCountdown(()=>{
+    PARTICLES.stop();
   	g = ENV["game"] = DeepSpaceGame.start(data);
   })
 });

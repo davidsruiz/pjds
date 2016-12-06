@@ -248,9 +248,9 @@ console.log('ready')
 
     client.on('ship damage', data => client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop'));
 
-    client.on('block create', data => client.lobby ? client.lobby.emit('block create', data) : client.emit('stop'));
-    client.on('block destroy', data => client.lobby ? client.lobby.emit('block destroy', data) : client.emit('stop'));
-    client.on('block damage', data => client.lobby ? client.lobby.emit('block damage', data) : client.emit('stop'));
+    client.on('block create', data => client.lobby ? client.lobby.broadcast('block create', data, client) : client.emit('stop'));
+    client.on('block destroy', data => client.lobby ? client.lobby.broadcast('block destroy', data, client) : client.emit('stop'));
+    client.on('block damage', data => client.lobby ? client.lobby.broadcast('block damage', data, client) : client.emit('stop'));
     client.on('block change', data => client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop'));
 
     client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));

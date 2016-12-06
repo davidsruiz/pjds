@@ -696,7 +696,42 @@ class DeepSpaceGame {
               this.refGroups.enemyBlocks.forEach(block => {
                 if(block && !block.disabled) {
                   if((distance = Physics.distance(block.position, p.position)) < p.EXPLOSION_RANGE) {
-                    NetworkHelper.out_block_damage(block.id, p.EXPLOSION_DAMAGE_FUNCTION(distance));
+                    NetworkHelper.block_damage(block.id, p.EXPLOSION_DAMAGE_FUNCTION(distance));
+                  }
+                }
+              });
+            }
+
+            // the player is the only one who must wait, the others have been notified to endSub
+            this.endSub(p.id);
+          }
+
+          break;
+        case 'stealth_cloak':
+          break;
+        case 'missile':
+
+          // targeting
+          if(p.target && Physics.distance(p.target.position, p.position) > p.VISION_RANGE) p.target = null;
+          this.ships.forEach(ship => {
+            if(ship && !ship.disabled && ship.owner.team.number != p.team) {
+              if(!p.target && ((distance = Physics.distance(ship.position, p.position)) < p.VISION_RANGE)) {
+                p.target = ship;
+              }
+            }
+          });
+
+          // exploding
+          if(p.exploding) {
+
+            // only the player who created it hands out damage to the blocks so it is done once
+            var ship;
+            if((ship = this.ships.main) && (ship.subs.has(p.id))) {
+              var distance;
+              this.refGroups.enemyBlocks.forEach(block => {
+                if(block && !block.disabled) {
+                  if((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {
+                    NetworkHelper.block_change(block.id)
                   }
                 }
               });
@@ -765,7 +800,7 @@ class DeepSpaceGame {
         this.refGroups.enemyBlocks.forEach(block => {
           if(block && !block.disabled) {
             if(Physics.doTouch(block, b)) {
-              NetworkHelper.out_block_damage(block.id, b.hp);
+              NetworkHelper.block_damage(block.id, b.hp);
               NetworkHelper.bullet_destroy(b.id);
             }
           }
@@ -822,6 +857,8 @@ class DeepSpaceGame {
 
   subCollisions() {
     this.subBlockCollisions();
+    this.subShipCollisions();
+    this.subSpawnCampCollisions();
   }
 
   subBlockCollisions() {
@@ -829,7 +866,7 @@ class DeepSpaceGame {
     this.ships.main.subs.forEach(id => {
       if((p = this.model.subs.get(id)) && !p.disabled) {
 
-        if(p.type != 'stealth') { // stealth does not collide
+        if(p.type != 'stealth_cloak') { // stealth does not collide
           this.refGroups.enemyBlocks.forEach(b => {
             if(b && !b.disabled) {
               if(Physics.doTouch(p, b)) {
@@ -837,7 +874,7 @@ class DeepSpaceGame {
                   case 'attractor':
                   case 'repulsor':
                     NetworkHelper.sub_destroy(p.id);
-                    NetworkHelper.out_block_destroy(b.id);
+                    NetworkHelper.block_destroy(b.id);
                     break;
                   case 'block_bomb':
                   case 'missile':
@@ -852,6 +889,45 @@ class DeepSpaceGame {
       }
     });
 
+  }
+
+  subShipCollisions() {
+    var p;
+    this.ships.main.subs.forEach(id => {
+      if((p = this.model.subs.get(id)) && !p.disabled) {
+
+        if(p.type == 'missile') { // only missles collide with ships
+          this.enemyPlayers.forEach(player => {
+            var ship = player.ship;
+            if(ship && !ship.disabled) {
+              if(Physics.doTouch(ship, p)) {
+                NetworkHelper.out_ship_damage(player.id, p.hp);
+                NetworkHelper.sub_destroy(p.id)
+              }
+            }
+          });
+        }
+
+      }
+    });
+  }
+
+  subSpawnCampCollisions() {
+    for(let team of this.teams) {
+      if(team == this.team) continue;
+      var p;
+      this.ships.main.subs.forEach(id => {
+        if((p = this.model.subs.get(id)) && !p.disabled) {
+
+          if(p.type == 'missile') {
+            if(Physics.doTouch(team.spawn_camp, p)) {
+              NetworkHelper.sub_destroy(p.id);
+            }
+          }
+
+        }
+      });
+    }
   }
 
   updateGame() {
@@ -896,10 +972,20 @@ class DeepSpaceGame {
   updateShipViews() {
     this.ships.forEach((ship)=>{
 
-      var hide = ship.disabled //|| Math.flipCoin(0.02);
-      // ship.view.alpha = (hide ? 0 : 1); // randomization for 'flicker effect'
+      var visibility = 1;
+      if(ship.disabled) {
+        visibility = 0;
+      } else if(ship.stealth) {
+        if(!this.spectate && ship.owner.team == this.ships.main.owner.team) {
+          visibility = Math.flipCoin(0.2) ? 0 : 0.4;
+        } else {
+          visibility = 0;
+        }
+      } else {
+        visibility = 1;
+      }
 
-      ship.view.alpha = hide ? 0 : ship.health;
+      ship.view.alpha = ship.health * visibility;
 
       ship.view.x = ship.position.x;
       ship.view.y = ship.position.y;
@@ -926,16 +1012,15 @@ class DeepSpaceGame {
     var views = this.view.blocks;
     this.model.blocks.forEach(b => {
       var v = views.get(b.id);
-      if(true) {
+      if(!b.locked || (v.visible = this.camera.showing(b))) {
         v.alpha = b.health;
         if(!b.locked) {
           v.x = b.position.x;
           v.y = b.position.y;
-          v.graphics.command.radius = b.radius;
+          // v.graphics.command.radius = b.radius;
+          v.scaleX = v.scaleY = b.scale;
         }
       }
-      v.visible = this.camera.showing(b);
-      if(v.x==0&&v.y==0) log(b.position);
     });
   }
 
@@ -1126,30 +1211,42 @@ class DeepSpaceGame {
       case 'block_bomb':
         p = new BlockBomb(data)
         break;
+      case 'stealth_cloak':
+        p = new StealthCloak(data)
+        break;
+      case 'missile':
+        p = new Missile(data)
+        break;
       default:
         break;
     }
 
     // create a view for it.
-    var graphics;
-    switch(data.type) {
-      case 'attractor':
+    if(data.type != 'stealth_cloak') {
+      var graphics;
+      switch(data.type) {
+        case 'attractor':
         graphics = DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
         break;
-      case 'repulsor':
+        case 'repulsor':
         graphics = DeepSpaceGame.graphics.repulsor(this.teams[p.team].color)
         break;
-      case 'block_bomb':
+        case 'block_bomb':
         graphics = DeepSpaceGame.graphics.block_bomb(this.teams[p.team].color)
         break;
-      default:
+        case 'missile':
+        graphics = DeepSpaceGame.graphics.missile(this.teams[p.team].color)
         break;
+        default:
+        break;
+      }
+      var pv = new createjs.Shape(graphics);
+      this.view.layer.action.back.addChild(pv);
+
+      this.view.subs.set(p.id, pv);
     }
-    var pv = new createjs.Shape(graphics);
-    this.view.layer.action.back.addChild(pv);
 
     this.model.subs.set(p.id, p);
-    this.view.subs.set(p.id, pv);
 
     if(!this.spectate) if(p.team != this.ships.main.owner.team.number) this.refGroups.enemySubs.add(p.id);
 
@@ -1166,10 +1263,12 @@ class DeepSpaceGame {
     this.refGroups.enemySubs.delete(p.id);
 
     // erase the view for it.
-    var v = this.view.subs.get(id);
-    if(v) {
-      this.view.subs.delete(id);
-      this.view.layer.action.back.removeChild(v);
+    if(p.type != 'stealth_cloak') {
+      var v = this.view.subs.get(id);
+      if(v) {
+        this.view.subs.delete(id);
+        this.view.layer.action.back.removeChild(v);
+      }
     }
     return true;
   }
@@ -1355,6 +1454,7 @@ DeepSpaceGame.graphics = {
   attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
   repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
   block_bomb: color => new createjs.Graphics().beginFill(color).moveTo(-10, 0).arcTo(-10, -10, 0, -10, 10).lineTo(0, 10).arcTo(-9, 9, -10, 0, 10),
+  missile: color => new createjs.Graphics().beginFill(color).moveTo(6, 0).lineTo(-6, -6).lineTo(-6, 6).lineTo(6, 0),
 
 
   ring: r => new createjs.Graphics().beginStroke("#ECEFF1").setStrokeStyle(16).drawCircle(0, 0, r),

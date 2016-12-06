@@ -20,6 +20,8 @@
         <script src="/js2/game.js"></script>
         <script src="/js2/soundhelper.js"></script>
         <script src="/js2/grid.js"></script>
+
+        <script src="https://d3js.org/d3-timer.v1.min.js"></script>
         <script src="/js2/particles.js"></script>
 
         <script src="/ui.js"></script>
@@ -85,12 +87,14 @@
       </div>
 
 
-      <div id="results_layer" class="layer"></div>
+      <div id="results_layer" class="layer">
+        
+      </div>
 
-      <!-- <div id="lines" class="layer grid"></div> -->
-      <!-- <div id="dots" class="layer grid"></div> -->
 
       <div id="game_layer" class="layer">
+        <div id="lines" class="layer grid"></div>
+        <!-- <div id="dots" class="layer grid"></div> -->
         <div class="content">
           <div id="overlay"><span id="log"></span></div>
           <canvas id="canvas"></canvas>
