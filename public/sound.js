@@ -4,7 +4,7 @@ class Sound {
 
   constructor(set) {
     this.root = '/sound/'
-    this._volume = 0.8;
+    this._volume = 0.7;
     this._pan = 0;
     this._mute = 0;
     this.activated = new Map();
@@ -71,6 +71,7 @@ class Sound {
       var instance = this.activated.get(id);
       instance.paused = true;
       instance.position = 0;
+      instance.stop()
     } else if(this.waiting.has(id)) {
       this.waiting.delete(id)
     }
@@ -127,11 +128,11 @@ Sound.sets = {
     ['track1', 'DR-T.mp3']
   ],
   game: [
-    ['pulse', '.mp3'],
-    ['shoot', '.mp3'],
-    ['damp', '.mp3'],
-    ['rise', '.mp3'],
-    ['fall', '.mp3'],
-    ['drop', '.mp3']
+    // ['pulse', 'pulse.wav'],
+    // ['shoot', 'standard_shot.wav'],
+    // ['damp', '.mp3'],
+    ['rise', 'rise.wav'],
+    ['fall', 'fall.wav']
+    // ['drop', '.mp3']
   ]
 }

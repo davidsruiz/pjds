@@ -3,7 +3,7 @@
 
 var MAX_PLAYER_LIMIT = 8;
 var MIN_PLAYER_LIMIT = 2;
-var NUM_OF_TEAMS = 2;
+var MAX_NUM_OF_TEAMS = 4;
 
 
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
@@ -77,7 +77,7 @@ class Lobby {
   game() {
     if(!this.setupData) {
       this.ongoing = true;
-      var numOfTeams = this.numOfTeams || this.players.size;
+      var numOfTeams = this.numOfTeams || this.players.size; if(numOfTeams > MAX_NUM_OF_TEAMS) numOfTeams = MAX_NUM_OF_TEAMS;
       var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
       var players = [], counter = 0;
       var block = (id, p, i) => {
@@ -136,7 +136,6 @@ class Lobby {
   }
 
 
-
 }
 
 // GAME PREF to be sent at start
@@ -156,7 +155,7 @@ DeepSpaceGame.colors = [
 ];
 
 DeepSpaceGame.colorCombinations = new Map([
-[1, [[1], [2], [3], [4], [5]]],
+[1, [[0], [1], [2], [3], [4], [5]]],
 [2, [
   [1, 4], // red, blue
   [1, 2], // red, yellow
@@ -173,6 +172,7 @@ DeepSpaceGame.colorCombinations = new Map([
 ]],
 [4,[
   [1, 2, 3, 4] // red, yellow, green, blue
+  [0, 2, 3, 4] // pink, yellow, green, blue
 ]]]
 );
 

@@ -80,11 +80,11 @@ body, body * {
     font-size : medium;
     font-style : normal;
     font-variant : normal;
-    font-weight : normal;
+    font-weight : inherit;
     height : auto;
     hyphens : none;
     left : auto;
-    letter-spacing : normal;
+    letter-spacing : inherit;
     line-height : normal;
     list-style : none;
     list-style-image : none;

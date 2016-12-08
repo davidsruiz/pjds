@@ -58,6 +58,26 @@ window.location.reset = () => { window.location = window.location.origin }
 
 FRAMES = {secs: s => s*60, mins: m => FRAMES.secs(m*60), hrs: h => FRAMES.mins(h*60)}
 
+// http://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
+var COLOR = {
+  componentToHex(c) {
+      var hex = c.toString(16);
+      return hex.length == 1 ? "0" + hex : hex;
+  },
+  rgbToHex(r, g, b) {
+      return "#" + this.componentToHex(r) + this.componentToHex(g) + this.componentToHex(b);
+  },
+  hexToRgb(hex) {
+      var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16)
+      } : null;
+  }
+}
+
+
 /* DOCUMENTATION //
 
 -- Object.prototype.forEach

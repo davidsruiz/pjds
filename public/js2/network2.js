@@ -122,7 +122,7 @@ class NetworkHelper {
     var send_data = { senderID: ENV["id"], blockID: blockID};
     socket.emit('block change', send_data);
     NetworkHelper.in_block_change(send_data);
-    
+
     // var block, sender;
     // if(block = ENV["game"].model.blocks.get(blockID)) if(sender = ENV["game"].players.get(ENV["id"])) ENV["game"].changeBlock(block.id, sender.team.number);
   }
@@ -187,13 +187,14 @@ class NetworkHelper {
   }
 
   // game end
-  static out_game_over() { if(!DeepSpaceGame.runningInstance) return;
-    socket.emit('game over', { senderID: ENV["id"] });
+  static out_game_over(winningTeam) { if(!DeepSpaceGame.runningInstance) return;
+    socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
   }
 
-  static in_game_over() { if(!DeepSpaceGame.runningInstance) return;
+  static in_game_over(data) { if(!DeepSpaceGame.runningInstance) return;
     var g = ENV["game"];
-    if(!g.game.over) g.end();
+    g.game.winningTeam = data.winningTeam; g.end();
+    LOBBY.showResults([g.game, g.teams]);
   }
 
   // disconnect players

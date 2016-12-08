@@ -12,8 +12,7 @@ var LOBBY = {
   },
 
   startCountdown(callback) { log(`starting countdown...`)
-    $('#countdown_layer').css('display', 'initial');
-    $('#countdown_layer').css('opacity', '1');
+    this.showLayer('#countdown_layer');
 
     var countdown = (n = this.coundownTime) => {
       $('#countdown').text(n--);
@@ -25,14 +24,22 @@ var LOBBY = {
   },
 
   revealGame(callback) {
-    $('#countdown_layer').css('opacity', '0');
-    $('#menu_layer').css('opacity', '0');
+    this.hideLayer('#countdown_layer');
+    this.hideLayer('#menu_layer');
     if(callback) callback();
-    setTimeout(()=>{
-      $('#countdown_layer').css('display', 'none');
-      $('#menu_layer').css('display', 'none');
-    }, 1000);
+  },
 
+  hideLayer(css_selector) {
+    $(css_selector).css('opacity', '0');
+    setTimeout(()=>{
+      $(css_selector).css('display', 'none');
+    }, 1000);
+  },
+  showLayer(css_selector) {
+    $(css_selector).css('display', 'initial');
+    setTimeout(()=>{
+      $(css_selector).css('opacity', '1');
+    }, 10);
   },
 
   disconnect(msg = `A network error occured`) {
@@ -41,15 +48,23 @@ var LOBBY = {
     location.reset();
   },
 
-  showResults(g) {
-    alert('somebody won..');
-    this.revealLobby();
+  showResults(game_data) {
+    $('#countdown').text('FINISH');
+    this.showLayer('#countdown_layer');
+    $('#game_layer').css('filter', 'blur(4px)');
+
+    RESULTS.load(game_data)
+    setTimeout(()=>{this.showLayer('#results_layer');}, TIME.sec(3));
+    setTimeout(()=>{this.hideLayer('#countdown_layer');}, TIME.sec(4));
+    setTimeout(()=>{$('#game_layer').css('filter', 'blur(0px)');}, TIME.sec(5));
+
+    setTimeout(()=>{this.revealLobby();}, TIME.sec(11));
   },
 
   revealLobby() {
     PARTICLES.start();
-    $('#menu_layer').css('display', 'initial');
-    $('#menu_layer').css('opacity', '1');
+    this.showLayer('#menu_layer');
+    setTimeout(()=>{this.hideLayer('#results_layer');}, TIME.sec(1));
   },
 
 

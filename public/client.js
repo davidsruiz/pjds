@@ -114,7 +114,7 @@ socket.on('msg ship kill', (data) => NetworkHelper.in_msg_ship_kill(data))
 
 socket.on('stop', () => delete DeepSpaceGame.runningInstance)
 
-socket.on('game over', () => NetworkHelper.in_game_over())
+socket.on('game over', (data) => NetworkHelper.in_game_over(data))
 
 socket.on('disconnect player', (userid) => NetworkHelper.in_disconnect_player(userid))
 

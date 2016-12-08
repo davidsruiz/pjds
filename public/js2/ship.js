@@ -20,6 +20,7 @@ class BasicShip {
     this.spawn =
       V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number])
       .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
+    this.last_known_position = this.position;
     this.reset()
   }
 
@@ -54,6 +55,7 @@ class BasicShip {
   // replaces the state of the ship
   override(data) {
     this.position.set(data.position);
+    this.last_known_position.set(data.position);
     // this.angle = data.angle;
   }
 
@@ -139,6 +141,7 @@ class Ship extends BasicShip {
 
   update() {
     super.update();
+    this.last_known_position = this.position;
     if(!this.disabled) {
       if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
     } else {

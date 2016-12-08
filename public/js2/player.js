@@ -10,7 +10,7 @@ class Player {
     this.ship = null;
     this.input = null;
 
-    this.score = {kills: 0}
+    this.score = {kills: 0, deaths: 0}
     this.disconnected = false;
   }
 

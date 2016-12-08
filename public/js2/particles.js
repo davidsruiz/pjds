@@ -16,8 +16,10 @@ PARTICLES = {
     minDistance2 = minDistance * minDistance,
     maxDistance2 = maxDistance * maxDistance;
 
-    context.strokeStyle="#FFFFFF";
-    context.fillStyle="#FFFFFF";
+    context.strokeStyle="#5F7179"; // whiteish
+    // context.strokeStyle="#607D8B"; // blueish
+    context.fillStyle="#5F7179"; // whiteish
+    // context.fillStyle="#607D8B"; // blueish
 
     var tau = 2 * Math.PI,
     n = parseInt(width*height/8000),

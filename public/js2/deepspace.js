@@ -28,7 +28,8 @@ class DeepSpaceGame {
     this.mapInfo = DeepSpaceGame.maps[0];
     this.gameMode = 'ctf'; // data.mode;
     this.language = 'en';
-    this.soundHelper = SoundHelper.start();
+    SoundHelper.start();
+    // this.soundHelper = SoundHelper.start();
 
     // everything else:
     this.setupData = data;
@@ -712,9 +713,9 @@ class DeepSpaceGame {
         case 'missile':
 
           // targeting
-          if(p.target && Physics.distance(p.target.position, p.position) > p.VISION_RANGE) p.target = null;
+          if(p.target && (Physics.distance(p.target.position, p.position) > p.VISION_RANGE || p.target.stealth)) p.target = null;
           this.ships.forEach(ship => {
-            if(ship && !ship.disabled && ship.owner.team.number != p.team) {
+            if(ship && !ship.disabled && !ship.stealth && ship.owner.team.number != p.team) {
               if(!p.target && ((distance = Physics.distance(ship.position, p.position)) < p.VISION_RANGE)) {
                 p.target = ship;
               }
@@ -934,7 +935,7 @@ class DeepSpaceGame {
     var flag = this.game.flag;
     if(!flag.idle) {
       var player = this.players.get(flag.holderID),
-          p = player.ship.position;
+          p = player.ship.last_known_position;
       flag.position.x = p.x;
       flag.position.y = p.y;
 
@@ -945,9 +946,10 @@ class DeepSpaceGame {
           percent = distance / this.game.max,
           high_score = this.game.scores[player.team.number],
           current_score = 100 - Math.round(percent * 100);
+
       if(current_score < high_score) this.game.scores[player.team.number] = current_score;
 
-      if(!(percent < 1)) { this.game.winningTeam = this.players.get(flag.holderID).team; this.end() }
+      if(!(percent < 1) && player == this.player) NetworkHelper.out_game_over(player.team.number);
     }
 
 
@@ -1086,13 +1088,20 @@ class DeepSpaceGame {
 //     );
   }
 
+
+  // end vs stop: end happens when the local game appears to conclude; interaction with the game is stopped
+  // and the state might even be obstructed from view though the simluation continues;
+
   end() {
     this.game.over = true;
-    setTimeout(()=>{this.game.abort = true})
     if(this.player) this.resetInput();
     this.deinitListeners();
-    NetworkHelper.out_game_over();
-    LOBBY.showResults(this.game);
+    SoundHelper.stop();
+    setTimeout(()=>{this.stop()}, 3000);
+  }
+
+  stop() {
+    this.game.abort = true
   }
 
   // maybe..
@@ -1110,6 +1119,9 @@ class DeepSpaceGame {
 
     this.model.bullets.set(b.id, b);
     this.view.bullets.set(b.id, bv);
+
+    // sound
+    // if(this.camera.showing(b)) SoundHelper.fireShot();
 
     return b;
   }
@@ -1244,6 +1256,8 @@ class DeepSpaceGame {
       this.view.layer.action.back.addChild(pv);
 
       this.view.subs.set(p.id, pv);
+
+      // if(this.camera.showing(p)) SoundHelper.fireSub(); // no sound for stealth
     }
 
     this.model.subs.set(p.id, p);
@@ -1289,6 +1303,9 @@ class DeepSpaceGame {
       )
     , c);
 
+    // sound
+    us ? SoundHelper.teamYay() : SoundHelper.teamNay();
+
     // this.updateFlagView();
   }
 
@@ -1329,6 +1346,9 @@ class DeepSpaceGame {
 
 
   msgShipKill(takerID, giverID) {//alert(`takerID ${takerID}, giverID ${giverID},`)
+    var t = this.players.get(takerID), g = this.players.get(giverID);
+    if(t) t.score.deaths++; if(g) g.score.kills++;
+
     if(this.spectate) return;
     if(takerID == this.player.id) {
       this.alert_kill(
@@ -1343,7 +1363,6 @@ class DeepSpaceGame {
           this.players.get(takerID).name
         )
       );
-      this.player.score.kills++;
     }
   }
 

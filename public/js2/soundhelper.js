@@ -3,7 +3,7 @@ var ENV = ENV || {};
 class SoundHelper {
 
   constructor() {
-    
+
   }
 
   static start() {
@@ -14,7 +14,7 @@ class SoundHelper {
     ENV.sound.stop('track1');
   }
 
-  static fireAttractor() {
+  static fireSub() {
     // if(!ENV.sound) return;
     ENV.sound.play('pulse')
   }

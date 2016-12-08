@@ -56,7 +56,7 @@ body { position: relative; }
   background-color: #37474F; /* Blue Grey 800 */
   text-align: center;
   z-index: 30;
-  /*opacity: 0;*/
+  /*opacity: 0; /* CHANGE THIS BACK*/*/
 }
 
 #menu_layer > #space {
@@ -210,7 +210,7 @@ input[type="submit"] {
 
 /* particles */
 body { background: #242e33 }
-#particles { opacity: 0.4 }
+/*#particles { opacity: 0.4 }*/
 #space {
   overflow:hidden;
   position:absolute;
@@ -218,4 +218,70 @@ body { background: #242e33 }
   bottom:0;
   left:0;
   right:0;
+}
+
+/* RESULTS */
+#results_layer {
+  background-color: #455A64;
+  z-index: 20;
+  opacity: 0;
+  display: none;
+
+  font-family: "Roboto Condensed";
+  letter-spacing: 2px;
+  color: white;
+}
+
+#results_layer * {
+  display: inline-block;
+}
+
+#results_layer > #results_head {
+  font-weight: bold;
+  text-align: center;
+  font-size: 64px;
+  width: 100%;
+  margin: 24px 0px;
+}
+
+#results_layer > .results_team {
+  width: 100%;
+  margin-bottom: 36px;
+}
+
+#results_layer .results_team_win_state {
+  width: 140px;
+  font-size: 54px;
+  /*font-size: 64px;*/
+  text-align: right;
+  vertical-align: top;
+}
+
+#results_layer .results_players {
+  width: 600px;
+  margin-left: 8px;
+}
+
+#results_layer .results_player {
+  background-color: rgba(255, 255, 225, 0.1);
+  width: 100%;
+  padding: 10px 20px;
+  font-size: 36px;
+  margin-bottom: 6px;
+}
+
+#results_layer .results_player_name {
+  font-size: inherit;
+  float: left;
+}
+
+#results_layer .results_player_score {
+  font-size: inherit;
+  float: right;
+}
+
+
+/* GAME */
+#game_layer {
+  transition-duration: 0s;
 }

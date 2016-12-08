@@ -62,7 +62,6 @@ app.post( '/:type', function( req, res ){
     break;
 
     case "online_status":
-      console.log(`online_status`, req.body.history);
       var list = req.body.history;
       var online = []; var c = 0;
       for(var id of list) {
@@ -218,6 +217,7 @@ console.log('ready')
           var was_active = client.active;
           lobby.remove(client);
           if(lobby.ongoing && was_active) {
+            if(lobby.state.flagHolder == client.userid) lobby.emit('flag drop');
             lobby.emit('disconnect player', client.userid);
             if(lobby.unsustainable) {
               lobby.emit('game error', 'a communications error occured');
@@ -278,11 +278,12 @@ console.log('ready')
 
     client.on('msg ship kill', data => client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop'));
 
-    client.on('game over', () => {
+    client.on('game over', (data) => {
       var lobby;
-      if(lobby = client.lobby) {
+      if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
+        lobby.emit('game over', data);
         lobby.endCurrentGame();
-        client.emit('lobby state', lobby.simplify());
+        lobby.emit('lobby state', lobby.simplify());
       }
     });
 
