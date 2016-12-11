@@ -9,7 +9,7 @@ function refreshLobbyView() {
   players.forEach((id, player) => {
 
     var name = player.name;
-    if(id == sessionStorage.id) {
+    if(id == ENV.storage.id) {
       var span = document.createElement('span'); span.className = 'mi';
       var input = document.createElement('input'); input.id = "name-input"
       input.type = "text";
@@ -33,11 +33,11 @@ function refreshLobbyView() {
         option.innerHTML = t;
         select.appendChild(option);
       });
-      select.value = sessionStorage.type || 'balanced';//defoption.textContent;
-      select.onchange = function(e) { socket.emit('set type', this.value); sessionStorage.type = this.value; };
+      select.value = ENV.storage.type || 'balanced';//defoption.textContent;
+      select.onchange = function(e) { socket.emit('set type', this.value); ENV.storage.type = this.value; };
       var right = document.createElement('span');
       var checkbox = document.createElement('input'); checkbox.type = "checkbox"; checkbox.name = "checkbox";
-      checkbox.onchange = function() { if(this.checked) { socket.emit('ready'); sessionStorage.ready = true; ENV.sound.play('ready') } }
+      checkbox.onchange = function() { if(this.checked) { socket.emit('ready'); ENV.sound.play('ready') } }
 
       row.appendChild(select);
       if(player.cleared) row.appendChild(document.createTextNode("ready?"))

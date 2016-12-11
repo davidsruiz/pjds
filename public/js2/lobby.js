@@ -44,6 +44,7 @@ var LOBBY = {
 
   disconnect(msg = `A network error occured`) {
     socket.disconnect();
+    ENV.storage.ongoing = false;
     alert(msg);
     location.reset();
   },
@@ -55,8 +56,11 @@ var LOBBY = {
 
     RESULTS.load(game_data)
     setTimeout(()=>{this.showLayer('#results_layer');}, TIME.sec(3));
-    setTimeout(()=>{this.hideLayer('#countdown_layer');}, TIME.sec(4));
+    setTimeout(()=>{this.hideLayer('#countdown_layer');}, TIME.sec(3.5));
     setTimeout(()=>{$('#game_layer').css('filter', 'blur(0px)');}, TIME.sec(5));
+
+    if(ENV.lobby.type == 'public') ENV.user.updateRank();
+    ENV.storage.ongoing = false;
 
     setTimeout(()=>{this.revealLobby();}, TIME.sec(11));
   },

@@ -1,6 +1,6 @@
 
 function listHistory(callback) {
-  var pp = sessionStorage.getItem("previous_players");
+  var pp = ENV.storage.previous_players;
   if(pp) {
     pp = JSON.parse(pp);
 

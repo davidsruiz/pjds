@@ -7,7 +7,30 @@ var TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return t
 LobbyManager = require('./lobby_manager.js');
 var LM = new LobbyManager();
 var clients = new Map();
-// var lobbies = {}, public = {}, private = {};
+
+TEA = require('./TEA.js');
+var RANK = {
+  MIN: 0, MAX: 599,
+  win(current_rank) {
+    var new_rank = current_rank + this.f1(current_rank);
+    return this.validate(new_rank);
+  },
+  lose(current_rank) {
+    var new_rank;
+    if(current_rank < 300) { new_rank = current_rank - this.f2(current_rank); }
+    else if(current_rank < 500) { new_rank = current_rank - this.f1(current_rank); }
+    else { new_rank = current_rank - this.f3(current_rank); }
+    return this.validate(new_rank);
+  },
+  f1(x) {return Math.round(2000/(x+100))}, // rank win (0 - 599), rank lose (300 - 499)
+  f2(x) {return Math.round((600/(x+100)) + (21/6))}, // rank lose (0 - 299)
+  f3(x) {return Math.round(Math.pow((-0.006*(x-400)), 2) + 3)}, // rank lose (500 - 599)
+  validate(rank) {
+    if(rank < this.MIN) { rank = this.MIN }
+    else if(rank > this.MAX) { rank = this.MAX }
+    return rank;
+  }
+}
 
 
 
@@ -57,7 +80,7 @@ app.post( '/:type', function( req, res ){
     case "practice":
       if(type == "pool") lobbyID = LM.next();
       if(type == "create") lobbyID = LM.new_private();
-      if(type == "practice") lobbyID = LM.new_private({players: 1});
+      if(type == "practice") lobbyID = LM.new_practice();
       res.redirect(`/${lobbyID}`);
     break;
 
@@ -72,6 +95,38 @@ app.post( '/:type', function( req, res ){
         }
       }
       res.json(online);
+    break;
+    case "rank":
+      var id = req.body.id,
+          encoded_rank,
+          simple_rank = 0;
+
+      if(!id) {
+        res.status(400).send('Bad Request');
+      } else {
+        encoded_rank = TEA.encrypt(simple_rank, id);
+        res.json({simple: simple_rank, encoded: encoded_rank});
+      }
+    break;
+    case "update_rank":
+      var id = req.body.id || UUID(),
+          encoded_rank = req.body.rank || '',
+          simple_rank = parseInt(TEA.decrypt(encoded_rank, id));
+
+      if(isNaN(simple_rank)) simple_rank = 0;
+
+      var client = clients.get(id);
+      if(client && client.won) { // if connected and needs winning
+        simple_rank = RANK.win(simple_rank);
+        client.won = false;
+      } else {
+        simple_rank = RANK.lose(simple_rank);
+      }
+
+      encoded_rank = TEA.encrypt(simple_rank, id);
+      res.json({simple: simple_rank, encoded: encoded_rank});
+    case "id":
+      res.json(UUID());
     break;
   }
 
@@ -281,6 +336,7 @@ console.log('ready')
     client.on('game over', (data) => {
       var lobby;
       if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
+        if(lobby.type == 'public') lobby.setWinForPlayers(data);
         lobby.emit('game over', data);
         lobby.endCurrentGame();
         lobby.emit('lobby state', lobby.simplify());

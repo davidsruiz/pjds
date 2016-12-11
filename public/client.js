@@ -1,5 +1,4 @@
 
-var ENV = ENV || {};
 
 // NETWORK INTERACTION
 
@@ -7,9 +6,9 @@ var ENV = ENV || {};
 var socket = io.connect();
 
 socket.on('onconnected', function(obj) {
-  if(sessionStorage.id === undefined) sessionStorage.id = obj.id;
-  socket.emit('userid', sessionStorage.id);
-  ENV["id"] = sessionStorage.id;
+  if(ENV.user.id === undefined) ENV.user.id = obj.id;
+  socket.emit('userid', ENV.user.id);
+  ENV["id"] = ENV.user.id;
 
   // REQUEST JOIN lobby
   var lobbyID = window.location.pathname.slice(1);
@@ -17,10 +16,10 @@ socket.on('onconnected', function(obj) {
   console.log(lobbyID);
 
   // send stored info
-  var name = sessionStorage.nickname || "";
+  var name = ENV.storage.user_name || "";
   socket.emit('set name', name);
 
-  var type = sessionStorage.type || "balanced"; // TODO: double hard-coded see view.js:36
+  var type = ENV.storage.type || "balanced"; // TODO: double hard-coded see view.js:36
   if(type) socket.emit('set type', type);
 
   // if(sessionStorage.ready = !!(sessionStorage.nickname && sessionStorage.type)) socket.emit('ready');
@@ -39,8 +38,8 @@ socket.on('lobby state', lobby => {
   // log(`lobby state`);
   // log(lobby.players);
   ENV["lobby"] = lobby;
-  var me = lobby.players[sessionStorage.id];
-  if(me) sessionStorage.nickname = me.name;
+  var me = lobby.players[ENV.storage.id];
+  if(me) ENV.user.name = me.name;
   if(!editing) refreshLobbyView();
 });
 
@@ -85,6 +84,7 @@ socket.on('start', function(data) {
   data.spectate = !!ENV["spectate"];
   // LOBBY.lobbyStatus('starting!');
   ENV.sound.stop('chill');
+  if(ENV.lobby.type == 'public') ENV.storage.ongoing = 'true';
   LOBBY.startCountdown(()=>{
     PARTICLES.stop();
   	g = ENV["game"] = DeepSpaceGame.start(data);
@@ -119,10 +119,10 @@ socket.on('game over', (data) => NetworkHelper.in_game_over(data))
 socket.on('disconnect player', (userid) => NetworkHelper.in_disconnect_player(userid))
 
 function recordHistory(data) {
-  var pp = sessionStorage.getItem("previous_players");
+  var pp = ENV.storage.getItem("previous_players");
 
   if(pp) { pp = JSON.parse(pp).toSet() } else { pp = new Set() }
   for(var player of data.players) if(player.id !== ENV["id"]) {pp.delete(player.id); pp.add(player.id);}//pp.add(`${player.id}::${player.name}`);
 
-  sessionStorage.setItem("previous_players", JSON.stringify(pp.toArray()));
+  ENV.storage.setItem("previous_players", JSON.stringify(pp.toArray()));
 }

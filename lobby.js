@@ -12,8 +12,8 @@ String.prototype.empty = function() { return this.trim() == ""}
 Math.flipCoin = (p = 0.5) => Math.random() < p
 
 class Lobby {
-  constructor(id, options = {}) {
-    this.id = id;
+  constructor(id, type, options = {}) {
+    this.id = id; this.type = type;
     this.required_players = options.players || MIN_PLAYER_LIMIT;
     this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
     // this.limit = pCount || NUM_OF_PLAYERS;
@@ -71,7 +71,7 @@ class Lobby {
     this.players.forEach((player)=>{
       obj[player.userid] = block(player)
     });
-    return { players: obj };
+    return { type: this.type, players: obj };
   }
 
   game() {
@@ -124,6 +124,13 @@ class Lobby {
     return this.players.has(userid);
   }
 
+  setWinForPlayers(data) { if(this.type != 'public') return;
+    this.setupData.players.forEach((player_info)=>{
+      var client = this.players.get(player_info.id);
+      if(client && (player_info.team == data.winningTeam)) client.won = true;
+    });
+  }
+
   endCurrentGame() {
     this.clearLastGame();
     // this.pickupNewPlayers();
@@ -171,7 +178,7 @@ DeepSpaceGame.colorCombinations = new Map([
   [0, 2, 4]  // pink, yellow, blue
 ]],
 [4,[
-  [1, 2, 3, 4] // red, yellow, green, blue
+  [1, 2, 3, 4], // red, yellow, green, blue
   [0, 2, 3, 4] // pink, yellow, green, blue
 ]]]
 );

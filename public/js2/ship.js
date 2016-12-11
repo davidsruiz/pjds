@@ -18,7 +18,7 @@ class BasicShip {
     this.assignAttrFrom(Ship.type[player.type]);
 
     this.spawn =
-      V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number])
+      V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length-1][this.owner.team.number])
       .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
     this.last_known_position = this.position;
     this.reset()
@@ -233,9 +233,9 @@ Ship.type = {
     REGEN_RATE: 0.4, // hp/frame
 
     BLOCK_CAPACITY: 120, //32,
-    BLOCK_HP_CAPACITY: 16, //24,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 4,
+    BLOCK_HP_CAPACITY: 8, //16,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.3), // (10%) angle sweep in radians.
+    BLOCK_RECOIL_DELAY: 6, // 4
 
     SUB_TYPE: 'block_bomb',
     SUB_RECOIL_DELAY: 360,

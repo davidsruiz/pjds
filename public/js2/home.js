@@ -16,4 +16,7 @@ $(() => {
     var span = jqEvent.currentTarget;
     span.classList.remove('selected')
   });
+
+  ENV.user = new User();
+  if(ENV.storage.ongoing == 'true') { ENV.user.updateRank(); ENV.storage.ongoing = 'false' }
 })

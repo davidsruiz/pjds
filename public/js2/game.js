@@ -7,3 +7,8 @@ ENV.sound.play('chill');
 
 ENV.sound.load('level');
 ENV.sound.load('game');
+
+$(() => {
+  ENV.user = new User();
+  if(ENV.storage.ongoing == 'true') { ENV.user.updateRank(); ENV.storage.ongoing = 'false' }
+});

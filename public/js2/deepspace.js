@@ -65,7 +65,7 @@ class DeepSpaceGame {
 
   setupSpawnCamps() {
     this.teams.forEach(team => {
-      team.spawn_camp = {position: V2D.new(DeepSpaceGame.maps[0].spawn[team.game.teams.length][team.number]), radius: 64}
+      team.spawn_camp = {position: V2D.new(DeepSpaceGame.maps[0].spawn[team.game.teams.length-1][team.number]), radius: 64}
     });
   }
 
@@ -1398,7 +1398,7 @@ class DeepSpaceGame {
     if(main) delete main.owner.input;
   }
   deinitListeners() {
-    for(let [,handler] of this.inputHandlers) { log(handler);
+    for(let [,handler] of this.inputHandlers) {
       window.removeEventListener('keydown', handler); // onkeydown
       window.removeEventListener('keyup', handler); // onkeyup
     }

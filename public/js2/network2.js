@@ -90,7 +90,7 @@ class NetworkHelper {
       id: id,
       team: ship.owner.team.number,
       position: ship.back_weapon_position,
-      angle: (ship.angle - Math.PI) + (ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1),
+      angle: (ship.angle - Math.PI) + ((ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1)),
       hp: ship.BLOCK_HP_CAPACITY,
       radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)
     }};

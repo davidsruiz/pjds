@@ -1,6 +1,6 @@
 
 /* FONTS */
-@import 'https://fonts.googleapis.com/css?family=Roboto|Roboto+Condensed:700';
+@import 'https://fonts.googleapis.com/css?family=Roboto:400,500|Roboto+Condensed:700';
 @import 'https://fonts.googleapis.com/icon?family=Material+Icons';
 
 /* STRUCTURE */
@@ -65,7 +65,10 @@ body { position: relative; }
 
 #menu_layer .content {
   z-index: 32;
-  position: relative;
+}
+
+#menu_layer .content, #game_layer .content {
+  position: relative; top: 50%; transform: translateY(-50%);
 }
 
 #menu_layer .content > .left, #menu_layer .content > .right {
@@ -173,7 +176,10 @@ input[type="submit"] {
   margin-bottom: 24px;
 }
 
+/* SOUND */
+
 #sound_layer {
+  min-width: 1024px;
   height: 64px;
   z-index: 50;
 }
@@ -191,6 +197,31 @@ input[type="submit"] {
 }
 
 #muted, #not_muted {display: none}
+
+/* USER */
+
+#user_info {
+  float: right;
+  padding-top: 48px;
+  padding-right: 72px;
+
+  font-family: 'Roboto';
+  font-weight: 500;
+  text-align: right;
+}
+
+#user_info_name, #user_info_rank { display:block; }
+
+#user_info_name {
+  font-size: 32px;
+  color: #8dabb9;
+}
+
+#user_info_rank {
+  font-size: 20px;
+  color: white;
+}
+
 
 /* viginette */
 #viginette {

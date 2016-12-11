@@ -66,10 +66,10 @@ RESULTS = {
       team.players.forEach((player)=>{
         players.push([player.name, player.score.kills, player.score.deaths]);
       })
-      players.sort((a, b)=>{b[1] - a[1]});
+      players.sort((a, b)=> b[1] - a[1]);
       summary.push({color, score, players});
     });
-    summary.sort((a, b)=>{b.score - a.score});
+    summary.sort((a, b)=> b.score - a.score );
     return summary;
   }
 
