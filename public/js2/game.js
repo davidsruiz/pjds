@@ -11,4 +11,6 @@ ENV.sound.load('game');
 $(() => {
   ENV.user = new User();
   if(ENV.storage.ongoing == 'true') { ENV.user.updateRank(); ENV.storage.ongoing = 'false' }
+
+  document.querySelector('#home_icon').addEventListener('click', () => { window.location.reset() });
 });

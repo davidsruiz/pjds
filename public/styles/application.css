@@ -12,6 +12,7 @@ body, div {
   display: inline-block;
 }
 a, input {font-size: inherit; letter-spacing: inherit;}
+*[hidden] {display: none}
 
 /* layers */
 body { position: relative; }
@@ -197,6 +198,7 @@ input[type="submit"] {
 }
 
 #muted, #not_muted {display: none}
+.material-icons {cursor: pointer}
 
 /* USER */
 

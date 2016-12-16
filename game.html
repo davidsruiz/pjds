@@ -7,6 +7,8 @@
         <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
         <link rel="stylesheet" href="/styles/lobby.css" charset="utf-8">
         <link rel="stylesheet" href="/styles/grid.css" charset="utf-8">
+        <link rel="stylesheet" href="/styles/drawer.css" charset="utf-8">
+        <link rel="stylesheet" href="/styles/help.css" charset="utf-8">
 
         <link rel="stylesheet" href="styles/style.css" charset="utf-8" />
         <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
@@ -27,6 +29,8 @@
         <script src="/js2/particles.js"></script>
 
         <script src="/ui.js"></script>
+        <script src="/js2/drawer.js"></script>
+        <script src="/js2/help.js"></script>
 
         <script src="js2/lib.js"></script>
         <script src="js2/physics.js"></script>
@@ -150,12 +154,25 @@ The practice lobby is a sandbox style lobby with no restrains in time or rank</s
           <!-- <div id="overlay"><span id="log"></span></div> -->
           <canvas id="canvas"></canvas>
         </div>
+        <div class="drawer non_select" id="help_drawer">
+          <header>
+            <span class="title">HOW TO PLAY</span>
+            <img class="close" src="images/close.png" alt="close" draggable="false" />
+          </header>
+          <div class="carousel">
+            <img class="left" src="images/arrow.png" alt="" draggable="false" />
+            <img class="center" src="" alt="" draggable="false" />
+            <img class="right" src="images/arrow.png" alt="" draggable="false" />
+          </div>
+        </div>
       </div>
 
       <div id="sound_layer" class="layer">
         <div id="volume">
           <button id="muted"><i class="material-icons">volume_mute</i></button>
           <button id="not_muted"><i class="material-icons">volume_up</i></button>
+          <button id="home_icon"><i class="material-icons">home</i></button>
+          <button id="help_icon" hidden><i class="material-icons">help</i></button>
         </div>
       </div>
 

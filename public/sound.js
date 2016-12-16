@@ -4,7 +4,7 @@ class Sound {
 
   constructor(set) {
     this.root = '/sound/'
-    this._volume = 0.7;
+    this._volume = 0.4;
     this._pan = 0;
     this._mute = 0;
     this.activated = new Map();

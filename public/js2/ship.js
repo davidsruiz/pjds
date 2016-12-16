@@ -203,6 +203,7 @@ class Ship extends BasicShip {
     this.velocity.reset()
     this.health = 1;
     this.disabled = false;
+    this.flag = undefined;
 
     NetworkHelper.out_ship_override(this.export_override());
   }
@@ -232,7 +233,7 @@ Ship.type = {
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4, // hp/frame
 
-    BLOCK_CAPACITY: 120, //32,
+    BLOCK_CAPACITY: 40, //32,
     BLOCK_HP_CAPACITY: 8, //16,
     BLOCK_SPREAD: (2 * Math.PI) * (0.3), // (10%) angle sweep in radians.
     BLOCK_RECOIL_DELAY: 6, // 4
@@ -261,10 +262,10 @@ Ship.type = {
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4,
 
-    BLOCK_CAPACITY: 120,
-    BLOCK_HP_CAPACITY: 16,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
-    BLOCK_RECOIL_DELAY: 4,
+    BLOCK_CAPACITY: 40,
+    BLOCK_HP_CAPACITY: 8,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
+    BLOCK_RECOIL_DELAY: 4, // 6
 
     SUB_TYPE: 'repulsor',
     SUB_RECOIL_DELAY: 30, // 120
@@ -290,10 +291,10 @@ Ship.type = {
     REGEN_DELAY: 180,
     REGEN_RATE: 0.5, // 0.4
 
-    BLOCK_CAPACITY: 120,
-    BLOCK_HP_CAPACITY: 18, // 16
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
-    BLOCK_RECOIL_DELAY: 4,
+    BLOCK_CAPACITY: 40,
+    BLOCK_HP_CAPACITY: 12, // 8
+    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
+    BLOCK_RECOIL_DELAY: 7, // 6
 
     SUB_TYPE: 'stealth_cloak',
     SUB_RECOIL_DELAY: 900, // 120
@@ -319,10 +320,10 @@ Ship.type = {
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4,
 
-    BLOCK_CAPACITY: 120,
-    BLOCK_HP_CAPACITY: 12, // 16
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
-    BLOCK_RECOIL_DELAY: 6,
+    BLOCK_CAPACITY: 40,
+    BLOCK_HP_CAPACITY: 6, // 8
+    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
+    BLOCK_RECOIL_DELAY: 9, // 6
 
     SUB_TYPE: 'missile',
     SUB_RECOIL_DELAY: 240, // 120
@@ -348,10 +349,10 @@ Ship.type = {
     REGEN_DELAY: 180,
     REGEN_RATE: 0.4,
 
-    BLOCK_CAPACITY: 120,
-    BLOCK_HP_CAPACITY: 16,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.1),
-    BLOCK_RECOIL_DELAY: 4,
+    BLOCK_CAPACITY: 40,
+    BLOCK_HP_CAPACITY: 8,
+    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
+    BLOCK_RECOIL_DELAY: 6,
 
     SUB_TYPE: 'attractor',
     SUB_RECOIL_DELAY: 120,

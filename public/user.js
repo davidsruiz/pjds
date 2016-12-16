@@ -29,11 +29,14 @@ class User {
   refreshUserRankView() {var rank_node = document.querySelector('#user_info_rank'); if(rank_node) rank_node.textContent = (this.name && (this.simple_rank >= 0)) ? (`${this.rank_letter} ${this.rank_number}`) : '';}
 
   get rank_letter() {
-    return ['E', 'D', 'C', 'B', 'A', 'M'][parseInt(this.simple_rank/100)]
+    return this.calculateRankLetter(this.simple_rank)
   }
   get rank_number() {
-    return this.simple_rank%100
+    return this.calculateRankNumber(this.simple_rank)
   }
+
+  calculateRankLetter(simple_rank) { return ['E', 'D', 'C', 'B', 'A', 'M'][parseInt(simple_rank/100)] }
+  calculateRankNumber(simple_rank) { return simple_rank%100 }
 
   idChangeHandler(prop, old_value, new_value) {
     ENV.storage.id = new_value;

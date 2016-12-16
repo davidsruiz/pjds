@@ -59,6 +59,8 @@ var LOBBY = {
     setTimeout(()=>{this.hideLayer('#countdown_layer');}, TIME.sec(3.5));
     setTimeout(()=>{$('#game_layer').css('filter', 'blur(0px)');}, TIME.sec(5));
 
+    LOBBY.hideHelpButton();
+
     if(ENV.lobby.type == 'public') ENV.user.updateRank();
     ENV.storage.ongoing = false;
 
@@ -84,6 +86,13 @@ var LOBBY = {
 
   lobbyStatus(m) {
     $('#lobby-status').text(m)
+  },
+
+  showHelpButton() {
+    $('#help_icon').removeAttr('hidden')
+  },
+  hideHelpButton() {
+    $('#help_icon').attr('hidden')
   }
 
 
