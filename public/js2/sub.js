@@ -228,7 +228,7 @@ class Missile {
 
 
       var x = direction.angle, y = this.rotation;
-      var delta_angle = Math.atan2(Math.sin(x-y), Math.cos(x-y)); log(`delta_angle: ${delta_angle}`)
+      var delta_angle = Math.atan2(Math.sin(x-y), Math.cos(x-y)); // log(`delta_angle: ${delta_angle}`)
 
       // var delta_rotation = direction.angle - this.rotation; log(Math.degrees(delta_rotation));
       if(delta_angle > this.MAX_TURN_SPEED) delta_angle = this.MAX_TURN_SPEED;

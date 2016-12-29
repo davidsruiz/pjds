@@ -70,5 +70,5 @@ window.addEventListener('load', ()=>{
   document.querySelector('.carousel .left').onclick = () => { carousel.prev() }
   document.querySelector('.drawer .close').addEventListener('click', () => { carousel.autoplay = false });
 
-  document.querySelector('#help_icon').addEventListener('click', () => { ENV.help.drawer.toggle() });
+  document.querySelector('#help_icon').addEventListener('click', () => { ENV.help.drawer.toggle(); document.querySelector('#help_icon').blur() });
 });

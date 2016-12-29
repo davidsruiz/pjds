@@ -180,6 +180,7 @@ class NetworkHelper {
     ENV["game"].pickupFlag(data.playerID);
   }
   static out_flag_drop() { if(!DeepSpaceGame.runningInstance) return;
+    var team_score
     socket.emit('flag drop', { senderID: ENV["id"] });
   }
   static in_flag_drop(data) { if(!DeepSpaceGame.runningInstance) return;

@@ -30,6 +30,6 @@ $(() => {
     localStorage.mute = ENV.sound.mute = true;
   });
 
-  localStorage.mute === 'true' ? SOUND.mute() : SOUND.unmute()
+  localStorage.mute === 'false' ? SOUND.unmute() : SOUND.mute()
 
 })

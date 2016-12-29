@@ -37,10 +37,11 @@ class User {
 
   calculateRankLetter(simple_rank) { return ['E', 'D', 'C', 'B', 'A', 'M'][parseInt(simple_rank/100)] }
   calculateRankNumber(simple_rank) { return simple_rank%100 }
+  calculateRankString(simple_rank) { return `${this.calculateRankLetter(simple_rank)} ${this.calculateRankNumber(simple_rank)}` }
 
   idChangeHandler(prop, old_value, new_value) {
     ENV.storage.id = new_value;
-    if(old_value != new_value) this.resetRank()
+    if(old_value != new_value) this.resetRank.wait(10);
     return new_value;
   }
 

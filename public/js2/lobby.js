@@ -61,8 +61,12 @@ var LOBBY = {
 
     LOBBY.hideHelpButton();
 
-    if(ENV.lobby.type == 'public') ENV.user.updateRank();
-    ENV.storage.ongoing = false;
+    if(ENV.lobby.type == 'public' && !ENV.spectate) {
+      var old_rank = ENV.user.simple_rank;
+      ENV.user.updateRank();
+      ENV.storage.ongoing = false;
+      (()=>{this.animateRankChange(old_rank, ENV.user.simple_rank)}).wait(TIME.sec(8))
+    }
 
     setTimeout(()=>{this.revealLobby();}, TIME.sec(11));
   },
@@ -71,6 +75,30 @@ var LOBBY = {
     PARTICLES.start();
     this.showLayer('#menu_layer');
     setTimeout(()=>{this.hideLayer('#results_layer');}, TIME.sec(1));
+  },
+
+  animateRankChange(old_rank, new_rank) {console.log(`OLD ${old_rank}`, `NEW ${new_rank}`)
+    $('#countdown').text(`RANK  -  ${ENV.user.calculateRankString(old_rank)}`);
+    this.showLayer('#countdown_layer');
+
+    (()=>{
+      var ms_delay = 20,
+          animate_length = 1000,
+          frame_count = animate_length / ms_delay,
+          rank_delta = new_rank - old_rank;
+
+      frame_count.times(i => {
+        var progress = (++i) / frame_count,
+            current_rank = Math.round(parseInt(old_rank) + (rank_delta*progress)),
+            wait_time = ms_delay*i;
+        (()=>{$('#countdown').text(`RANK  -  ${ENV.user.calculateRankString(current_rank)}`);}).wait(wait_time);
+      })
+    }).wait(1000);
+
+
+    // $('#countdown').text('FINISH');
+    // this.showLayer('#countdown_layer');
+    (()=>{this.hideLayer('#countdown_layer');}).wait(TIME.sec(3.5))
   },
 
 

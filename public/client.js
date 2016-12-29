@@ -84,8 +84,8 @@ socket.on('start', function(data) {
   data.spectate = !!ENV["spectate"];
   // LOBBY.lobbyStatus('starting!');
   ENV.sound.stop('chill');
-  if(ENV.lobby.type == 'public') ENV.storage.ongoing = 'true';
-  if(!ENV.storage.first_game) { ENV.help.drawer.expand(); ENV.help.carousel.start(); ENV.storage.first_game = true; }
+  if(ENV.lobby.type == 'public' && !ENV.spectate) ENV.storage.ongoing = 'true';
+  if(!ENV.storage.first_game  && !ENV.spectate) { ENV.help.drawer.expand(); ENV.help.carousel.start(); ENV.storage.first_game = true; }
   LOBBY.startCountdown(()=>{
     PARTICLES.stop();
     LOBBY.showHelpButton();

@@ -91,6 +91,7 @@ Math.sqr = x => Math.pow(x, 2);
 //  system
 var log = m => {console.log(m); return m};
 var err = m => console.error(m);
+(function(){}).constructor.prototype.wait = function(ms) { setTimeout(this, ms) };
 
 //  game
 var localIDMatches = id => id == ENV["id"];
@@ -132,6 +133,8 @@ var COLOR = {
       } : null;
   }
 }
+
+
 
 
 
