@@ -1,22 +1,22 @@
 
 // EXTENTION //
-Array.new=function(length, filler){var a = []; for(var i = 0; i < length; i++) a.push(filler); return a;}
-var TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
+Array.new = function(length, filler){let a = []; for(let i = 0; i < length; i++) a.push(filler); return a;};
+// let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 ///////////////
 
-LobbyManager = require('./lobby_manager.js');
-var LM = new LobbyManager();
-var clients = new Map();
+let LobbyManager = require('./lobby_manager.js');
+let LM = new LobbyManager();
+let clients = new Map();
 
 TEA = require('./TEA.js');
-var RANK = {
+let RANK = {
   MIN: 0, MAX: 599,
   win(current_rank) {
-    var new_rank = current_rank + this.f1(current_rank);
+    let new_rank = current_rank + this.f1(current_rank);
     return this.validate(new_rank);
   },
   lose(current_rank) {
-    var new_rank;
+    let new_rank;
     if(current_rank < 300) { new_rank = current_rank - this.f2(current_rank); }
     else if(current_rank < 500) { new_rank = current_rank - this.f1(current_rank); }
     else { new_rank = current_rank - this.f3(current_rank); }
@@ -30,11 +30,11 @@ var RANK = {
     else if(rank > this.MAX) { rank = this.MAX }
     return rank;
   }
-}
+};
 
 
 
-var
+let
     gameport        = process.env.PORT || 4004,
 
     io              = require('socket.io'),
@@ -46,17 +46,17 @@ var
     app             = express(),
     server          = http.createServer(app);
 
-// var shortid = require('shortid');
+// let shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-var colors = require('colors');
-var bodyParser = require('body-parser');
+let colors = require('colors');
+let bodyParser = require('body-parser');
 app.use(bodyParser.json());
 
 app.use(express.static('public'));
 
     //Tell the server to listen for incoming connections
-    server.listen(80)
-server.listen(gameport)
+    server.listen(80);
+server.listen(gameport);
     //Log something so we know that it succeeded.
 console.log('\t :: Express :: Listening on port ' + gameport );
 
@@ -71,7 +71,7 @@ app.get( '/', function( req, res ){
 
 app.post( '/:type', function( req, res ){
 
-  var lobbyID,
+  let lobbyID,
       type = req.params.type;
 
   switch(type) {
@@ -85,12 +85,12 @@ app.post( '/:type', function( req, res ){
     break;
 
     case "online_status":
-      var list = req.body.history;
-      var online = []; var c = 0;
-      for(var id of list) {
-        var client = clients.get(id);
+      let list = req.body.history;
+      let online = []; let c = 0;
+      for(let id of list) {
+        let client = clients.get(id);
         if(client && client.lobby) {
-          var entry = [client.name, client.lobby.id];
+          let entry = [client.name, client.lobby.id];
           online.push(entry);
         }
       }
@@ -115,7 +115,7 @@ app.post( '/:type', function( req, res ){
 
       if(isNaN(simple_rank)) simple_rank = 0;
 
-      var client = clients.get(id);
+      let client = clients.get(id);
       if(client && client.won) { // if connected and needs winning
         simple_rank = RANK.win(simple_rank);
         client.won = false;
@@ -160,7 +160,7 @@ app.get( '/friends' , function( req, res, next ) {
 // routing to lobby
 app.get( '/*' , function( req, res, next ) {
 
-    var lobbyID = req.params[0];
+    let lobbyID = req.params[0];
     if(LM.exists(lobbyID)) {
       res.sendfile("game.html");
     } else {
@@ -170,7 +170,7 @@ app.get( '/*' , function( req, res, next ) {
 }); //app.get *
 
     //Create a socket.io instance using our express server
-var sio = io.listen(server);
+let sio = io.listen(server);
 
 
     //Configure the socket.io connection settings.
@@ -203,7 +203,7 @@ sio.sockets.on('connection', function (client) {
     });
 
     client.on('join lobby', lobbyID => {
-      var lobby = LM.lobby(lobbyID)
+      let lobby = LM.lobby(lobbyID)
       if(lobby) {
         // check if there is room in lobby
         lobby.emit('lobby state', lobby.simplify());
@@ -220,7 +220,7 @@ sio.sockets.on('connection', function (client) {
     });
 
     client.on('set name', name => {
-      var lobby
+      let lobby
       if(lobby = client.lobby) {
         if(client.active) lobby.players.get(client.userid).name = name;
 
@@ -233,7 +233,7 @@ sio.sockets.on('connection', function (client) {
     });
 
     client.on('set type', type => {
-      var lobby
+      let lobby
       if(lobby = client.lobby) {
         if(client.active) lobby.players.get(client.userid).type = type;
         client.emit('lobby state', lobby.simplify());
@@ -245,11 +245,11 @@ sio.sockets.on('connection', function (client) {
 
 
     client.on('ready', () => {
-      var lobby
+      let lobby;
       if(lobby = client.lobby) {
         if(lobby.playerCleared(client)) client.ready = true;
         lobby.emit('lobby state', lobby.simplify());
-console.log('ready')
+        console.log('ready');
         if(lobby.sustainable && lobby.ready)
           {lobby.emit('start', lobby.game()); }
       } else {
@@ -267,9 +267,9 @@ console.log('ready')
 
         clients.delete(client.userid);
 
-        var lobby = client.lobby
+        let lobby = client.lobby;
         if(lobby) {
-          var was_active = client.active;
+          let was_active = client.active;
           lobby.remove(client);
           if(lobby.ongoing && was_active) {
             if(lobby.state.flagHolder == client.userid) lobby.emit('flag drop');
@@ -282,7 +282,7 @@ console.log('ready')
           lobby.emit('lobby state', lobby.simplify());
 
           // remove if empty
-          setTimeout(()=>{ var del = false;
+          setTimeout(()=>{ let del = false;
             if(lobby.connected.size == 0) {LM.delete(lobby.id); del = true}
             // console.log(del ? `deleted` : `preserved`)
           }, 5000);
@@ -314,7 +314,7 @@ console.log('ready')
 
     client.on('flag pickup', data => {
       if(client.lobby) {
-        client.lobby.emit('flag pickup', data)
+        client.lobby.emit('flag pickup', data);
         // client.lobby.first.emit('begin create asteroids')
         client.lobby.state.flagHolder = data.playerID;
       } else {
@@ -323,9 +323,20 @@ console.log('ready')
     });
     client.on('flag drop', data => {
       if(client.lobby) {
-        client.lobby.emit('flag drop', data)
+        client.lobby.emit('flag drop', data);
         // client.lobby.emit('stop create asteroids')
-        client.lobby.state.flagHolder = undefined;
+      } else {
+        client.emit('stop')
+      }
+    });
+    client.on('flag progress', data => {
+      if(client.lobby) {
+        console.log(`client ${client.name} sent ${data.score}`);
+        if(client.userid == client.lobby.state.flagHolder) {
+          client.lobby.state.scores[data.team] = {t: data.team, s: data.score};
+          client.lobby.state.flagHolder = undefined;
+          console.log(`data.team ${data.team}, data.score: ${data.score}`);
+        }
       } else {
         client.emit('stop')
       }
@@ -334,9 +345,10 @@ console.log('ready')
     client.on('msg ship kill', data => client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop'));
 
     client.on('game over', (data) => {
-      var lobby;
+      let lobby;
       if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
-        if(lobby.type == 'public') lobby.setWinForPlayers(data);
+        console.log(`from 'game over'. winningTeam: ${data.winningTeam}`);
+        if(lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
         lobby.emit('game over', data);
         lobby.endCurrentGame();
         lobby.emit('lobby state', lobby.simplify());

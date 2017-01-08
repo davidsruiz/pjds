@@ -12,14 +12,17 @@ RESULTS = {
     summary.forEach((team, i)=>{
       var results_team = document.createElement('div'),
           results_team_win_state = document.createElement('span'),
+          results_team_score = document.createElement('span'),
           results_players = document.createElement('div');
       var {r, g, b} = COLOR.hexToRgb(team.color);
-      var RGBAcolor = `rgba(${r}, ${g}, ${b}, 0.3)`
+      var RGBAcolor = `rgba(${r}, ${g}, ${b}, 0.3)`;
 
       results_team.className = 'results_team';
       results_team_win_state.className = 'results_team_win_state';
       results_team_win_state.textContent = i == 0 ? 'WIN' : 'LOSE';
       results_team_win_state.style.color = team.color;
+      results_team_score.className = 'results_team_score';
+      results_team_score.textContent = team.score;
       results_players.className = 'results_players';
 
       team.players.forEach((player)=>{
@@ -38,8 +41,9 @@ RESULTS = {
         results_player.appendChild(results_player_score);
 
         results_players.appendChild(results_player);
-      })
+      });
 
+      results_team_win_state.appendChild(results_team_score);
       results_team.appendChild(results_team_win_state);
       results_team.appendChild(results_players);
 
@@ -65,7 +69,7 @@ RESULTS = {
           players = [];
       team.players.forEach((player)=>{
         players.push([player.name, player.score.kills, player.score.deaths]);
-      })
+      });
       players.sort((a, b)=> b[1] - a[1]);
       summary.push({color, score, players});
     });
@@ -74,4 +78,4 @@ RESULTS = {
   }
 
 
-}
+};

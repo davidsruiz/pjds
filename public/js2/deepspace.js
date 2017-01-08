@@ -28,6 +28,8 @@ class DeepSpaceGame {
     this.mapInfo = DeepSpaceGame.maps[0];
     this.gameMode = 'ctf'; // data.mode;
     this.language = 'en';
+    this.timer = new Timer(data.duration);
+    this.timer.start(() => { this.timerExpire() });
     SoundHelper.start();
     // this.soundHelper = SoundHelper.start();
 
@@ -57,7 +59,7 @@ class DeepSpaceGame {
 
   setupTeams() {
     this.teams = [];
-    var teamCount = this.setupData.teams;
+    let teamCount = this.setupData.teams;
     teamCount.times((i) => { this.teams.push(new Team(this, i)) });
 
     this.setupSpawnCamps();
@@ -106,8 +108,8 @@ class DeepSpaceGame {
 
   setupGame() {
     this.game = {};
-    this.game.over = false;
-    this.game.abort = false;
+    this.game.disabled = false;
+    this.game.ended = false;
     // this.timer = DeepSpaceGame.modes[this.gameMode];
     switch(this.gameMode) {
       case "ctf":
@@ -270,18 +272,18 @@ class DeepSpaceGame {
     this.view.subs = new Map()
   }
 
-  createParticleViews() {
-    this.ships.forEach((ship) => {
-      var view = ship.view;
-
-      DeepSpaceGame.renderingParameters.times(() => {
-        var particle = DeepSpaceGame.graphics.particle();
-        view.reserve.push(new createjs.Shape);
-      });
-
-      this.stage.addChild(ship.view = view);
-    });
-  }
+  // createParticleViews() {
+  //   this.ships.forEach((ship) => {
+  //     var view = ship.view;
+  //
+  //     DeepSpaceGame.renderingParameters.times(() => {
+  //       var particle = DeepSpaceGame.graphics.particle();
+  //       view.reserve.push(new createjs.Shape);
+  //     });
+  //
+  //     this.stage.addChild(ship.view = view);
+  //   });
+  // }
 
   createOverlayViews() {
     var overlay = {};
@@ -475,16 +477,16 @@ class DeepSpaceGame {
         var gamepad = navigator.getGamepads()[0];
         if(!gamepad) return;
 
-        var val;
+        var val, deadZone;
 
         // UP
-        var deadZone = 0.0;
+        deadZone = 0.0;
         val = gamepad.axes[3]; val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
         val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
         playerInput.set("forward", val);
 
         // LEFT and RIGHT
-        var deadZone = 0.15;
+        deadZone = 0.15;
         val = gamepad.axes[0];
         val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
         playerInput.set("turn", val);
@@ -549,11 +551,16 @@ class DeepSpaceGame {
   actualize() {
     // bring an outside game up to speed
 
+    // scores
+    this.setupData.state.scores.forEach((entry)=>{ this.game.scores[entry.t] = entry.s });
+
     // flag
     var holder;
     setTimeout(()=>{if(holder = this.setupData.state.flagHolder) this.pickupFlag(holder);}, 100);
 
+    // disconnects
     this.setupData.disconnects.forEach(id => this.disconnectPlayer(id))
+
   }
 
 
@@ -561,14 +568,14 @@ class DeepSpaceGame {
     this.update();
     this.log();
 
-    getAnimationFrame(()=> this.game.abort ? true : this.loop())
+    getAnimationFrame(()=> this.game.ended ? true : this.loop())
   }
 
   update() {
     // this function duty is as follows:
     // to update all the moving parts pertaining to the current/local user.
     // any collisions should be sent back to the server to sync the changes.
-    var over = this.game.over;
+    var over = this.game.disabled;
     if(!over) this.updateInput();
     this.updateModel();
     if(!over) if(!this.spectate) this.checkForCollisions();
@@ -947,7 +954,7 @@ class DeepSpaceGame {
           high_score = this.game.scores[player.team.number],
           current_score = 100 - Math.round(percent * 100);
 
-      if(current_score < high_score) this.game.scores[player.team.number] = current_score;
+      if(current_score < high_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
 
       if(!(percent < 1) && player == this.player) NetworkHelper.out_game_over(player.team.number);
     }
@@ -1092,16 +1099,25 @@ class DeepSpaceGame {
   // end vs stop: end happens when the local game appears to conclude; interaction with the game is stopped
   // and the state might even be obstructed from view though the simluation continues;
 
-  end() {
-    this.game.over = true;
+  disableInteraction() {
+    this.game.disabled = true;
     if(this.player) this.resetInput();
     this.deinitListeners();
-    SoundHelper.stop();
-    setTimeout(()=>{this.stop()}, 3000);
+    this.timer.cancel();
   }
 
-  stop() {
-    this.game.abort = true
+  endSimulation() {
+    this.game.ended = true;
+    SoundHelper.stop();
+  }
+
+  timerExpire() {
+    LOBBY.endGame();
+
+    // disconnect if no server response after 6s
+    setTimeout(() => {
+      if(!this.game.ended) LOBBY.disconnect();
+    }, 6000);
   }
 
   // maybe..

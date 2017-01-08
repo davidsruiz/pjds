@@ -160,7 +160,7 @@ class Ship extends BasicShip {
 
       this.bullets.add(id);
       this.recoil_counter = 0;
-      ;
+
     }
   }
 
@@ -200,10 +200,11 @@ class Ship extends BasicShip {
 
   reset() {
     this.position.set(this.spawn);
-    this.velocity.reset()
+    this.velocity.reset();
     this.health = 1;
     this.disabled = false;
     this.flag = undefined;
+    this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
 
     NetworkHelper.out_ship_override(this.export_override());
   }
@@ -358,61 +359,4 @@ Ship.type = {
     SUB_RECOIL_DELAY: 120,
     SUB_CAPACITY: 1
   }
-}
-//
-//
-//
-// class NetworkShip {
-//
-//   constructor(player) {
-//     this.owner = player;
-//
-//     this.disabled = false;
-//     this.position = new V2D(20, 20);
-//     this.receviedPosition = this.position;
-//     this.angle = 0;
-//     this.receviedAngle = this.angle;
-//     this.health = 1;
-//
-//     this.radius = 10;
-//
-//     // movement
-//     this.velocity = new V2D();
-//     this.acceleration = new V2D();
-//
-//     this.angular_velocity = 0;
-//     this.angular_acceleration = 0;
-//
-//     this.assignAttrFrom(Ship.type.balanced);
-//   }
-//
-//   update(data) {
-//     this.disabled = data.disabled;
-//     this.position = data.position;
-//     this.angle = data.angle;
-//     this.health = data.health;
-//   }
-//
-//   compute() {
-//     if(!this.disabled) {
-//       this.velocity.mul(this.LINEAR_FRICTION);
-//       this.velocity.add(this.acceleration);
-//       this.position.add(this.velocity);
-//
-//       if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
-//          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
-//
-//       this.angular_velocity += this.angular_acceleration
-//       this.angular_velocity *= this.ANGULAR_FRICTION
-//       this.angle += this.angular_velocity
-//
-//       if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
-//          this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
-//       if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
-//          this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
-//
-//       // calculate force needed to move ship towards received position and angle
-//
-//     }
-//   }
-// }
+};

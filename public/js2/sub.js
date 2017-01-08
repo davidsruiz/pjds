@@ -35,7 +35,7 @@ class Attractor {
     this.rotation += ((this.velocity.length / 360) + 0.05);
     if(++this.life_counter > this.LIFESPAN) {
       this.disabled = true;
-      ENV["game"].endSub(this.id);
+      ENV.game.endSub(this.id);
     }
   }
 }
@@ -87,7 +87,7 @@ class Repulsor {
     this.rotation += ((this.velocity.length / 360) + 0.05);
     if(++this.life_counter > this.LIFESPAN) {
       this.disabled = true;
-      ENV["game"].endSub(this.id);
+      ENV.game.endSub(this.id);
     }
   }
 }
@@ -131,7 +131,7 @@ class BlockBomb {
   }
 
   update() {
-    // if(this.disabled) ENV["game"].endSub(this.id);
+    // if(this.disabled) ENV.game.endSub(this.id);
     this.velocity.mul(this.FRICTION);
     this.position.add(this.velocity);
     // this.rotation += ((this.velocity.length / 360) + 0.05);
@@ -165,7 +165,7 @@ class StealthCloak {
     this.type = data.type;
     this.team = data.team;
 
-    this.target = ENV["game"].players.get(data.player);
+    this.target = ENV.game.players.get(data.player);
 
     this.assignAttrFrom(StealthCloak.stats);
 
@@ -180,7 +180,7 @@ class StealthCloak {
       this.target.ship.stealth = !dead;
     }
     if(dead) {
-      ENV["game"].endSub(this.id);
+      ENV.game.endSub(this.id);
     }
   }
 

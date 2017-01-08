@@ -26,7 +26,7 @@ class Bullet {
     this.position.add(this.velocity);
     if(++this.life_counter > this.LIFESPAN) {
       this.disabled = true;
-      ENV["game"].endBullet(this.id);
+      ENV.game.endBullet(this.id);
     }
   }
 }

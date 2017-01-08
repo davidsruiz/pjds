@@ -1,32 +1,39 @@
 
 "use strict";
 
-var MAX_PLAYER_LIMIT = 8;
-var MIN_PLAYER_LIMIT = 2;
-var MAX_NUM_OF_TEAMS = 4;
+let Timer = require('./public/js2/timer.js');
+
+let MAX_PLAYER_LIMIT = 8;
+let MIN_PLAYER_LIMIT = 2;
+let MAX_NUM_OF_TEAMS = 4;
+let GAME_DURATION = 180000; // 3 min
+let COUNTDOWN_DURATION = 3000; // 3 sec
 
 
 Array.prototype.sample = function() { return this[Math.floor(Math.random() * this.length)] };
 Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
-String.prototype.empty = function() { return this.trim() == ""}
-Math.flipCoin = (p = 0.5) => Math.random() < p
+Array.prototype.highestValuedIndex = function() { let highest = 0; for(let i = 0; i < this.length; i++) { if(this[i] > this[highest]) highest = i; if(typeof this[i] != 'undefined' && typeof this[highest] == 'undefined') highest = i; } return highest; };
+String.prototype.empty = function() { return this.trim() == ""};
+Math.flipCoin = (p = 0.5) => Math.random() < p;
 
 class Lobby {
   constructor(id, type, options = {}) {
-    this.id = id; this.type = type;
-    this.required_players = options.players || MIN_PLAYER_LIMIT;
-    this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
-    // this.limit = pCount || NUM_OF_PLAYERS;
-    this.numOfTeams = options.teams;
-    this.players = new Map();
-    this.ongoing = false;
-    this.connected = new Map();
+      this.id = id;
+      this.type = type;
+      this.required_players = options.players || MIN_PLAYER_LIMIT;
+      this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
+      // this.limit = pCount || NUM_OF_PLAYERS;
+      this.numOfTeams = options.teams;
+      this.players = new Map();
+      this.ongoing = false;
+      this.connected = new Map();
 
-    this.colors;
-    // this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
+      this.colors;
+      // this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
 
-    this.state = {};
-    this.setupData;
+      this.state = {scores: []};
+      this.timer = new Timer(GAME_DURATION + COUNTDOWN_DURATION);
+      this.setupData;
   }
   get full() {return !(this.players.size < this.limit) }
   join(client) {
@@ -61,7 +68,7 @@ class Lobby {
         this.connected.get(key).emit(msg, data);
   }
 
-  // to remove circular dependancies and minimize bandwidth consumption,
+  // to remove circular dependencies and minimize bandwidth consumption,
     // only select data is sent over.
   simplify() {
     var obj = {};
@@ -77,6 +84,7 @@ class Lobby {
   game() {
     if(!this.setupData) {
       this.ongoing = true;
+      this.timer.start(() => { this.timeout() });
       var numOfTeams = this.numOfTeams || this.players.size; if(numOfTeams > MAX_NUM_OF_TEAMS) numOfTeams = MAX_NUM_OF_TEAMS;
       var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
       var players = [], counter = 0;
@@ -96,12 +104,14 @@ class Lobby {
       };
 
       for (let [id, player] of this.players) player.ready = false;
+      for (let i = 0; i < numOfTeams; i++) this.state.scores.push({t:i, s:100});
     }
+    this.setupData.duration = this.timer.timeLeft - COUNTDOWN_DURATION;
     return this.setupData;
   }
 
   get ready() {
-    for (let [id, player] of this.players){console.log(`${player.userid} : ${player.ready}`)
+    for (let [id, player] of this.players){console.log(`${player.userid} : ${player.ready}`);
       if(!player.ready) return false;}
     return true;
   }
@@ -115,7 +125,7 @@ class Lobby {
   }
 
   get unsustainable() {
-    var unsus = this.players.size < (this.limit == 1 ? 1 : 2 ); console.log(`unsustainable: ${unsus}`)
+    var unsus = this.players.size < (this.limit == 1 ? 1 : 2 ); // console.log(`unsustainable: ${unsus}`);
     if(unsus) return true;
     return false;
   }
@@ -124,11 +134,26 @@ class Lobby {
     return this.players.has(userid);
   }
 
-  setWinForPlayers(data) { if(this.type != 'public') return;
+  setWinForPlayers(winningTeam) { if(this.type != 'public') return;
+    // if no winning team index is presented, one is deducted using the current scores
+    console.log(`scores: `);
+    console.log(this.state.scores);
+    if(typeof winningTeam === 'undefined') winningTeam = this.state.scores.sort((a,b) => a.s-b.s)[0].t;
+    console.log(`winningTeam: ${winningTeam}`);
     this.setupData.players.forEach((player_info)=>{
       var client = this.players.get(player_info.id);
-      if(client && (player_info.team == data.winningTeam)) client.won = true;
+      if(client && (player_info.team == winningTeam)) client.won = true;
     });
+  }
+
+  timeout() {
+    setTimeout(()=>{ this.emit('flag drop'); }, 1000);
+    setTimeout(()=>{
+      this.setWinForPlayers();
+      this.emit('game over ready');
+      this.endCurrentGame();
+      this.emit('lobby state', this.simplify());
+    }, 3000);
   }
 
   endCurrentGame() {
@@ -140,9 +165,26 @@ class Lobby {
     this.ongoing = false;
     this.setupData = null;
     this.state.flagHolder = undefined;
+    this.state.scores = [];
+    this.timer.cancel();
   }
 
 
+}
+
+class GameTimer {
+  constructor(time = 0) {
+    this.duration = time;
+  }
+  start(block) {
+    this.startTime = Date.now();
+    this.timout_id = setTimeout(()=>{block()}, this.duration)
+  }
+  stop() {
+    clearTimeout(this.timout_id);
+  }
+  get timeElapsed() { return Date.now() - this.startTime }
+  get timeLeft() { return this.duration - this.timeElapsed }
 }
 
 // GAME PREF to be sent at start
