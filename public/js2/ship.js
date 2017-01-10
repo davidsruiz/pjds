@@ -90,6 +90,8 @@ class Ship extends BasicShip {
     this.blocks = new Set();
     this.subs = new Set();
 
+    this.intersectingBlocks = new Set();
+
     this.recoil_counter = 0;
     this.respawn_counter = 0;
     this.regen_counter = 0;

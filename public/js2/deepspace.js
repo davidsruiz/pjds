@@ -771,9 +771,14 @@ class DeepSpaceGame {
   }
 
   bulletCollisions() {
-    this.bulletShipCollisions();
-    this.bulletBlockCollisions();
+    // checked in order of precidence
+    // e.g. a bullet colliding with a spawn
+    // camp is unable to collide with a ship
+    // safe within the walls
+
     this.bulletSpawnCampCollisions();
+    this.bulletBlockCollisions();
+    this.bulletShipCollisions();
   }
 
   bulletShipCollisions() {
@@ -844,12 +849,29 @@ class DeepSpaceGame {
     this.refGroups.enemyBlocks.forEach(block => {
       if(block && !block.disabled) {
         if(Physics.doTouch(ship, block)) {
+          // the destroy approach
           // NetworkHelper.out_block_destroy(block.id);
-          NetworkHelper.block_change(block.id);
+
+          // the slow down approach
           // ship.acceleration.mul(0.1);
           // log('ship-block')
+
+          // the convert approach
+          // NetworkHelper.block_change(block.id);
+
+          // the convert after upon exit approach
+          ship.intersectingBlocks.add(block);
+
         }
         // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
+      }
+    });
+    ship.intersectingBlocks.forEach(block => {
+      if(block && !block.disabled) {
+        if(!Physics.doTouch(ship, block)) {
+          NetworkHelper.block_change(block.id);
+          ship.intersectingBlocks.delete(block);
+        }
       }
     });
   }
@@ -1367,11 +1389,13 @@ class DeepSpaceGame {
 
     if(this.spectate) return;
     if(takerID == this.player.id) {
+      const player = this.players.get(giverID);
       this.alert_kill(
         DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](
-          this.players.get(giverID).name
+          player.name
         )
       );
+      this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);
     } else
     if(giverID == this.player.id) {
       this.alert_kill(
@@ -1420,7 +1444,7 @@ class DeepSpaceGame {
     }
   }
   deinitCamera() {
-    delete this.camera;
+    delete this.camera.animateFocus();
   }
   deinitView() {
     delete this.view;

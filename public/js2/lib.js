@@ -74,6 +74,26 @@ Math.randomMinMax = (min, max) => (Math.random()*(max - min)) + min;
 Math.randomIntMinMax = (min, max) => Math.floor((Math.random()*(max - min)) + min);
 
 
+const setIntervalTimeout = function(block, interval, timeout) {
+
+  var ms_delay = Math.round(interval),
+    animate_length = Math.round(timeout);
+
+  if(animate_length % ms_delay != 0) animate_length = Math.ceil(animate_length / ms_delay) * ms_delay;
+
+  var frame_count = animate_length / ms_delay;
+
+  frame_count.times(i => {
+    var progress = (++i) / frame_count,
+      wait_time = ms_delay*i;
+    (()=>{
+      block(i-1, frame_count);
+    }).wait(wait_time);
+  })
+
+};
+
+
 // Converts from degrees to radians.
 Math.radians = function(degrees) {
   return degrees * Math.PI / 180;

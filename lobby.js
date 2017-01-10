@@ -136,10 +136,14 @@ class Lobby {
 
   setWinForPlayers(winningTeam) { if(this.type != 'public') return;
     // if no winning team index is presented, one is deducted using the current scores
-    console.log(`scores: `);
-    console.log(this.state.scores);
-    if(typeof winningTeam === 'undefined') winningTeam = this.state.scores.sort((a,b) => a.s-b.s)[0].t;
-    console.log(`winningTeam: ${winningTeam}`);
+    if(typeof winningTeam === 'undefined') {
+      if(this.state.scores.length != 0) {
+        winningTeam = this.state.scores.shuffle().sort((a,b) => a.s-b.s)[0].t;
+      } else {
+        winningTeam = Math.floor(Math.random()*this.setupData.teams);
+        `no scores were registered!!`.yellow();
+      }
+    }
     this.setupData.players.forEach((player_info)=>{
       var client = this.players.get(player_info.id);
       if(client && (player_info.team == winningTeam)) client.won = true;
