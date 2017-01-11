@@ -122,6 +122,7 @@ class DeepSpaceGame {
         // actual game stats
         this.game.scores = Array.new(this.teams.length, 100);
         this.game.max = DeepSpaceGame.modes["ctf"].ring_radius;
+        this.game.lead = undefined; // team in the lead
 
         break;
     }
@@ -973,12 +974,42 @@ class DeepSpaceGame {
           centerY = this.mapInfo.height / 2,
           distance = Physics.distance(p, {x: centerX, y: centerY}),
           percent = distance / this.game.max,
-          high_score = this.game.scores[player.team.number],
+          low_score = this.game.scores[player.team.number],
           current_score = 100 - Math.round(percent * 100);
 
-      if(current_score < high_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
+      if(current_score < low_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
 
       if(!(percent < 1) && player == this.player) NetworkHelper.out_game_over(player.team.number);
+
+
+      // LEAD COMPARISON
+      // replace lead if none exists
+      if(!this.game.lead) this.game.lead = player.team;
+
+      // replace lead if record shows
+      if(current_score < this.game.scores[this.game.lead.number]) {
+
+        if(!this.spectate) {
+          // if you are replacing
+          if(player.team == this.team) {
+            let c = this.team.color;
+            this.alert(
+              DeepSpaceGame.localizationStrings.alerts['teamTakesLead'][this.language]()
+              , c);
+          }
+          // if you are being replaced
+          else if(this.game.lead == this.team) {
+            let c = player.team.color;
+            this.alert(
+              DeepSpaceGame.localizationStrings.alerts['teamLosesLead'][this.language]()
+              , c);
+          }
+        }
+
+        this.game.lead = player.team;
+      }
+
+
     }
 
 
@@ -1081,6 +1112,7 @@ class DeepSpaceGame {
 
     this.view.overlay.score.team.forEach((text, i)=>{
       text.text = this.game.scores[i];
+      text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.9);
     })
 
     this.updateFlagView();
@@ -1395,7 +1427,8 @@ class DeepSpaceGame {
           player.name
         )
       );
-      this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);
+      this.camera.animateFocus(player.ship.view, [this.player.ship, 'disabled']);
+      // this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);
     } else
     if(giverID == this.player.id) {
       this.alert_kill(
@@ -1444,7 +1477,7 @@ class DeepSpaceGame {
     }
   }
   deinitCamera() {
-    delete this.camera.animateFocus();
+    delete this.camera;
   }
   deinitView() {
     delete this.view;
@@ -1545,6 +1578,12 @@ DeepSpaceGame.localizationStrings = {
     },
     yourDeath: {
       en: (name) => `${name} got you!`
+    },
+    teamTakesLead: {
+      en: () => `We took the lead!`
+    },
+    teamLosesLead: {
+      en: () => `We lost the lead!`
     }
   },
   colors: {

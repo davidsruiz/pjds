@@ -22,8 +22,11 @@ class Camera {
     )
   }
 
-  /* class methods */
-  animateFocus(new_focus, untilInterval) {
+  /*
+   * this.animateFocus: eases the focus coordinate from one target to another while a condition is true after an amount
+   * of time.
+   */
+  animateFocus(new_focus, whileCondition) {
     log(this.focus);
     log(new_focus);
     const timingFunction = BezierEasing(0.4, 0.0, 0.2, 1),
@@ -38,7 +41,10 @@ class Camera {
       this.focus = ((percentage != 1) ? {x:p1.x, y:p1.y} : new_focus);
     }, 16, 1000);
 
-    setTimeout(()=>{ this.focus = old_focus; log(old_focus); }, untilInterval);
+    // a continuous post check is required for slower machines that run at < 60 fps
+    let [obj, prop] = whileCondition;
+    let check = () => { (obj[prop]) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
+    (()=>{ check() }).wait(1000);
   }
 
 }

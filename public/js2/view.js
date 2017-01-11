@@ -28,6 +28,8 @@ function refreshLobbyView() {
       // select.appendChild(placeholder);
       let defoption = document.createElement('option'); defoption.disabled = true; defoption.textContent = "choose ship type";
       select.appendChild(defoption);
+      let random_option = document.createElement('option'); random_option.textContent = "random"; random_option.value = types.sample();
+      select.appendChild(random_option);
       types.forEach(t => {
         let option = document.createElement('option');
         option.innerHTML = t;
@@ -47,7 +49,6 @@ function refreshLobbyView() {
       span.appendChild(row);
 
       $('.lobby > main').append(span);
-      log(player);
       if(player.ready) { input.disabled = true; select.disabled = true; checkbox.checked = true; checkbox.disabled = true; }
     } else {
       let span = document.createElement('span'); span.className = 'mi'; span.textContent = name || '-';
