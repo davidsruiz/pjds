@@ -11,15 +11,12 @@
 }
 
 .lobby .mi input[type="text"]:disabled + .mi-row {
-  opacity: 0.4;
-}
-
-input[type="text"]:disabled {
-  background: transparent;
+  /*opacity: 0.4;*/
+  height: 0; padding: 0;
 }
 
 .mi-row {
-  display: inline-block;
+  display: block;
   width: 100%; height: 46px;
   padding: 6px;
   background-color: #263238;
@@ -37,6 +34,11 @@ input[type="text"]:disabled {
   font-size: inherit;
   letter-spacing: 2px;
   margin-right: 24px;
+  cursor: default;
+}
+
+.mi-row select:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .mi-row input[type="checkbox"] {

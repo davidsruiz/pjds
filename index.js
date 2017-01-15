@@ -89,7 +89,7 @@ app.post( '/:type', function( req, res ){
       let online = []; let c = 0;
       for(let id of list) {
         let client = clients.get(id);
-        if(client && client.lobby) {
+        if(client && client.lobby && LM.existsInPrivate(client.lobby.id)) {
           let entry = [client.name, client.lobby.id];
           online.push(entry);
         }
@@ -210,7 +210,7 @@ sio.sockets.on('connection', function (client) {
         if(!lobby.join(client)) {
           client.emit('spectate');
           if(lobby.ongoing) {
-            client.emit('start', lobby.game());
+            client.emit('start', lobby.start());
           }
         }
         clients.set(client.userid, client);
@@ -251,7 +251,12 @@ sio.sockets.on('connection', function (client) {
         lobby.emit('lobby state', lobby.simplify());
         console.log('ready');
         if(lobby.sustainable && lobby.ready)
-          {lobby.emit('start', lobby.game()); }
+          {
+            lobby.emit('start', lobby.start(()=>{
+              // on finish.. TODO: fix this..
+              if(lobby.type == 'public') LM.poolLobby(lobby);
+            }));
+          }
       } else {
         client.emit('error', 'ready request ignored');
       }

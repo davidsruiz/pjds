@@ -18,7 +18,7 @@ function refreshLobbyView() {
       input.onkeydown = function(e) { if(e.keyCode==13) $(this).blur() };
       input.oninput = function() { ENV.sound.play('type') };
       input.onfocus = function() { editing = true };
-      input.onblur = function() { socket.emit('set name', this.value); editing = false; refreshLobbyView() };
+      input.onblur = function() { socket.emit('set name', this.value.substr(0, 24)); editing = false; refreshLobbyView() };
       let row = document.createElement('span'); row.className = 'mi-row';
       let select = document.createElement('select');
       // let placeholder = document.createElement('option');
@@ -51,10 +51,17 @@ function refreshLobbyView() {
       $('.lobby > main').append(span);
       if(player.ready) { input.disabled = true; select.disabled = true; checkbox.checked = true; checkbox.disabled = true; }
     } else {
-      let span = document.createElement('span'); span.className = 'mi'; span.textContent = name || '-';
+      let span = document.createElement('span'); span.className = 'mi player'; span.textContent = name || 'connected..'; span.title = name;
       $('.lobby > main').append(span);
     }
   });
+
+  let emptySlots =  ENV["lobby"]["capacity"] - Object.keys(players).length;
+  emptySlots.times(()=>{
+    let span = document.createElement('span'); span.className = 'mi vacant'; span.textContent = 'waiting for players...';
+    $('.lobby > main').append(span);
+  });
+
 }
 
 let types = ['damage', 'speed', 'balanced', 'rate', 'defense'];

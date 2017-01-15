@@ -11,6 +11,7 @@ class LobbyManager {
     this.lobbies = new Map();
     this.public = new Map();
     this.private = new Map();
+    this.practice = new Map();
     // this.ongoing = new Map();
     // this.available = new Map();
 
@@ -20,6 +21,7 @@ class LobbyManager {
   }
 
   exists(lobbyID) {return this.lobbies.has(lobbyID)}
+  existsInPrivate(lobbyID) {return this.private.has(lobbyID)}
 
   lobby(ID) {return this.lobbies.get(ID)}
 
@@ -31,6 +33,10 @@ class LobbyManager {
       if(!next.full) { this.joinable.set(next.id, next); console.log(`lobby ${next.id} not full, re-adding`) }
     }, 1000);
     return next.id;
+  }
+
+  poolLobby(lobby) {
+    if(!lobby.full) { this.joinable.set(lobby.id, lobby); }
   }
 
   relay_status() {
@@ -57,7 +63,7 @@ class LobbyManager {
 
   new_practice() {
     var lobby = this.new_lobby('practice', {players: 1});
-    this.private.set(lobby.id, lobby);
+    this.practice.set(lobby.id, lobby);
     return lobby.id;
   }
 
@@ -73,6 +79,7 @@ class LobbyManager {
     this.lobbies.delete(id);
     this.public.delete(id);
     this.private.delete(id);
+    this.practice.delete(id);
     this.joinable.delete(id);
   }
 

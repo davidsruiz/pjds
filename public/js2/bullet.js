@@ -32,6 +32,7 @@ class Bullet {
 }
 
 Bullet.stats = {
+  MAX_RADIUS: 12,
   // radius: 8, //8,
   SPEED: 20//, //14, //10,
   // LIFESPAN: 60 //120

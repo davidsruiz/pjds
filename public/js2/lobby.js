@@ -133,7 +133,10 @@ var LOBBY = {
 
     // $('#countdown').text('FINISH');
     // this.showLayer('#countdown_layer');
-    (()=>{this.hideLayer('#countdown_layer');}).wait(TIME.sec(3.5))
+    (()=>{
+      this.hideLayer('#countdown_layer');
+      if(DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();
+    }).wait(TIME.sec(3.5))
   },
 
 

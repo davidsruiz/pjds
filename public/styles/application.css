@@ -1,6 +1,6 @@
 
 /* FONTS */
-@import 'https://fonts.googleapis.com/css?family=Roboto:400,500|Roboto+Condensed:700';
+@import 'https://fonts.googleapis.com/css?family=Roboto:400,500|Roboto+Condensed:700|Roboto+Mono';
 @import 'https://fonts.googleapis.com/icon?family=Material+Icons';
 
 /* STRUCTURE */
@@ -111,10 +111,13 @@ body { position: relative; }
   font-size: 40px;
   color: #546E7A; /* Blue Grey 600 */
   letter-spacing: 4px;
+  transition: 0.4s;
+  cursor: default;
 }
 
 #menu_layer .selected {
   color: #CFD8DC; /* Blue Grey 100 */
+  letter-spacing: 6px;
 }
 
 #menu_layer .menu input[type="text"] { width: 180px; }
@@ -147,6 +150,21 @@ input[type="submit"] {
   cursor: pointer;
 }
 
+#menu_layer .mi input[type="text"]:disabled {
+  background: transparent; padding: 0;
+}
+
+span.mi.vacant {
+  font-style: italic;
+  opacity: 0.4;
+}
+
+span.mi.player {
+  height: 48px;
+  width: 200%;
+  overflow: hidden;
+}
+
 /* lobby */
 
 .lobby {
@@ -175,6 +193,12 @@ input[type="submit"] {
   display: inline-block;
   width: 100%;
   margin-bottom: 24px;
+}
+
+.lobby main {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
 }
 
 /* SOUND */
@@ -339,7 +363,6 @@ body { background: #242e33 }
   position: absolute;
   right: 0;
   font-family: 'Roboto Mono';
-  font-: 'Roboto Mono';
   display: inline-block;
   margin: 20px;
   white-space: pre;

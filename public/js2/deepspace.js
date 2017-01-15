@@ -537,6 +537,11 @@ class DeepSpaceGame {
   }
 
   setupCaches() {
+    this.setupShortcutsToCommonCalls();
+    this.setupGraphicsCaches();
+  }
+
+  setupShortcutsToCommonCalls() {
     if(!this.spectate) {
       // model references
       this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
@@ -545,8 +550,56 @@ class DeepSpaceGame {
       this.player = this.ships.main.owner;
       this.team = this.player.team;
     }
-    // create js caches
+  }
+
+  setupGraphicsCaches() {
+    // TODO: deinit graphics caches
+
+    // cache background
     this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);
+
+    // create single cache for common objects
+    this.setupCommonGraphicsCachePool();
+  }
+
+
+  setupCommonGraphicsCachePool() {
+    let gc = DeepSpaceGame.graphicsCaches = {};
+
+    // bullets
+    gc.bullets = [];
+    this.teams.forEach(team => {
+
+      // always caching the largest version
+      let radius = Bullet.stats.MAX_RADIUS;
+
+      let v = new createjs.Shape(
+        DeepSpaceGame.graphics.particle(this.teams[team.number].color, radius)
+      );
+
+      var s = radius * 1.2;
+      v.cache(-s, -s, s*2, s*2);
+
+      gc.bullets[team.number] = v.cacheCanvas;
+    });
+
+    // blocks
+    gc.blocks = [];
+    this.teams.forEach(team => {
+
+      // always caching the largest version
+      let radius = Block.stats.MAX_RADIUS;
+
+      let v = new createjs.Shape(
+        DeepSpaceGame.graphics.block(this.teams[team.number].color, radius)
+      );
+
+      var s = radius * 1.2;
+      v.cache(-s, -s, s*2, s*2);
+
+      gc.blocks[team.number] = v.cacheCanvas;
+    });
+
   }
 
   actualize() {
@@ -578,7 +631,7 @@ class DeepSpaceGame {
     // any collisions should be sent back to the server to sync the changes.
     var over = this.game.disabled;
     if(!over) this.updateInput();
-    this.updateModel();
+    this.updateModel(); // TODO: improve performance
     if(!over) if(!this.spectate) this.checkForCollisions();
     if(this.isHost) this.generateMapEntities();
 
@@ -1080,7 +1133,7 @@ class DeepSpaceGame {
           v.x = b.position.x;
           v.y = b.position.y;
           // v.graphics.command.radius = b.radius;
-          v.scaleX = v.scaleY = b.scale;
+          v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
         }
       }
     });
@@ -1112,7 +1165,8 @@ class DeepSpaceGame {
 
     this.view.overlay.score.team.forEach((text, i)=>{
       text.text = this.game.scores[i];
-      text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.9);
+      text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);
+      // text.scaleX = text.scaleY = (this.teams[i].players.indexOf(this.players.get(this.game.flag.holderID)) != -1 ? 1 : 0.8);
     })
 
     this.updateFlagView();
@@ -1180,11 +1234,10 @@ class DeepSpaceGame {
     var b = new Bullet(data);
 
     // create a view for it.
-    var bv = new createjs.Shape(
-      DeepSpaceGame.graphics.particle(this.teams[b.team].color, b.radius)
-    );
-    var s = b.radius * 1.2;
-    bv.cache(-s, -s, s*2, s*2);
+    let cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
+    var bv = new createjs.Bitmap(cache);
+    bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
+    bv.regX = bv.regY = (cache.width/2);
     this.view.layer.action.back.addChild(bv);
 
     this.model.bullets.set(b.id, b);
@@ -1216,11 +1269,10 @@ class DeepSpaceGame {
     var bl = new Block(data);
 
     // create a view for it.
-    var blv = new createjs.Shape(
-      DeepSpaceGame.graphics.block(this.teams[bl.team].color, bl.radius)
-    );
-    var s = bl.radius * 1.2;
-    blv.cache(-s, -s, s*2, s*2);
+    let cache = DeepSpaceGame.graphicsCaches.blocks[bl.team];
+    var blv = new createjs.Bitmap(cache);
+    blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
+    blv.regX = blv.regY = (cache.width/2);
     this.view.layer.action.back.addChild(blv);
 
     this.model.blocks.set(bl.id, bl);
@@ -1255,8 +1307,8 @@ class DeepSpaceGame {
         // replace and delete old view
         var v = this.view.blocks.get(id);
         if(v) {
-          v.graphics = DeepSpaceGame.graphics.block(this.teams[b.team].color, b.radius);
-          v.updateCache();
+          v.image = DeepSpaceGame.graphicsCaches.blocks[b.team];
+          // v.updateCache();
         }
 
       }
@@ -1411,6 +1463,7 @@ class DeepSpaceGame {
     clearTimeout(this.alertKillTimeout)
     var v = this.view.overlay.kill_message;
     v.text = msg; v.color = color;
+    v.text = msg; v.color = color;
     if(msg.trim() !== '') this.alertKillTimeout = setTimeout(()=>{this.alert_kill("")}, 4000)
   }
 
@@ -1462,6 +1515,8 @@ class DeepSpaceGame {
     delete this.enemyPlayers;
     delete this.player;
     delete this.team;
+
+    delete DeepSpaceGame.graphicsCaches;
   }
   deinitPhysics() {
     delete this.refGroups;

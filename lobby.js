@@ -34,6 +34,8 @@ class Lobby {
       this.state = {scores: []};
       this.timer = new Timer(GAME_DURATION + COUNTDOWN_DURATION);
       this.setupData;
+
+      this.gameOverCallback;
   }
   get full() {return !(this.players.size < this.limit) }
   join(client) {
@@ -78,11 +80,12 @@ class Lobby {
     this.players.forEach((player)=>{
       obj[player.userid] = block(player)
     });
-    return { type: this.type, players: obj };
+    return { type: this.type, players: obj, capacity: this.limit };
   }
 
-  game() {
+  start(callback) {
     if(!this.setupData) {
+      this.gameOverCallback = callback;
       this.ongoing = true;
       this.timer.start(() => { this.timeout() });
       var numOfTeams = this.numOfTeams || this.players.size; if(numOfTeams > MAX_NUM_OF_TEAMS) numOfTeams = MAX_NUM_OF_TEAMS;
@@ -162,6 +165,7 @@ class Lobby {
 
   endCurrentGame() {
     this.clearLastGame();
+    this.gameOverCallback(); delete this.gameOverCallback;
     // this.pickupNewPlayers();
   }
 
