@@ -336,6 +336,24 @@ class DeepSpaceGame {
         break;
     }
 
+    // sub meter
+    if(!this.spectate) {
+      overlay.ship = {};
+      let view = new createjs.Shape(
+        DeepSpaceGame.graphics.subMeter(this.ships.main.owner.team.color, 1)
+        ),
+        shadow = new createjs.Shape(DeepSpaceGame.graphics.subMeterShadow()),
+        centerX = this.window.width / 2,
+        centerY = this.window.height / 2,
+        offset = { x: 22, y: -22 };
+
+      view.x = shadow.x = centerX + offset.x;
+      view.y = shadow.y = centerY + offset.y;
+
+      this.view.layer.overlay.addChild(view.shadow = shadow);
+      this.view.layer.overlay.addChild(overlay.ship.subMeter = view);
+    }
+
     this.view.overlay = overlay;
   }
 
@@ -633,7 +651,7 @@ class DeepSpaceGame {
     if(!over) this.updateInput();
     this.updateModel(); // TODO: improve performance
     if(!over) if(!this.spectate) this.checkForCollisions();
-    if(this.isHost) this.generateMapEntities();
+    // if(this.isHost) this.generateMapEntities();
 
     if(!over) this.updateGame();
 
@@ -1110,6 +1128,17 @@ class DeepSpaceGame {
       // ship.view.graphics.clear();
       ship.view.graphics = ((ship.flag) ? ship.view.filled : ship.view.hollow);
     });
+    this.updateSubMeterView();
+  }
+
+  updateSubMeterView() {
+    if(this.spectate) return;
+
+    let ship = this.player.ship,
+        meterView = this.view.overlay.ship.subMeter,
+        shadow = meterView.shadow,
+        percent = ship.subPercent;
+    meterView.graphics = DeepSpaceGame.graphics.subMeter(ship.owner.team.color, percent)
   }
 
   updateBulletViews() {
@@ -1165,8 +1194,8 @@ class DeepSpaceGame {
 
     this.view.overlay.score.team.forEach((text, i)=>{
       text.text = this.game.scores[i];
-      text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);
-      // text.scaleX = text.scaleY = (this.teams[i].players.indexOf(this.players.get(this.game.flag.holderID)) != -1 ? 1 : 0.8);
+      // text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);
+      text.scaleX = text.scaleY = (this.teams[i].players.indexOf(this.players.get(this.game.flag.holderID)) != -1 ? 1 : 0.86);
     })
 
     this.updateFlagView();
@@ -1606,7 +1635,10 @@ DeepSpaceGame.graphics = {
 
   ring: r => new createjs.Graphics().beginStroke("#ECEFF1").setStrokeStyle(16).drawCircle(0, 0, r),
   flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r),
-  flag_shadow: ()=> new createjs.Shadow("#ECEFF1", 0, 0, 10)
+  flag_shadow: () => new createjs.Shadow("#ECEFF1", 0, 0, 10),
+
+  subMeter: (color, percent) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 5, (-Math.PI/2), (2*Math.PI*percent)-(Math.PI/2)),
+  subMeterShadow: () => new createjs.Graphics().beginFill("#455A64").moveTo(0, 0).arc(0, 0, 7, 0, 2*Math.PI)
 };
 
 DeepSpaceGame.renderingParameters = {

@@ -200,6 +200,12 @@ class Ship extends BasicShip {
     }
   }
 
+  get subPercent() {
+    if(this.sub_recoil_counter + 1 > this.SUB_RECOIL_DELAY) { return 1; }
+    else if(this.sub_recoil_counter > 0) { return (this.sub_recoil_counter + 1) / this.SUB_RECOIL_DELAY; }
+    else { return 0; }
+  }
+
   reset() {
     this.position.set(this.spawn);
     this.velocity.reset();

@@ -27,8 +27,7 @@ class Camera {
    * of time.
    */
   animateFocus(new_focus, whileCondition) {
-    log(this.focus);
-    log(new_focus);
+    // log(this.focus); log(new_focus);
     const timingFunction = BezierEasing(0.4, 0.0, 0.2, 1),
           old_focus = this.focus;
     setIntervalTimeout((i, total)=>{
