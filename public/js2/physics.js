@@ -10,4 +10,16 @@ class Physics {
 
     return Physics.distance(a.position, b.position) < a.radius + b.radius
   }
+
+  // circular bounce w/ one static
+  static bounce(fluid, stationary) {
+    let vel = fluid.velocity.length,
+        absorbed = 0.8,
+        // distance = Physics.distance(fluid.position, stationary.position),
+        // collision_distance = fluid.radius + stationary.radius,
+        force_vector = fluid.position.copy().sub(stationary.position);
+    force_vector.length = vel * 1.5; // * absorbed;
+    fluid.position.add(force_vector);
+  }
+
 }

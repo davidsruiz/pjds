@@ -1,4 +1,4 @@
-var SOUND = {
+let SOUND = {
   mute() {
     $('#not_muted').css('display', 'none');
     $('#muted').css('display', 'inline-block');
@@ -11,7 +11,7 @@ var SOUND = {
     $('#not_muted').css('display', 'inline-block');
     localStorage.mute = ENV.sound.mute = false;
   }
-}
+};
 
 $(() => {
 
@@ -32,4 +32,4 @@ $(() => {
 
   localStorage.mute === 'false' ? SOUND.unmute() : SOUND.mute()
 
-})
+});
