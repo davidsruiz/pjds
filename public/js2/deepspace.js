@@ -248,11 +248,15 @@ class DeepSpaceGame {
     // DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number]
     var s = 64 + 2;
     this.teams.forEach(team => {
-      var camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp()),
+      var camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
+          fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),
           pos = team.spawn_camp.position;
-      camp.x = pos.x;
-      camp.y = pos.y;
+      fill.alpha = 0.08;
+      camp.x = fill.x = pos.x;
+      camp.y = fill.y = pos.y;
       camp.cache(-s, -s, s*2, s*2);
+      fill.cache(-s, -s, s*2, s*2);
+      this.view.layer.action.back.addChild(fill);
       this.view.layer.action.back.addChild(camp);
     });
   }
@@ -336,13 +340,13 @@ class DeepSpaceGame {
         break;
     }
 
-    // sub meter
+    // energy meter
     if(!this.spectate) {
       overlay.ship = {};
       let view = new createjs.Shape(
-        DeepSpaceGame.graphics.subMeter(this.ships.main.owner.team.color, 1)
+        DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)
         ),
-        shadow = new createjs.Shape(DeepSpaceGame.graphics.subMeterShadow()),
+        shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow()),
         centerX = this.window.width / 2,
         centerY = this.window.height / 2,
         offset = { x: 22, y: -22 };
@@ -351,7 +355,7 @@ class DeepSpaceGame {
       view.y = shadow.y = centerY + offset.y;
 
       this.view.layer.overlay.addChild(view.shadow = shadow);
-      this.view.layer.overlay.addChild(overlay.ship.subMeter = view);
+      this.view.layer.overlay.addChild(overlay.ship.energyMeter = view);
     }
 
     this.view.overlay = overlay;
@@ -837,9 +841,9 @@ class DeepSpaceGame {
     // created. though in practice, perhaps
     // just it's attack moves. e.g. bullets
 
-    this.bulletCollisions();
+    if(!this.spectate) this.bulletCollisions();
     this.shipCollisions();
-    this.subCollisions();
+    if(!this.spectate) this.subCollisions();
   }
 
   bulletCollisions() {
@@ -913,11 +917,11 @@ class DeepSpaceGame {
 
   shipCollisions() {
     this.shipBlockCollisions();
-    this.shipFlagCollisions();
+    if(!this.spectate) this.shipFlagCollisions();
+    this.shipSpawnCampCollisions();
   }
 
   shipBlockCollisions() {
-    // var ship = this.ships.main; if(ship.disabled) return;
     // this.refGroups.enemyBlocks.forEach(block => {
     //   if(block && !block.disabled) {
     //     if(Physics.doTouch(ship, block)) {
@@ -948,22 +952,31 @@ class DeepSpaceGame {
     // });
 
     // bounce method
+    var ship;
+    if((ship = this.ships.main) && !ship.disabled) {
+      ship.intersectingBlocks.forEach(block => {
+        if(!Physics.doTouch(ship, block) || block.disabled) {
+          ship.intersectingBlocks.delete(block);
+        }
+      });
 
+      ship.charging = (ship.intersectingBlocks.size == 0) ? false : true;
+    }
+    // TODO: all this needs work
     this.ships.forEach(ship => {
       var ships_team = ship.owner.team.number
 
       for(let [, block] of this.model.blocks) {
-        if(block.disabled) continue;
+        if(block.disabled || !block.locked) continue;
 
         if(Physics.doTouch(ship, block)) {
           if(ships_team == block.team) {
-            ship.healing = true;
+            if(ship.intersectingBlocks) ship.intersectingBlocks.add(block);
           } else {
             Physics.bounce(ship, block)
           }
         }
       }
-
     });
 
   }
@@ -975,6 +988,19 @@ class DeepSpaceGame {
       if(Physics.doTouch(ship, flag))
         NetworkHelper.out_flag_pickup(ship.owner.id);
 
+  }
+
+  shipSpawnCampCollisions() { // TODO: add regen in spawn
+    this.ships.forEach(ship => {
+      var ships_team = ship.owner.team
+
+      for(let team of this.teams) {
+        if(team == ships_team) continue;
+        if(Physics.doTouch(ship, team.spawn_camp)) {
+          Physics.bounce(ship, team.spawn_camp, 4.0)
+        }
+      }
+    });
   }
 
   subCollisions() {
@@ -1148,17 +1174,17 @@ class DeepSpaceGame {
       // ship.view.graphics.clear();
       ship.view.graphics = ((ship.flag) ? ship.view.filled : ship.view.hollow);
     });
-    this.updateSubMeterView();
+    this.updateEnergyMeterView();
   }
 
-  updateSubMeterView() {
+  updateEnergyMeterView() {
     if(this.spectate) return;
 
     let ship = this.player.ship,
-        meterView = this.view.overlay.ship.subMeter,
+        meterView = this.view.overlay.ship.energyMeter,
         shadow = meterView.shadow,
-        percent = ship.subPercent;
-    meterView.graphics = DeepSpaceGame.graphics.subMeter(ship.owner.team.color, percent);
+        percent = ship.energy/100;
+    meterView.graphics = DeepSpaceGame.graphics.energyMeter(ship.owner.team.color, percent);
     meterView.alpha = shadow.alpha = ship.disabled ? 0 : 1;
   }
 
@@ -1627,7 +1653,9 @@ class DeepSpaceGame {
 }
 
 DeepSpaceGame.graphics = {
-  spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
+  spawn_camp: (color) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, 64),
+  spawn_camp_fill: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 64),
+  // spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
   ship: {
     "damage":   [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10),
                  (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10)],
@@ -1658,8 +1686,8 @@ DeepSpaceGame.graphics = {
   flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r),
   flag_shadow: () => new createjs.Shadow("#ECEFF1", 0, 0, 10),
 
-  subMeter: (color, percent) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 5, (-Math.PI/2), (2*Math.PI*percent)-(Math.PI/2)),
-  subMeterShadow: () => new createjs.Graphics().beginFill("#455A64").moveTo(0, 0).arc(0, 0, 7, 0, 2*Math.PI)
+  energyMeter: (color, percent) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 5, (-Math.PI/2), (2*Math.PI*percent)-(Math.PI/2)),
+  energyMeterShadow: () => new createjs.Graphics().beginFill("#455A64").moveTo(0, 0).arc(0, 0, 7, 0, 2*Math.PI)
 };
 
 DeepSpaceGame.renderingParameters = {

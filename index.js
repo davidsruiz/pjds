@@ -253,7 +253,7 @@ sio.sockets.on('connection', function (client) {
         if(lobby.sustainable && lobby.ready)
           {
             lobby.emit('start', lobby.start(()=>{
-              // on finish.. TODO: fix this..
+              // on finish.. TODO: fix this.. also encapsulate all of these anonymous functions into a controller class
               if(lobby.type == 'public') LM.poolLobby(lobby);
             }));
           }

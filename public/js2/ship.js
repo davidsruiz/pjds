@@ -82,6 +82,9 @@ class Ship extends BasicShip {
   constructor(player) {
     super(player);
 
+    this.energy = 100;
+    this.assignAttrFrom(Ship.stats);
+
     this.block_friction = 0;
 
     this.shoot_angle = 0;
@@ -98,7 +101,7 @@ class Ship extends BasicShip {
     this.block_recoil_counter = 0;
     this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
 
-    // this.assignAttrFrom(Ship.type[player.type]);
+    // this.assignAttrFrom(Ship.type[player.type]); >> moved to super!
     this.hp = this.HP_CAPACITY;
 
     // this.spawn =
@@ -146,6 +149,9 @@ class Ship extends BasicShip {
     this.last_known_position = this.position;
     if(!this.disabled) {
       if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
+
+      this.charge(this.IDLE_ENERGY_REGEN_RATE);
+      if(this.charging) this.charge(this.ACTIVE_ENERGY_REGEN_RATE);
     } else {
       if(++this.respawn_counter > this.RESPAWN_DELAY) {
         this.respawn_counter = 0;
@@ -156,7 +162,7 @@ class Ship extends BasicShip {
   }
 
   shoot() {
-    if(this.recoil_counter > this.RECOIL_DELAY) {
+    if(this.recoil_counter > this.RECOIL_DELAY && this.drain(this.ATTACK/2)) {
 
       var id = NetworkHelper.bullet_create(this);
 
@@ -178,7 +184,8 @@ class Ship extends BasicShip {
   }
 
   block() {
-    if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY) {
+    if(this.flag) return;
+    if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY && this.drain(this.BLOCK_HP_CAPACITY/2)) {
       if(this.blocks.size > this.BLOCK_CAPACITY)
         NetworkHelper.block_destroy(this.blocks.draw());
 
@@ -190,7 +197,7 @@ class Ship extends BasicShip {
 
   sub() {
     if(!(this.subs.size < this.SUB_CAPACITY)) return;
-    if(this.sub_recoil_counter > this.SUB_RECOIL_DELAY) {
+    if(this.sub_recoil_counter > this.SUB_RECOIL_DELAY && this.drain(40)) {
       // if(!(this.subs.size > this.PULSE_CAPACITY))
       //   NetworkHelper.out_sub_destroy(this.subs.draw());
 
@@ -206,15 +213,34 @@ class Ship extends BasicShip {
     else { return 0; }
   }
 
+  // adds to energy reserve
+  charge(energy) {
+    this.energy += energy;
+    if(this.energy > 100) this.energy = 100;
+  }
+
+  // takes if possible, returns a result as bool
+  drain(energy) {
+    if(this.flag) return true;
+    if(this.energy - energy < 0) return false;
+    this.energy -= energy; return true;
+  }
+
   reset() {
     this.position.set(this.spawn);
     this.velocity.reset();
+    this.energy = this.ENERGY_CAPACITY;
     this.health = 1;
     this.disabled = false;
     this.flag = undefined;
     this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
 
     NetworkHelper.out_ship_override(this.export_override());
+  }
+
+  pickup(flag) {
+    super.pickup(flag);
+    // this.energy = this.ENERGY_CAPACITY;
   }
 
 }
@@ -367,4 +393,10 @@ Ship.type = {
     SUB_RECOIL_DELAY: 120,
     SUB_CAPACITY: 1
   }
+};
+
+Ship.stats = {
+  ENERGY_CAPACITY: 100,
+  IDLE_ENERGY_REGEN_RATE: 0.1, // of automatic energy per frame
+  ACTIVE_ENERGY_REGEN_RATE: 0.8 // of automatic energy per second
 };

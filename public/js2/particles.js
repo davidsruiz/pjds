@@ -22,7 +22,7 @@ PARTICLES = {
     // context.fillStyle="#607D8B"; // blueish
 
     var tau = 2 * Math.PI,
-    n = parseInt(width*height/12000),
+    n = parseInt(width*height/16000),
     particles = new Array(n);
 
     for (var i = 0; i < n; ++i) {
