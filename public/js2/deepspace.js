@@ -917,35 +917,55 @@ class DeepSpaceGame {
   }
 
   shipBlockCollisions() {
-    var ship = this.ships.main; if(ship.disabled) return;
-    this.refGroups.enemyBlocks.forEach(block => {
-      if(block && !block.disabled) {
+    // var ship = this.ships.main; if(ship.disabled) return;
+    // this.refGroups.enemyBlocks.forEach(block => {
+    //   if(block && !block.disabled) {
+    //     if(Physics.doTouch(ship, block)) {
+    //       // the destroy approach
+    //       // NetworkHelper.out_block_destroy(block.id);
+    //
+    //       // the slow down approach
+    //       // ship.acceleration.mul(0.1);
+    //       // log('ship-block')
+    //
+    //       // the convert approach
+    //       // NetworkHelper.block_change(block.id);
+    //
+    //       // the convert after upon exit approach
+    //       ship.intersectingBlocks.add(block);
+    //
+    //     }
+    //     // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
+    //   }
+    // });
+    // ship.intersectingBlocks.forEach(block => {
+    //   if(block && !block.disabled) {
+    //     if(!Physics.doTouch(ship, block)) {
+    //       NetworkHelper.block_change(block.id);
+    //       ship.intersectingBlocks.delete(block);
+    //     }
+    //   }
+    // });
+
+    // bounce method
+
+    this.ships.forEach(ship => {
+      var ships_team = ship.owner.team.number
+
+      for(let [, block] of this.model.blocks) {
+        if(block.disabled) continue;
+
         if(Physics.doTouch(ship, block)) {
-          // the destroy approach
-          // NetworkHelper.out_block_destroy(block.id);
-
-          // the slow down approach
-          // ship.acceleration.mul(0.1);
-          // log('ship-block')
-
-          // the convert approach
-          // NetworkHelper.block_change(block.id);
-
-          // the convert after upon exit approach
-          ship.intersectingBlocks.add(block);
-
-        }
-        // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
-      }
-    });
-    ship.intersectingBlocks.forEach(block => {
-      if(block && !block.disabled) {
-        if(!Physics.doTouch(ship, block)) {
-          NetworkHelper.block_change(block.id);
-          ship.intersectingBlocks.delete(block);
+          if(ships_team == block.team) {
+            ship.healing = true;
+          } else {
+            Physics.bounce(ship, block)
+          }
         }
       }
+
     });
+
   }
 
   shipFlagCollisions() {
@@ -1138,7 +1158,8 @@ class DeepSpaceGame {
         meterView = this.view.overlay.ship.subMeter,
         shadow = meterView.shadow,
         percent = ship.subPercent;
-    meterView.graphics = DeepSpaceGame.graphics.subMeter(ship.owner.team.color, percent)
+    meterView.graphics = DeepSpaceGame.graphics.subMeter(ship.owner.team.color, percent);
+    meterView.alpha = shadow.alpha = ship.disabled ? 0 : 1;
   }
 
   updateBulletViews() {
