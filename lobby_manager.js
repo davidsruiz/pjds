@@ -49,7 +49,7 @@ class LobbyManager {
   new_ID() {return shortid.generate()}
 
   new_public() {
-    var lobby = this.new_lobby('public', {players: 2, teams: 2});
+    var lobby = this.new_lobby('public', {players: 4, teams: 2});
     this.public.set(lobby.id, lobby);
     this.joinable.set(lobby.id, lobby);
     return lobby.id;
