@@ -340,7 +340,7 @@ class DeepSpaceGame {
         break;
     }
 
-    // energy meter
+    // energy meter // TODO: change meter color depending on charging
     if(!this.spectate) {
       overlay.ship = {};
       let view = new createjs.Shape(
@@ -936,17 +936,17 @@ class DeepSpaceGame {
     //       // NetworkHelper.block_change(block.id);
     //
     //       // the convert after upon exit approach
-    //       ship.intersectingBlocks.add(block);
+    //       ship.intersecting.add(block);
     //
     //     }
     //     // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
     //   }
     // });
-    // ship.intersectingBlocks.forEach(block => {
+    // ship.intersecting.forEach(block => {
     //   if(block && !block.disabled) {
     //     if(!Physics.doTouch(ship, block)) {
     //       NetworkHelper.block_change(block.id);
-    //       ship.intersectingBlocks.delete(block);
+    //       ship.intersecting.delete(block);
     //     }
     //   }
     // });
@@ -954,13 +954,13 @@ class DeepSpaceGame {
     // bounce method
     var ship;
     if((ship = this.ships.main) && !ship.disabled) {
-      ship.intersectingBlocks.forEach(block => {
-        if(!Physics.doTouch(ship, block) || block.disabled) {
-          ship.intersectingBlocks.delete(block);
+      ship.intersecting.forEach(entity => {
+        if(!Physics.doTouch(ship, entity) || entity.disabled) {
+          ship.intersecting.delete(entity);
         }
       });
 
-      ship.charging = (ship.intersectingBlocks.size == 0) ? false : true;
+      ship.charging = (ship.intersecting.size == 0) ? false : true;
     }
     // TODO: all this needs work
     this.ships.forEach(ship => {
@@ -971,7 +971,7 @@ class DeepSpaceGame {
 
         if(Physics.doTouch(ship, block)) {
           if(ships_team == block.team) {
-            if(ship.intersectingBlocks) ship.intersectingBlocks.add(block);
+            if(ship.intersecting) ship.intersecting.add(block);
           } else {
             Physics.bounce(ship, block)
           }
@@ -990,14 +990,17 @@ class DeepSpaceGame {
 
   }
 
-  shipSpawnCampCollisions() { // TODO: add regen in spawn
+  shipSpawnCampCollisions() { // TODO: refactor code
     this.ships.forEach(ship => {
       var ships_team = ship.owner.team
 
       for(let team of this.teams) {
-        if(team == ships_team) continue;
         if(Physics.doTouch(ship, team.spawn_camp)) {
-          Physics.bounce(ship, team.spawn_camp, 4.0)
+          if(team == ships_team) {
+            if(ship.intersecting) ship.intersecting.add(team.spawn_camp);
+          } else {
+            Physics.bounce(ship, team.spawn_camp, 4.0)
+          }
         }
       }
     });

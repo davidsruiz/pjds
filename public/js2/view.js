@@ -28,8 +28,8 @@ function refreshLobbyView() {
       // select.appendChild(placeholder);
       let defoption = document.createElement('option'); defoption.disabled = true; defoption.textContent = "choose ship type";
       select.appendChild(defoption);
-      let random_option = document.createElement('option'); random_option.textContent = "random"; random_option.value = types.sample();
-      select.appendChild(random_option);
+      // let random_option = document.createElement('option'); random_option.textContent = "random"; random_option.value = types.sample();
+      // select.appendChild(random_option);
       types.forEach(t => {
         let option = document.createElement('option');
         option.innerHTML = t;

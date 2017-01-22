@@ -29,11 +29,16 @@ class Bullet {
       ENV.game.endBullet(this.id);
     }
   }
+
+  damage(hp) { // TODO: create a damagable or health-capable protocol ... https://github.com/Gozala/protocol
+    this.hp -= hp;
+    return this.disabled = (this.hp <= 0);
+  }
 }
 
 Bullet.stats = {
   MAX_RADIUS: 12,
   // radius: 8, //8,
-  SPEED: 20//, //14, //10,
+  SPEED: 10//, //14, //10,
   // LIFESPAN: 60 //120
 }

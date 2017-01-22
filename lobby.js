@@ -164,8 +164,8 @@ class Lobby {
   }
 
   endCurrentGame() {
-    this.clearLastGame();
     this.gameOverCallback(); delete this.gameOverCallback;
+    this.clearLastGame();
     // this.pickupNewPlayers();
   }
 

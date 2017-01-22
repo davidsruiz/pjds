@@ -28,9 +28,9 @@ class NetworkHelper {
       id: id,
       team: ship.owner.team.number,
       position: ship.shoot_position,
-      angle: ship.shoot_angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
-      radius: ship.SHOT_RADIUS,
-      hp: ship.ATTACK,
+      angle: ship.shoot_angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),
+      radius: ship.ATTACK_RADIUS,
+      hp: ship.ATTACK_HP,
       lifespan: ship.ATTACK_LIFESPAN
     }
     socket.emit('bullet create', { senderID: ENV["id"], bulletData: data});
@@ -43,7 +43,7 @@ class NetworkHelper {
   //     id: id,
   //     team: ship.owner.team.number,
   //     position: ship.front_weapon_position,
-  //     angle: ship.angle + (ship.SHOT_SPREAD / 2) * ((Math.random()*2) - 1),
+  //     angle: ship.angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),
   //     hp: ship.ATTACK,
   //     lifespan: ship.ATTACK_LIFESPAN
   //   }});

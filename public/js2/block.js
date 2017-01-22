@@ -30,7 +30,7 @@ class Block {
         // this.radius = (this.velocity.length * 0.9 + 3); //(8 -> 3)
         this.scale = (this.velocity.length * 0.9 + 3) / 10; //(.8 -> .3)
 
-        if(this.velocity.length < 0.2) this.lock();
+        if(this.velocity.length < this.LOWER_VELOCITY_LIMIT) this.lock();
       }
 
       // if(++this.life_counter > this.LIFESPAN) this.disabled = true;
@@ -53,12 +53,13 @@ class Block {
   }
 
   Block.stats = {
-    MIN_RADIUS: 24, //18, //16, //10,
+    MIN_RADIUS: 45, //18, //16, //10,
     MAX_RADIUS: 50, //36, //30, //20,
     SPEED: 3,
-    FRICTION: 0.95,
-    DRIFT: 30,
-    LIFESPAN: 120,
+    FRICTION: 0.96,
+    LOWER_VELOCITY_LIMIT: 0.8,
+    // DRIFT: 30,
+    // LIFESPAN: 120,
 
     DISRUPTIVE_FRICTION: 0.1
   }

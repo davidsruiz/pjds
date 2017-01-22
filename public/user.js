@@ -35,7 +35,7 @@ class User {
     return this.calculateRankNumber(this.simple_rank)
   }
 
-  calculateRankLetter(simple_rank) { return ['E', 'D', 'C', 'B', 'A', 'M'][parseInt(simple_rank/100)] }
+  calculateRankLetter(simple_rank) { return ['E', 'D', 'C', '_B', '_A', 'M'][parseInt(simple_rank/100)] }
   calculateRankNumber(simple_rank) { return simple_rank%100 }
   calculateRankString(simple_rank) { return `${this.calculateRankLetter(simple_rank)} ${this.calculateRankNumber(simple_rank)}` }
 

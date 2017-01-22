@@ -5,7 +5,7 @@ class Flag {
     this.radius = 18;
     this.reset();
 
-    this.drag = .4; //0.16; // additional friction
+    this.drag = 0.7; // additional friction
   }
 
   reset() {

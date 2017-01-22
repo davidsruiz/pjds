@@ -46,13 +46,20 @@ Attractor.stats = {
   FRICTION: 0.96,
 
   // (attraction strength) you put in a distance it gives you the acceleration force
-  //   linear: (from 0 at 200px to 0.26 ppf at 30px)
-  // INTENSITY_FUNCTION: x => -0.0015*x + 0.3,
-  INTENSITY_FUNCTION: x => Math.sqrt(Math.sqrt(200-x))/2,
-  RANGE: 200,
+  // INTENSITY_FUNCTION:
+  // x => fourth root of (a-(x * b)) over 2
+    // where: a is (y-intercept * 2)^4
+    //        b is a / x-intercept
+  // y-intercept (max effect) is 2 and x-intercept (range) is 200
+  RANGE: 240,
+  MAX_INTENSITY: 2,
+  INTENSITY_FUNCTION(x) { return Math.sqrt(Math.sqrt((Attractor.stats._A) - (x * (Attractor.stats._B))))/2 },
 
-  LIFESPAN: 180
-}
+  LIFESPAN: 240
+};
+
+Attractor.stats._A = Math.pow(Attractor.stats.MAX_INTENSITY*2, 4);
+Attractor.stats._B = Attractor.stats._A / Attractor.stats.RANGE;
 
 
 class Repulsor {
@@ -97,14 +104,19 @@ Repulsor.stats = {
   SPEED: 10,
   FRICTION: 0.96,
 
-  // (attraction strength) you put in a distance it gives you the acceleration force
-  //   linear: (from 0 at 200px to 0.26 ppf at 30px)
-  // INTENSITY_FUNCTION: x => -0.0015*x + 0.3,
-  INTENSITY_FUNCTION: x => Math.sqrt(Math.sqrt(160-x))/2,//(80 / x) - 0.8,
+  // (repulsion strength) you put in a distance it gives you the acceleration force
+  // INTENSITY_FUNCTION: x => fourth root of (a-(x * b)) over 2
+  // y-intercept (max effect) is 2 and x-intercept (range) is 160
+  // a is 256 and b is
   RANGE: 160,
+  MAX_INTENSITY: 2,
+  INTENSITY_FUNCTION(x) { return Math.sqrt(Math.sqrt((Repulsor.stats._A) - (x * (Repulsor.stats._B))))/2 },
 
   LIFESPAN: 180
-}
+};
+
+Repulsor.stats._A = Math.pow(Repulsor.stats.MAX_INTENSITY*2, 4);
+Repulsor.stats._B = Repulsor.stats._A / Repulsor.stats.RANGE;
 
 class BlockBomb {
 
@@ -152,11 +164,13 @@ BlockBomb.stats = {
   SPEED: 25,
   FRICTION: 0.95,
 
-  EXPLOSION_RANGE: 300,
-  EXPLOSION_DAMAGE_FUNCTION: x => (8000/(x+100))-20, // 60hp at contact and 0hp at 300px
+  EXPLOSION_RANGE: 200,
+  EXPLOSION_DAMAGE_FUNCTION: x => (8000/((BlockBomb.stats._A * x)+100))-20, // 60hp at contact and 0hp at range px
 
   LIFESPAN: 100
 }
+
+BlockBomb.stats._A = 300 / Repulsor.stats.RANGE;
 
 class StealthCloak {
 
@@ -252,12 +266,12 @@ class Missile {
 
 Missile.stats = {
   radius: 12,
-  SPEED: 8, // 14
+  SPEED: 4.6, // 8
   hp: 30,
   MAX_TURN_SPEED: (Math.PI / 120), // radians
 
   VISION_RANGE: 400,
-  EXPLOSION_RANGE: 200,
+  EXPLOSION_RANGE: 30, // 200
 
-  LIFESPAN: 360
+  LIFESPAN: 240
 }

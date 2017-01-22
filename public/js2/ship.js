@@ -15,7 +15,8 @@ class BasicShip {
     this.radius = 10;
     this.stealth = false;
 
-    this.assignAttrFrom(Ship.type[player.type]);
+    this.assignAttrFrom(Ship.baseStats);           // write base stats
+    this.assignAttrFrom(Ship.type[player.type]);   // then overwrite with type specific changes
 
     this.spawn =
       V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length-1][this.owner.team.number])
@@ -26,12 +27,16 @@ class BasicShip {
 
   update() {
     if(!this.disabled) {
-      this.velocity.mul((this.LINEAR_FRICTION) - ((this.flag) ? this.flag.drag : 0));
-      this.velocity.add(this.acceleration);
-      this.position.add(this.velocity);
+      let intert = this.acceleration.x == 0 && this.acceleration.y == 0;
+      !intert ? this.velocity.add(this.acceleration) : this.velocity.mul(this.LINEAR_FRICTION);
+
+      // this.velocity.mul((this.LINEAR_FRICTION) - ((this.flag) ? this.flag.drag : 0));
+      if(this.flag) this.velocity.mul(this.flag.drag);
 
       if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
+
+      this.position.add(this.velocity);
 
       // this.angular_velocity += this.angular_acceleration
       // this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
@@ -83,7 +88,6 @@ class Ship extends BasicShip {
     super(player);
 
     this.energy = 100;
-    this.assignAttrFrom(Ship.stats);
 
     this.block_friction = 0;
 
@@ -93,7 +97,7 @@ class Ship extends BasicShip {
     this.blocks = new Set();
     this.subs = new Set();
 
-    this.intersectingBlocks = new Set();
+    this.intersecting = new Set();
 
     this.recoil_counter = 0;
     this.respawn_counter = 0;
@@ -162,7 +166,7 @@ class Ship extends BasicShip {
   }
 
   shoot() {
-    if(this.recoil_counter > this.RECOIL_DELAY && this.drain(this.ATTACK/2)) {
+    if(this.recoil_counter > this.ATTACK_RECOIL_DELAY && this.drain(this.ATTACK_HP*this.ATTACK_ENERGY_FRACTION_HP)) {
 
       var id = NetworkHelper.bullet_create(this);
 
@@ -185,7 +189,7 @@ class Ship extends BasicShip {
 
   block() {
     if(this.flag) return;
-    if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY && this.drain(this.BLOCK_HP_CAPACITY/2)) {
+    if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY && this.drain(this.BLOCK_ENERGY_COST)) {
       if(this.blocks.size > this.BLOCK_CAPACITY)
         NetworkHelper.block_destroy(this.blocks.draw());
 
@@ -196,8 +200,8 @@ class Ship extends BasicShip {
   }
 
   sub() {
-    if(!(this.subs.size < this.SUB_CAPACITY)) return;
-    if(this.sub_recoil_counter > this.SUB_RECOIL_DELAY && this.drain(40)) {
+    if(!(this.subs.size < this.SUB_CAPACITY || this.subs.size == 0)) return;
+    if(this.sub_recoil_counter > this.SUB_RECOIL_DELAY && this.drain(this.SUB_ENERGY_COST)) {
       // if(!(this.subs.size > this.PULSE_CAPACITY))
       //   NetworkHelper.out_sub_destroy(this.subs.draw());
 
@@ -249,154 +253,126 @@ Ship.type = {
   "balanced" : {
     type: 'balanced',
 
-    HP_CAPACITY: 20,
-    // ANGULAR_FRICTION: 0.8,//0.9,
-    // ANGULAR_VELOCITY_LIMIT: 0.12,
-    // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
-    LINEAR_FRICTION: 0.9,//0.97,
-    LINEAR_VELOCITY_LIMIT: 8,//6,//5,
-    LINEAR_ACCELERATION_LIMIT: 0.6,//0.22, //0.18,
-    SHOT_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.
-    SHOT_RADIUS: 8,
-
-    RECOIL_DELAY: 8,
-    RESPAWN_DELAY: 120,
-
-    ATTACK: 8,
-    ATTACK_LIFESPAN: 30, //60,
-
-    REGEN_DELAY: 180,
-    REGEN_RATE: 0.4, // hp/frame
-
-    BLOCK_CAPACITY: 40, //32,
-    BLOCK_HP_CAPACITY: 8, //16,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.3), // (10%) angle sweep in radians.
-    BLOCK_RECOIL_DELAY: 6, // 4
-
-    SUB_TYPE: 'block_bomb',
-    SUB_RECOIL_DELAY: 360,
-    SUB_CAPACITY: 1
+    SUB_TYPE: 'attractor',
+    SUB_RECOIL_DELAY: 30,
+    SUB_ENERGY_COST: 45
   },
 
   "speed" : {
     type: 'speed',
 
     HP_CAPACITY: 18, // 20
-    LINEAR_FRICTION: 0.9,
-    LINEAR_VELOCITY_LIMIT: 10, // 8
-    LINEAR_ACCELERATION_LIMIT: 0.8, // 0.6
-    SHOT_SPREAD: (2 * Math.PI) * (0.02), // (0.01)
-    SHOT_RADIUS: 8,
 
-    RECOIL_DELAY: 8,
-    RESPAWN_DELAY: 120,
+    LINEAR_VELOCITY_LIMIT: 4, // 3
+    // LINEAR_ACCELERATION_LIMIT: 0.26, // 0.26
 
-    ATTACK: 7, // 8
+    ATTACK_HP: 7, // 8
+    ATTACK_RADIUS: 10, // 8
+    ATTACK_SPREAD: (2 * Math.PI) * (0.08), // (0.01)
     ATTACK_LIFESPAN: 20, // 30
 
-    REGEN_DELAY: 180,
-    REGEN_RATE: 0.4,
-
-    BLOCK_CAPACITY: 40,
-    BLOCK_HP_CAPACITY: 8,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
-    BLOCK_RECOIL_DELAY: 4, // 6
+    // BLOCK_RECOIL_DELAY: 4, // 6
 
     SUB_TYPE: 'repulsor',
     SUB_RECOIL_DELAY: 30, // 120
-    SUB_CAPACITY: 2
+    SUB_ENERGY_COST: 30
   },
 
   "defense" : {
     type: 'defense',
 
-    HP_CAPACITY: 26, // 20
-    LINEAR_FRICTION: 0.9,
-    LINEAR_VELOCITY_LIMIT: 6, // 8
-    LINEAR_ACCELERATION_LIMIT: 0.6,
-    SHOT_SPREAD: (2 * Math.PI) * (0.01),
-    SHOT_RADIUS: 8,
+    HP_CAPACITY: 32, // 20
 
-    RECOIL_DELAY: 10, // 8
-    RESPAWN_DELAY: 120,
+    LINEAR_VELOCITY_LIMIT: 2.6, // 3
 
-    ATTACK: 6, // 8
+    ATTACK_HP: 6, // 8
+    ATTACK_RECOIL_DELAY: 10, // 8
     ATTACK_LIFESPAN: 36, // 30
 
-    REGEN_DELAY: 180,
-    REGEN_RATE: 0.5, // 0.4
+    REGEN_RATE: 0.18, // 0.4
 
-    BLOCK_CAPACITY: 40,
-    BLOCK_HP_CAPACITY: 12, // 8
-    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
-    BLOCK_RECOIL_DELAY: 7, // 6
+    // BLOCK_HP_CAPACITY: 12, // 8
+    BLOCK_RECOIL_DELAY: 10, // 8
+    BLOCK_ENERGY_COST: 10, // 8
 
     SUB_TYPE: 'stealth_cloak',
-    SUB_RECOIL_DELAY: 900, // 120
-    SUB_CAPACITY: 1
+    SUB_RECOIL_DELAY: 60,
+    SUB_CAPACITY: 1,
+    SUB_ENERGY_COST: 80
   },
 
   "rate" : {
     type: 'rate',
 
-    HP_CAPACITY: 20,
-    LINEAR_FRICTION: 0.9,
-    LINEAR_VELOCITY_LIMIT: 8,
-    LINEAR_ACCELERATION_LIMIT: 0.6,
-    SHOT_SPREAD: (2 * Math.PI) * (0.01),
-    SHOT_RADIUS: 6,
+    RESPAWN_DELAY: 200, // 240
 
-    RECOIL_DELAY: 5, // 8
-    RESPAWN_DELAY: 100, // 120
+    ATTACK_HP: 6, // 8
+    ATTACK_RECOIL_DELAY: 6, // 8
+    ATTACK_RADIUS: 6, // 8
 
-    ATTACK: 6, // 8
-    ATTACK_LIFESPAN: 30,
-
-    REGEN_DELAY: 180,
-    REGEN_RATE: 0.4,
-
-    BLOCK_CAPACITY: 40,
-    BLOCK_HP_CAPACITY: 6, // 8
-    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
-    BLOCK_RECOIL_DELAY: 9, // 6
+    // BLOCK_HP_CAPACITY: 6, // 8
+    BLOCK_RECOIL_DELAY: 12, // 8
 
     SUB_TYPE: 'missile',
-    SUB_RECOIL_DELAY: 240, // 120
-    SUB_CAPACITY: 1
+    SUB_RECOIL_DELAY: 60, // 120
+    SUB_CAPACITY: 1,
+    SUB_ENERGY_COST: 80
   },
 
   "damage" : {
     type: 'damage',
 
     HP_CAPACITY: 22, // 20
-    LINEAR_FRICTION: 0.9,
-    LINEAR_VELOCITY_LIMIT: 6, // 8
-    LINEAR_ACCELERATION_LIMIT: 0.6,
-    SHOT_SPREAD: (2 * Math.PI) * (0.01),
-    SHOT_RADIUS: 12, // 8
 
-    RECOIL_DELAY: 50, // 8
-    RESPAWN_DELAY: 120,
+    LINEAR_VELOCITY_LIMIT: 2.6, // 3
 
-    ATTACK: 22, // 8
-    ATTACK_LIFESPAN: 42, // 30
+    ATTACK_HP: 24, // 8
+    ATTACK_RECOIL_DELAY: 50, // 8
+    ATTACK_RADIUS: 12, // 8
+    ATTACK_LIFESPAN: 48, // 30
 
-    REGEN_DELAY: 180,
-    REGEN_RATE: 0.4,
-
-    BLOCK_CAPACITY: 40,
-    BLOCK_HP_CAPACITY: 8,
-    BLOCK_SPREAD: (2 * Math.PI) * (0.3),
-    BLOCK_RECOIL_DELAY: 6,
-
-    SUB_TYPE: 'attractor',
-    SUB_RECOIL_DELAY: 120,
-    SUB_CAPACITY: 1
+    SUB_TYPE: 'block_bomb',
+    SUB_RECOIL_DELAY: 30,
+    SUB_ENERGY_COST: 50
   }
 };
 
-Ship.stats = {
+// BASE STATS
+Ship.baseStats = {
+  type: 'base',
+
+  HP_CAPACITY: 20,
+  // ANGULAR_FRICTION: 0.8,//0.9,
+  // ANGULAR_VELOCITY_LIMIT: 0.12,
+  // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
+  LINEAR_FRICTION: 0.9,
+  LINEAR_VELOCITY_LIMIT: 3,//8,
+  LINEAR_ACCELERATION_LIMIT: 0.26,//0.6,
+
+  RESPAWN_DELAY: 240,
+
+  ATTACK_HP: 8,
+  ATTACK_RECOIL_DELAY: 8,
+  ATTACK_RADIUS: 8,
+  ATTACK_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.8,
+  ATTACK_LIFESPAN: 30, //60,
+  ATTACK_ENERGY_FRACTION_HP: 0.3,
+
+  REGEN_DELAY: 180,
+  REGEN_RATE: 0.4, // hp/frame
+
+  BLOCK_CAPACITY: 40, //32,
+  BLOCK_HP_CAPACITY: 20, //16,
+  BLOCK_SPREAD: (2 * Math.PI) * (0), // 0.3 (30%) angle sweep in radians.
+  BLOCK_RECOIL_DELAY: 8, // 4
+  BLOCK_ENERGY_COST: 8,
+
+  SUB_TYPE: 'block_bomb',
+  SUB_RECOIL_DELAY: 30,
+  SUB_CAPACITY: 5,
+  SUB_ENERGY_COST: 40,
+
   ENERGY_CAPACITY: 100,
-  IDLE_ENERGY_REGEN_RATE: 0.1, // of automatic energy per frame
-  ACTIVE_ENERGY_REGEN_RATE: 0.8 // of automatic energy per second
+  IDLE_ENERGY_REGEN_RATE: 0.07, // of automatic energy per frame
+  ACTIVE_ENERGY_REGEN_RATE: 0.4 // of automatic energy per second
 };
