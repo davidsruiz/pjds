@@ -203,7 +203,7 @@ sio.sockets.on('connection', function (client) {
     });
 
     client.on('join lobby', lobbyID => {
-      let lobby = LM.lobby(lobbyID)
+      let lobby = LM.lobby(lobbyID);
       if(lobby) {
         // check if there is room in lobby
         lobby.emit('lobby state', lobby.simplify());
@@ -214,6 +214,7 @@ sio.sockets.on('connection', function (client) {
           }
         }
         clients.set(client.userid, client);
+        if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
       } else {
         client.emit('error', `lobby ${lobbyID} not found`);
       }
@@ -254,7 +255,7 @@ sio.sockets.on('connection', function (client) {
           {
             lobby.emit('start', lobby.start(()=>{
               // on finish.. TODO: fix this.. also encapsulate all of these anonymous functions into a controller class
-              if(lobby.type == 'public') LM.poolLobby(lobby);
+              if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
             }));
           }
       } else {
@@ -285,11 +286,14 @@ sio.sockets.on('connection', function (client) {
             }
           }
           lobby.emit('lobby state', lobby.simplify());
+          if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
 
-          // remove if empty
+          // once a lobby has been vacated by all players it is safe for that lobby to cease existence
+          // a single player joining an empty lobby will not happen often except with private practice lobbies
+          // otherwise keep it in the realm
           setTimeout(()=>{ let del = false;
-            if(lobby.connected.size == 0) {LM.delete(lobby.id); del = true}
-            // console.log(del ? `deleted` : `preserved`)
+            if(lobby.connected.size == 0) { LM.delete(lobby.id); del = true }
+            console.log(`lobby ${lobby.id} ${del ? `deleted` : `preserved`}`);
           }, 5000);
 
         }

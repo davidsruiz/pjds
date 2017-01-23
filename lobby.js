@@ -95,7 +95,8 @@ class Lobby {
         p.team = i%numOfTeams;
         return { name: p.name, team: p.team, index: i, id: id, type: p.type }
       };
-      this.players.forEach((player, id)=>{
+      Array.from(this.players).shuffle().forEach(entry => {
+        let [id, player] = entry;
         players.push(block(id, player, counter++));
       });
       this.setupData = {
@@ -114,7 +115,7 @@ class Lobby {
   }
 
   get ready() {
-    for (let [id, player] of this.players){console.log(`${player.userid} : ${player.ready}`);
+    for (let [id, player] of this.players) { // console.log(`${player.userid} : ${player.ready}`);
       if(!player.ready) return false;}
     return true;
   }
@@ -164,8 +165,8 @@ class Lobby {
   }
 
   endCurrentGame() {
-    this.gameOverCallback(); delete this.gameOverCallback;
     this.clearLastGame();
+    this.gameOverCallback(); delete this.gameOverCallback;
     // this.pickupNewPlayers();
   }
 

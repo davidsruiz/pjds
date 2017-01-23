@@ -340,16 +340,15 @@ class DeepSpaceGame {
         break;
     }
 
-    // energy meter // TODO: change meter color depending on charging
+    // energy meter
     if(!this.spectate) {
       overlay.ship = {};
-      let view = new createjs.Shape(
-        DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)
-        ),
-        shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow()),
-        centerX = this.window.width / 2,
-        centerY = this.window.height / 2,
-        offset = { x: 22, y: -22 };
+      let color = this.ships.main.owner.team.color,
+          view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
+          shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
+          centerX = this.window.width / 2,
+          centerY = this.window.height / 2,
+          offset = { x: 22, y: -22 };
 
       view.x = shadow.x = centerX + offset.x;
       view.y = shadow.y = centerY + offset.y;
@@ -405,36 +404,66 @@ class DeepSpaceGame {
       // block   : true or false
       // sub : true or false
 
-      var keypressWeight = 0.85;
+      // var keypressWeight = 0.85;
 
-      // var playerInput = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["sub", false]]);
-      // var playerInput = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["sub", false]]);
-      var playerInput = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["sub", false]]);
+      // var inputStack = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["sub", false]]);
+      // var inputStack = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["sub", false]]);
+      // var inputStack = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["sub", false]]);
+      // var inputStack = new Map([
+      //   ["up", 0], ["dn", 0], ["lt", 0], ["rt", 0],         // move direction
+      //   ["up2", 0], ["dn2", 0], ["lt2", 0], ["rt2", 0],     // attack direction
+      //   ["block", false], ["sub", false]                    // other
+      // ]);
+      var inputStack = new Set();
 
       // KEYBOARD
       // key mappings, have multiple ('values') so you can switch between key bindings
-      var values = [
+      // the default values are true / false
+      var keymap = [
         // up: ▲
-        ["move_v_axis", [38], keypressWeight, 0],
+        ["up", [38]],
         // down: ▼
-        ["move_v_axis", [40], -keypressWeight, 0],
-        // right: ▶︎
-        ["move_h_axis", [39], keypressWeight, 0],
+        ["dn", [40]],
         // left: ◀︎
-        ["move_h_axis", [37], -keypressWeight, 0],
+        ["lt", [37]],
+        // right: ▶︎
+        ["rt", [39]],
         // up: w
-        ["shoot_v_axis", [87], keypressWeight, 0],
+        ["up2", [87]],
         // down: s
-        ["shoot_v_axis", [83], -keypressWeight, 0],
-        // right: d
-        ["shoot_h_axis", [68], keypressWeight, 0],
+        ["dn2", [83]],
         // left: a
-        ["shoot_h_axis", [65], -keypressWeight, 0],
+        ["lt2", [65]],
+        // right: d
+        ["rt2", [68]],
         // block: space
-        ["block", [32], true, false],
+        ["block", [32]],
         // sub: e
-        ["sub", [69], true, false]
+        ["sub", [69]]
       ];
+
+      // var values = [
+      //   // up: ▲
+      //   ["up", [38], true, false],
+      //   // down: ▼
+      //   ["dn", [40], true, false],
+      //   // left: ◀︎
+      //   ["lt", [37], true, false],
+      //   // right: ▶︎
+      //   ["rt", [39], true, false],
+      //   // up: w
+      //   ["up2", [87], true, false],
+      //   // down: s
+      //   ["dn2", [83], true, false],
+      //   // left: a
+      //   ["lt2", [65], true, false],
+      //   // right: d
+      //   ["rt2", [68], true, false],
+      //   // block: space
+      //   ["block", [32], true, false],
+      //   // sub: e
+      //   ["sub", [69], true, false]
+      // ];
 
       // var values = [
       //   // up: ▲ , w
@@ -466,21 +495,19 @@ class DeepSpaceGame {
         if(type == 'keyup' || type == 'keydown') {
           var eventCode = e.keyCode;
 
-          values.forEach((row) => {
+          keymap.forEach((row) => {
             row[1].forEach((code) => {
               if(code == eventCode) {
 
-                var val = playerInput.get(row[0]);
-                if(!type.is('keyup')) {
-                  val = row[2];
-                } else {
-                  if(playerInput.get(row[0]) == row[2]) val = row[3];
-                }
-                playerInput.set(row[0], val);
-              }
-              //
-              // if(code == eventCode) playerInput.set(row[0], type.is('keyup') ? row[3] : row[2]);
+                // row[0] e.g. 'up' or 'block'
+                // row[2] is value on keydown
+                // row[3] is value on keyup
+                inputStack.delete(row[0])
+                if(!type.is('keyup')) inputStack.add(row[0])
 
+                // NetworkHelper.out_input_stack(Array.from(inputStack));
+                log(Array.from(inputStack));
+              }
             });
           });
         }
@@ -494,7 +521,7 @@ class DeepSpaceGame {
 
       // GAMEPAD
       receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
-      // this closure has access to the playerInput variable.. the alias for this.ships.main.owner.input
+      // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input
       // .. thus it is left here .. please revise
       this.updateGamepadInput = (!navigator.getGamepads) ? () => {} : () => {
         var gamepad = navigator.getGamepads()[0];
@@ -506,26 +533,26 @@ class DeepSpaceGame {
         deadZone = 0.0;
         val = gamepad.axes[3]; val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
         val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-        playerInput.set("forward", val);
+        inputStack.set("forward", val);
 
         // LEFT and RIGHT
         deadZone = 0.15;
         val = gamepad.axes[0];
         val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-        playerInput.set("turn", val);
+        inputStack.set("turn", val);
 
         // FIRE
-        playerInput.set("shoot", gamepad.buttons[3].pressed);
+        inputStack.set("shoot", gamepad.buttons[3].pressed);
 
         // BLOCK
-        playerInput.set("block", gamepad.buttons[7].pressed);
+        inputStack.set("block", gamepad.buttons[7].pressed);
 
         // OTHER
-        playerInput.set("sub", gamepad.buttons[0].pressed);
+        inputStack.set("sub", gamepad.buttons[0].pressed);
       };
 
       // ALIAS
-      this.ships.main.owner.input = playerInput;
+      this.ships.main.owner.input = inputStack;
     }
   }
 
@@ -684,33 +711,56 @@ class DeepSpaceGame {
 
       if(ship == this.ships.main && !ship.disabled) {
 
-        var input = ship.owner.input;
+        var input = ship.owner.input,
+            x = 0, y = 0, x2 = 0, y2 = 0;
 
-        ship.acceleration.set({x: input.get('move_h_axis'), y: -input.get('move_v_axis')})
+        for(var prop of input) {
+          switch(prop) {
+            case 'up':
+              y = -1;
+              break;
+            case 'dn':
+              y = 1;
+              break;
+            case 'lt':
+              x = -1;
+              break;
+            case 'rt':
+              x = 1;
+              break;
+            case 'up2':
+              y2 = -1;
+              break;
+            case 'dn2':
+              y2 = 1;
+              break;
+            case 'lt2':
+              x2 = -1;
+              break;
+            case 'rt2':
+              x2 = 1;
+              break;
+            case 'sub':
+              ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
+              break;
+            case 'block':
+              ship.block();
+              break;
+          }
+        }
+
+        ship.acceleration.set({x, y})
         if(ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
 
-        // ship.acceleration.angle = ship.angle;
         if(ship.acceleration.length) ship.angle = ship.acceleration.angle
-        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
 
-        // ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT * input.get('forward');
-        // ship.acceleration.angle = ship.angle;
-        //
-        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.get('turn');
-
-        var direction_v = new V2D(input.get('shoot_h_axis'), -input.get('shoot_v_axis'))
+        var direction_v = new V2D(x2, y2)
         ship.shoot_angle = direction_v.angle;
 
         if(direction_v.length) ship.shoot();
-
-        // if(input.get('shoot')) ship.shoot();
-        if(input.get('block')) ship.block();
-        // option to drop with sub button
-        // if(input.get('sub')) ship.sub();
-        if(input.get('sub')) ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
       }
 
-      // validate new position (revise)
+      // validate new position TODO (revise)
       if(ship.position.x < 0) ship.position.x = this.mapInfo.width;
       if(ship.position.y < 0) ship.position.y = this.mapInfo.height;
       if(ship.position.x > this.mapInfo.width) ship.position.x = 0;
@@ -1185,10 +1235,10 @@ class DeepSpaceGame {
 
     let ship = this.player.ship,
         meterView = this.view.overlay.ship.energyMeter,
-        shadow = meterView.shadow,
+        shadowView = meterView.shadow,
         percent = ship.energy/100;
-    meterView.graphics = DeepSpaceGame.graphics.energyMeter(ship.owner.team.color, percent);
-    meterView.alpha = shadow.alpha = ship.disabled ? 0 : 1;
+    meterView.graphics = DeepSpaceGame.graphics.energyMeter(this.team.color, percent);
+    meterView.alpha = shadowView.alpha = ship.disabled ? 0 : 1;
   }
 
   updateBulletViews() {
@@ -1635,13 +1685,7 @@ class DeepSpaceGame {
 
   resetInput() {
     var input;
-    if(this.player) if(input = this.player.input) {
-      input.set("forward", 0);
-      input.set("turn", 0);
-      input.set("shoot", false);
-      input.set("block", false);
-      input.set("sub", false);
-    }
+    if(this.player) if(input = this.player.input) input.clear();
   }
 
   disconnectPlayer(id) {
@@ -1689,8 +1733,8 @@ DeepSpaceGame.graphics = {
   flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r),
   flag_shadow: () => new createjs.Shadow("#ECEFF1", 0, 0, 10),
 
-  energyMeter: (color, percent) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 5, (-Math.PI/2), (2*Math.PI*percent)-(Math.PI/2)),
-  energyMeterShadow: () => new createjs.Graphics().beginFill("#455A64").moveTo(0, 0).arc(0, 0, 7, 0, 2*Math.PI)
+  energyMeter: (color, percent, radius = 5) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius, (-Math.PI/2), (2*Math.PI*percent)-(Math.PI/2)),
+  energyMeterShadow: (color) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 7, 0, 2*Math.PI)
 };
 
 DeepSpaceGame.renderingParameters = {

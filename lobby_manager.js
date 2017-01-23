@@ -26,24 +26,29 @@ class LobbyManager {
   lobby(ID) {return this.lobbies.get(ID)}
 
   next() {
-    this.relay_status();
-    if(this.joinable.size < this.min_available_lobby_count) this.new_public();
-    var next = this.joinable.shift();
-    setTimeout(() => {
-      if(!next.full) { this.joinable.set(next.id, next); console.log(`lobby ${next.id} not full, re-adding`) }
-    }, 1000);
+    // this.relay_status();
+    while(this.joinable.size < this.min_available_lobby_count) this.new_public();
+    let next = this.joinable.shift();
+    setTimeout(() => { this.updateLobbyPlacement(next) }, 2000);
     return next.id;
   }
 
-  poolLobby(lobby) {
-    if(!lobby.full) { this.joinable.set(lobby.id, lobby); }
+  updateLobbyPlacement(lobby) {
+    // console.log(`${lobby.id} :: full: ${lobby.full}, ongoing: ${lobby.ongoing}, public ${this.public.has(lobby.id)}`)
+    if(!lobby.full && !lobby.ongoing && this.public.has(lobby.id)) {
+      this.joinable.set(lobby.id, lobby);
+      console.log(`lobby ${lobby.id} IS joinable`);
+    }
+    else { this.joinable.delete(lobby.id); console.log(`lobby ${lobby.id} is NOT joinable`) }
   }
 
   relay_status() {
-    console.log(`------------STATUS-------------`)
-    console.log(`total active lobbies ${this.lobbies.size}`);
-    console.log(`total available lobbies ${this.joinable.size}`);
-    console.log(`===============================`)
+    console.log(`---------- OVERVIEW -----------`);
+    console.log(`| lobbies ${this.lobbies.size}`);
+    console.log(`| `, Array.from(this.lobbies).map(a=>a[0]));
+    console.log(`| joinable ${this.joinable.size}`);
+    console.log(`| `, Array.from(this.joinable).map(a=>a[0]));
+    console.log(`===============================`);
   }
 
   new_ID() {return shortid.generate()}
