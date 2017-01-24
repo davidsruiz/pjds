@@ -1,6 +1,15 @@
 var g;
 class NetworkHelper {
 
+  static out_input_stack(arr) {
+    socket.emit('input stack', { senderID: ENV.id, stack: arr });
+  }
+
+  static in_input_stack(data) {
+    let p = ENV.game.players.get(data.senderID);
+    if(p) p.input = data.stack;
+  }
+
   static out_ship_update(data) { if(!DeepSpaceGame.runningInstance) return;
     socket.emit('ship update', { senderID: ENV["id"], shipData: data });
   }
