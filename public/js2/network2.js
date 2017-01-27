@@ -101,7 +101,8 @@ class NetworkHelper {
       position: ship.back_weapon_position,
       angle: (ship.angle - Math.PI) + ((ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1)),
       hp: ship.BLOCK_HP_CAPACITY,
-      radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)
+      // radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)
+      radius: Block.stats.MAX_RADIUS
     }};
     socket.emit('block create', send_data);
     NetworkHelper.in_block_create(send_data);

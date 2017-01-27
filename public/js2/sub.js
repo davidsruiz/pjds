@@ -29,11 +29,11 @@ class Attractor {
     this.disabled = false;
   }
 
-  update() {
-    this.velocity.mul(this.FRICTION);
-    this.position.add(this.velocity);
-    this.rotation += ((this.velocity.length / 360) + 0.05);
-    if(++this.life_counter > this.LIFESPAN) {
+  update(dt) {
+    this.velocity.mul(this.FRICTION); // TODO friction...dt...?
+    this.position.add(this.velocity.mul_(dt));
+    this.rotation += ((this.velocity.length / 21600) + 0.05);
+    if((this.life_counter+=dt) > this.LIFESPAN) {
       this.disabled = true;
       ENV.game.endSub(this.id);
     }
@@ -42,7 +42,7 @@ class Attractor {
 
 Attractor.stats = {
   radius: 4,
-  SPEED: 12,
+  SPEED: 720, //px/s
   FRICTION: 0.96,
 
   // (attraction strength) you put in a distance it gives you the acceleration force
@@ -50,12 +50,12 @@ Attractor.stats = {
   // x => fourth root of (a-(x * b)) over 2
     // where: a is (y-intercept * 2)^4
     //        b is a / x-intercept
-  // y-intercept (max effect) is 2 and x-intercept (range) is 200
+  // y-intercept (max effect) is 120px/s and x-intercept (range) is 200
   RANGE: 240,
   MAX_INTENSITY: 2,
-  INTENSITY_FUNCTION(x) { return Math.sqrt(Math.sqrt((Attractor.stats._A) - (x * (Attractor.stats._B))))/2 },
+  INTENSITY_FUNCTION(x) { return (Math.sqrt(Math.sqrt((Attractor.stats._A) - (x * (Attractor.stats._B))))/2)*60 },
 
-  LIFESPAN: 240
+  LIFESPAN: 4 //s
 };
 
 Attractor.stats._A = Math.pow(Attractor.stats.MAX_INTENSITY*2, 4);
@@ -88,11 +88,11 @@ class Repulsor {
     this.disabled = false;
   }
 
-  update() {
+  update(dt) {
     this.velocity.mul(this.FRICTION);
-    this.position.add(this.velocity);
-    this.rotation += ((this.velocity.length / 360) + 0.05);
-    if(++this.life_counter > this.LIFESPAN) {
+    this.position.add(this.velocity.mul_(dt));
+    this.rotation += ((this.velocity.length / 21600) + 0.05);
+    if((this.life_counter+=dt) > this.LIFESPAN) {
       this.disabled = true;
       ENV.game.endSub(this.id);
     }
@@ -101,18 +101,18 @@ class Repulsor {
 
 Repulsor.stats = {
   radius: 4,
-  SPEED: 10,
+  SPEED: 600, //px/s
   FRICTION: 0.96,
 
   // (repulsion strength) you put in a distance it gives you the acceleration force
   // INTENSITY_FUNCTION: x => fourth root of (a-(x * b)) over 2
-  // y-intercept (max effect) is 2 and x-intercept (range) is 160
+  // y-intercept (max effect) is 120px/s and x-intercept (range) is 160
   // a is 256 and b is
   RANGE: 160,
   MAX_INTENSITY: 2,
-  INTENSITY_FUNCTION(x) { return Math.sqrt(Math.sqrt((Repulsor.stats._A) - (x * (Repulsor.stats._B))))/2 },
+  INTENSITY_FUNCTION(x) { return (Math.sqrt(Math.sqrt((Repulsor.stats._A) - (x * (Repulsor.stats._B))))/2)*60 },
 
-  LIFESPAN: 180
+  LIFESPAN: 3 //s
 };
 
 Repulsor.stats._A = Math.pow(Repulsor.stats.MAX_INTENSITY*2, 4);
@@ -142,13 +142,13 @@ class BlockBomb {
     this.disabled = false;
   }
 
-  update() {
+  update(dt) {
     // if(this.disabled) ENV.game.endSub(this.id);
     this.velocity.mul(this.FRICTION);
-    this.position.add(this.velocity);
+    this.position.add(this.velocity.mul_(dt));
     // this.rotation += ((this.velocity.length / 360) + 0.05);
-    this.rotation += ((this.velocity.length / 40) + 0.0);
-    if(++this.life_counter > this.LIFESPAN) {
+    this.rotation += ((this.velocity.length / 2400) + 0.0);
+    if((this.life_counter+=dt) > this.LIFESPAN) {
       this.exploding = true;
     }
   }
@@ -161,13 +161,13 @@ class BlockBomb {
 
 BlockBomb.stats = {
   radius: 10,
-  SPEED: 25,
+  SPEED: 1500, //px/s
   FRICTION: 0.95,
 
   EXPLOSION_RANGE: 200,
   EXPLOSION_DAMAGE_FUNCTION: x => (8000/((BlockBomb.stats._A * x)+100))-20, // 60hp at contact and 0hp at range px
 
-  LIFESPAN: 100
+  LIFESPAN: 1.6 //s
 }
 
 BlockBomb.stats._A = 300 / Repulsor.stats.RANGE;
@@ -187,10 +187,10 @@ class StealthCloak {
     this.disabled = false;
   }
 
-  update() {
-    var dead;
+  update(dt) {
+    let dead;
     if(this.target) {
-      dead = (++this.life_counter > this.LIFESPAN) || (this.target.ship.disabled) || (this.target.ship.flag);
+      dead = ((this.life_counter+=dt) > this.LIFESPAN) || (this.target.ship.disabled) || (this.target.ship.flag);
       this.target.ship.stealth = !dead;
     }
     if(dead) {
@@ -201,8 +201,8 @@ class StealthCloak {
 }
 
 StealthCloak.stats = {
-  LIFESPAN: 240
-}
+  LIFESPAN: 4 //s
+};
 
 
 class Missile {
@@ -228,7 +228,7 @@ class Missile {
     this.disabled = false;
   }
 
-  update() {
+  update(dt) {
 
     if(this.target) {
       // http://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles?noredirect=1&lq=1
@@ -245,15 +245,15 @@ class Missile {
       var delta_angle = Math.atan2(Math.sin(x-y), Math.cos(x-y)); // log(`delta_angle: ${delta_angle}`)
 
       // var delta_rotation = direction.angle - this.rotation; log(Math.degrees(delta_rotation));
-      if(delta_angle > this.MAX_TURN_SPEED) delta_angle = this.MAX_TURN_SPEED;
-      if(delta_angle <-this.MAX_TURN_SPEED) delta_angle = -this.MAX_TURN_SPEED;
+      if(delta_angle > this.MAX_TURN_SPEED * dt) delta_angle = this.MAX_TURN_SPEED * dt;
+      if(delta_angle <-this.MAX_TURN_SPEED * dt) delta_angle = -this.MAX_TURN_SPEED * dt;
       this.velocity.angle = this.rotation + delta_angle;
     }
 
-    this.position.add(this.velocity);
+    this.position.add(this.velocity.mul_(dt));
     this.rotation = this.velocity.angle;
 
-    if(++this.life_counter > this.LIFESPAN) {
+    if((this.life_counter += dt) > this.LIFESPAN) {
       this.exploding = true;
     }
   }
@@ -266,12 +266,12 @@ class Missile {
 
 Missile.stats = {
   radius: 12,
-  SPEED: 4.6, // 8
+  SPEED: 276, //px/s
   hp: 30,
-  MAX_TURN_SPEED: (Math.PI / 120), // radians
+  MAX_TURN_SPEED: (Math.PI / 2), // radians/s
 
   VISION_RANGE: 400,
   EXPLOSION_RANGE: 30, // 200
 
-  LIFESPAN: 240
+  LIFESPAN: 4 //s
 }

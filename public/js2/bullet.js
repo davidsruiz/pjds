@@ -22,9 +22,9 @@ class Bullet {
     this.disabled = false;
   }
 
-  update() {
-    this.position.add(this.velocity);
-    if(++this.life_counter > this.LIFESPAN) {
+  update(dt) {
+    this.position.add(this.velocity.mul_(dt));
+    if((this.life_counter+=dt) > this.LIFESPAN) {
       this.disabled = true;
       ENV.game.endBullet(this.id);
     }
@@ -39,6 +39,5 @@ class Bullet {
 Bullet.stats = {
   MAX_RADIUS: 12,
   // radius: 8, //8,
-  SPEED: 10//, //14, //10,
-  // LIFESPAN: 60 //120
-}
+  SPEED: 600 //px/s
+};

@@ -53,4 +53,7 @@ class V2D {
   sub(v) { this.x -= v.x; this.y -= v.y; return this; }
   mul(n) { this.x *= n; this.y *= n; return this; }
   div(n) { this.x /= n; this.y /= n; return this; }
+
+  // non mutating
+  mul_(n) { return this.copy().mul(n) }
 }

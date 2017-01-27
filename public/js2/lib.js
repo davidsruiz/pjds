@@ -64,6 +64,7 @@ Array.prototype.sample = function() { return this[Math.floor(Math.random() * thi
 Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
 Array.prototype.delete = function(el) { var i = this.indexOf(el); if(i!=-1) { this.splice(i, 1); return true } return false };
 Array.prototype.toSet = function() { return new Set(this) };
+Array.prototype.average = function() { let t; for(var el of this) if(typeof t == 'undefined') { t = el } else { t += el } return t/this.length };
 
 Set.prototype.draw = function() { var next = this.values().next().value; this.delete(next); return next };
 Set.prototype.toArray = function() { return Array.from(this) };
@@ -154,6 +155,22 @@ var COLOR = {
   }
 }
 
+function cloneCanvas(oldCanvas) {
+
+  //create a new canvas
+  var newCanvas = document.createElement('canvas');
+  var context = newCanvas.getContext('2d');
+
+  //set dimensions
+  newCanvas.width = oldCanvas.width;
+  newCanvas.height = oldCanvas.height;
+
+  //apply the old canvas to the new one
+  context.drawImage(oldCanvas, 0, 0);
+
+  //return the new canvas
+  return newCanvas;
+}
 
 
 

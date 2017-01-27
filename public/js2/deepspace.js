@@ -262,12 +262,27 @@ class DeepSpaceGame {
   }
 
   createShipViews() {
+    let our_ship = this.ships.main, our_team = our_ship.owner.team;
     this.ships.forEach((ship) => {
+      let container = new createjs.Container();
       var hollow = DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2),
           filled = DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2);
       var view = new createjs.Shape(hollow);
       view.hollow = hollow, view.filled = filled;
-      this.view.layer.action.front.addChild(ship.view = view);
+      container.ship = view;
+      container.addChild(view);
+
+      //text
+      if(ship.owner.team == our_team && ship != our_ship) {
+        var text = new createjs.Text(ship.owner.name, "14px Roboto", our_team.color);
+        text.y = -30;
+        text.textAlign = "center";
+        // text.cache()
+        container.text = text;
+        container.addChild(text);
+      }
+
+      this.view.layer.action.front.addChild(ship.view = container);
     });
   }
 
@@ -414,7 +429,12 @@ class DeepSpaceGame {
       //   ["up2", 0], ["dn2", 0], ["lt2", 0], ["rt2", 0],     // attack direction
       //   ["block", false], ["sub", false]                    // other
       // ]);
-      var inputStack = new Set();
+
+      // for(var [,player] of this.players) {
+      //   player.input = [];
+      // }
+      var inputStack = this.ships.main.owner.input = new Set();
+      inputStack.changed = false;
 
       // KEYBOARD
       // key mappings, have multiple ('values') so you can switch between key bindings
@@ -502,11 +522,24 @@ class DeepSpaceGame {
                 // row[0] e.g. 'up' or 'block'
                 // row[2] is value on keydown
                 // row[3] is value on keyup
-                inputStack.delete(row[0])
-                if(!type.is('keyup')) inputStack.add(row[0])
+
+                if(!type.is('keyup')) {
+                  if(!inputStack.has(row[0])) {
+                    inputStack.add(row[0]);
+                    inputStack.changed = true;
+                  }
+                } else {
+                  inputStack.delete(row[0])
+                  inputStack.changed = true;
+                }
+
+                // inputStack.delete(row[0])
+                // if(keydown)
+                // if(!type.is('keyup')) inputStack.add(row[0]);
 
                 // NetworkHelper.out_input_stack(Array.from(inputStack));
-                log(Array.from(inputStack));
+                // inputStack.changed = true;
+                // log(Array.from(inputStack));
               }
             });
           });
@@ -550,10 +583,8 @@ class DeepSpaceGame {
         // OTHER
         inputStack.set("sub", gamepad.buttons[0].pressed);
       };
-
-      // ALIAS
-      this.ships.main.owner.input = inputStack;
     }
+
   }
 
   setupPhysics() {
@@ -582,7 +613,21 @@ class DeepSpaceGame {
     window.msRequestAnimationFrame ||
     function(callback) { window.setTimeout(callback, FPS(60)) };
 
-    // this.ship_override_interval = window.setInterval()
+    this.setupDT();
+  }
+
+  setupDT() {
+    this.last_time = (new Date()).getTime();
+
+    // the variable percentage of a second that has gone by since the last frame
+    // usually expressed: 0.016 when running 60 fps
+    this.dt = 0;
+  }
+
+  updateDT() {
+    let now = (new Date()).getTime();
+    this.dt = (now - this.last_time) / 1000;
+    this.last_time = now;
   }
 
   setupCaches() {
@@ -633,20 +678,38 @@ class DeepSpaceGame {
     });
 
     // blocks
-    gc.blocks = [];
+    gc.blocks = {
+      unlocked: [],
+      locked: [],
+      enemy: []
+    };
     this.teams.forEach(team => {
 
       // always caching the largest version
       let radius = Block.stats.MAX_RADIUS;
 
-      let v = new createjs.Shape(
-        DeepSpaceGame.graphics.block(this.teams[team.number].color, radius)
-      );
+
+      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius)),
+          border =  new createjs.Shape(DeepSpaceGame.graphics.block_border(this.teams[team.number].color, radius));
 
       var s = radius * 1.2;
-      v.cache(-s, -s, s*2, s*2);
 
-      gc.blocks[team.number] = v.cacheCanvas;
+      // enemy
+      fill.cache(-s, -s, s*2, s*2);
+      gc.blocks.enemy[team.number] = fill.cacheCanvas;
+
+      // unlocked
+      fill.alpha = 0.16;
+      let c = new createjs.Container();
+      c.addChild(fill);
+      c.cache(-s, -s, s*2, s*2);
+      gc.blocks.unlocked[team.number] = c.cacheCanvas;
+
+      // locked
+      c = new createjs.Container();
+      c.addChild(fill); c.addChild(border);
+      c.cache(-s, -s, s*2, s*2);
+      gc.blocks.locked[team.number] = c.cacheCanvas;
     });
 
   }
@@ -668,6 +731,7 @@ class DeepSpaceGame {
 
 
   loop() {
+    this.updateDT();
     this.update();
     this.log();
 
@@ -707,7 +771,7 @@ class DeepSpaceGame {
   updateShips() {
     for(var ship of this.ships) {
 
-      ship.update();
+      ship.update(this.dt);
 
       if(ship == this.ships.main && !ship.disabled) {
 
@@ -769,16 +833,24 @@ class DeepSpaceGame {
   }
 
   broadcastShip() {
-    var ship;
-    if(ship = this.ships.main) {
+    var ship, input;
+    if((ship = this.ships.main) && (input = ship.owner.input)) {
+      if(input.changed) {
+        // log(Array.from(input));
+        // NetworkHelper.out_input_stack(Array.from(input));
+        input.changed = false;
+      }
+
       NetworkHelper.out_ship_update(ship.export_update());
+
       if((new Date()).getTime()%60 < 2) NetworkHelper.out_ship_override(ship.export_override());
-      if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
+      if(ship.flag && ship.disabled) NetworkHelper.out_flag_drop();
+      // if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
     }
   }
 
   updateBullets() {
-    this.model.bullets.forEach(b => { b.update() });
+    this.model.bullets.forEach(b => { b.update(this.dt) });
     // this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
   }
 
@@ -789,20 +861,20 @@ class DeepSpaceGame {
         b.locked = true;
         b.qualified = false;
       }
-      b.update();
+      b.update(this.dt);
       // if(b.disabled) NetworkHelper.out_block_destroy(b.id) // due to aging
     });
   }
 
   updateSubs() {
     this.model.subs.forEach(p => {
-      p.update();
+      p.update(this.dt);
 
       switch(p.type) {
         case 'attractor':
         case 'repulsor':
 
-          // field effects
+          // field effects TODO is games responsibility..? dt is passed to subs themseves..
           var distance, direction;
           this.model.bullets.forEach((b)=>{
             if(!b.disabled && p.team != b.team) {
@@ -811,8 +883,8 @@ class DeepSpaceGame {
                 force.length = p.INTENSITY_FUNCTION(distance);
                 force.angle = direction.angle;
                 if(p.type == 'repulsor') force.angle = force.angle - Math.PI;
-                b.velocity.add(force);
-                b.velocity.length *= 0.94; // friction
+                b.velocity.add(force.mul_(this.dt));
+                b.velocity.length *= 0.94; // friction TODO
               }
             }
           });
@@ -1217,15 +1289,15 @@ class DeepSpaceGame {
         visibility = 1;
       }
 
-      ship.view.alpha = ship.health * visibility;
+      let ship_view = ship.view.ship;
+      ship_view.alpha = ship.health * visibility;
+      ship_view.rotation = Math.degrees(ship.angle);
 
       ship.view.x = ship.position.x;
       ship.view.y = ship.position.y;
 
-      ship.view.rotation = Math.degrees(ship.angle);
-
       // ship.view.graphics.clear();
-      ship.view.graphics = ((ship.flag) ? ship.view.filled : ship.view.hollow);
+      ship_view.graphics = ((ship.flag) ? ship_view.filled : ship_view.hollow);
     });
     this.updateEnergyMeterView();
   }
@@ -1264,6 +1336,9 @@ class DeepSpaceGame {
           // v.graphics.command.radius = b.radius;
           v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
         }
+      }
+      if(b.qualified && !b.isForeign) {
+        v.image = DeepSpaceGame.graphicsCaches.blocks.locked[b.team];
       }
     });
   }
@@ -1330,6 +1405,12 @@ class DeepSpaceGame {
 //     y: ${ship.position.y.round(2)}
 // angle: ${ship.angle.round(2)}`
 //     );
+
+    // FPS
+    // this.last = this.last || [];
+    // this.last.push(1/this.dt)
+    // if(this.last.length > 10) this.last.shift();
+    // $('#log').text(`fps ${Math.round(this.last.average())}`);
   }
 
 
@@ -1398,7 +1479,9 @@ class DeepSpaceGame {
     var bl = new Block(data);
 
     // create a view for it.
-    let cache = DeepSpaceGame.graphicsCaches.blocks[bl.team];
+    bl.isForeign = this.spectate || bl.team != this.team.number;
+    let type = bl.isForeign ? 'enemy' : 'unlocked';
+    let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
     var blv = new createjs.Bitmap(cache);
     blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
     blv.regX = blv.regY = (cache.width/2);
@@ -1436,7 +1519,8 @@ class DeepSpaceGame {
         // replace and delete old view
         var v = this.view.blocks.get(id);
         if(v) {
-          v.image = DeepSpaceGame.graphicsCaches.blocks[b.team];
+          let type = this.refGroups.enemyBlocks.has(b) ? 'enemy' : (b.locked ? 'locked' : 'unlocked');
+          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
           // v.updateCache();
         }
 
@@ -1721,7 +1805,10 @@ DeepSpaceGame.graphics = {
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
-  block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
+  // block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
+  block_border: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
+  block_fill: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
+  block_center: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 2),
 
   attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
   repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),

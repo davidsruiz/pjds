@@ -25,18 +25,17 @@ class BasicShip {
     this.reset()
   }
 
-  update() {
+  update(dt) {
     if(!this.disabled) {
-      let intert = this.acceleration.x == 0 && this.acceleration.y == 0;
-      !intert ? this.velocity.add(this.acceleration) : this.velocity.mul(this.LINEAR_FRICTION);
+      let inert = this.acceleration.length == 0 ;
+      !inert ? this.velocity.add(this.acceleration) : this.velocity.mul(this.LINEAR_FRICTION); // TODO double check friction
 
-      // this.velocity.mul((this.LINEAR_FRICTION) - ((this.flag) ? this.flag.drag : 0));
       if(this.flag) this.velocity.mul(this.flag.drag);
 
       if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
          this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
 
-      this.position.add(this.velocity);
+      this.position.add(this.velocity.mul_(dt));
 
       // this.angular_velocity += this.angular_acceleration
       // this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
@@ -52,7 +51,7 @@ class BasicShip {
   // adjusts forces letting the simulation continue
   apply(data) {
     this.disabled = data.disabled;
-    this.acceleration = data.acceleration;
+    this.acceleration.set(data.acceleration);
     // this.angular_acceleration = data.angular_acceleration;
     this.angle = data.angle;
     this.health = data.health;
@@ -148,21 +147,21 @@ class Ship extends BasicShip {
   get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
   get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
 
-  update() {
-    super.update();
+  update(dt) {
+    super.update(dt);
     this.last_known_position = this.position;
     if(!this.disabled) {
-      if(this.regen_counter++ > this.REGEN_DELAY) this.heal(this.REGEN_RATE);
+      if((this.regen_counter+=dt) > this.REGEN_DELAY) this.heal(this.REGEN_RATE*dt);
 
-      this.charge(this.IDLE_ENERGY_REGEN_RATE);
-      if(this.charging) this.charge(this.ACTIVE_ENERGY_REGEN_RATE);
+      this.charge(this.IDLE_ENERGY_REGEN_RATE*dt);
+      if(this.charging) this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
     } else {
-      if(++this.respawn_counter > this.RESPAWN_DELAY) {
+      if((this.respawn_counter+=dt) > this.RESPAWN_DELAY) {
         this.respawn_counter = 0;
         this.reset();
       }
     }
-    this.recoil_counter++; this.block_recoil_counter++; this.sub_recoil_counter++;
+    this.recoil_counter+=dt; this.block_recoil_counter+=dt; this.sub_recoil_counter+=dt;
   }
 
   shoot() {
@@ -254,8 +253,8 @@ Ship.type = {
     type: 'balanced',
 
     SUB_TYPE: 'attractor',
-    SUB_RECOIL_DELAY: 30,
-    SUB_ENERGY_COST: 45
+    SUB_RECOIL_DELAY: 0.5, //s
+    SUB_ENERGY_COST: 45 // ep
   },
 
   "speed" : {
@@ -263,18 +262,18 @@ Ship.type = {
 
     HP_CAPACITY: 18, // 20
 
-    LINEAR_VELOCITY_LIMIT: 4, // 3
-    // LINEAR_ACCELERATION_LIMIT: 0.26, // 0.26
+    LINEAR_VELOCITY_LIMIT: 240, // 188
+    // LINEAR_ACCELERATION_LIMIT: ,
 
     ATTACK_HP: 7, // 8
     ATTACK_RADIUS: 10, // 8
     ATTACK_SPREAD: (2 * Math.PI) * (0.08), // (0.01)
-    ATTACK_LIFESPAN: 20, // 30
+    ATTACK_LIFESPAN: 0.3, // 0.5
 
-    // BLOCK_RECOIL_DELAY: 4, // 6
+    // BLOCK_RECOIL_DELAY: ,
 
     SUB_TYPE: 'repulsor',
-    SUB_RECOIL_DELAY: 30, // 120
+    SUB_RECOIL_DELAY: 0.5, //s
     SUB_ENERGY_COST: 30
   },
 
@@ -283,20 +282,20 @@ Ship.type = {
 
     HP_CAPACITY: 32, // 20
 
-    LINEAR_VELOCITY_LIMIT: 2.6, // 3
+    LINEAR_VELOCITY_LIMIT: 156, // 188
 
     ATTACK_HP: 6, // 8
-    ATTACK_RECOIL_DELAY: 10, // 8
-    ATTACK_LIFESPAN: 36, // 30
+    ATTACK_RECOIL_DELAY: (1/6), // (1/8)
+    ATTACK_LIFESPAN: 0.6, // 0.5
 
-    REGEN_RATE: 0.18, // 0.4
+    REGEN_RATE: 10.8, // 24
 
     // BLOCK_HP_CAPACITY: 12, // 8
-    BLOCK_RECOIL_DELAY: 10, // 8
+    BLOCK_RECOIL_DELAY: (1/6), // (1/8)
     BLOCK_ENERGY_COST: 10, // 8
 
     SUB_TYPE: 'stealth_cloak',
-    SUB_RECOIL_DELAY: 60,
+    SUB_RECOIL_DELAY: 1, //s
     SUB_CAPACITY: 1,
     SUB_ENERGY_COST: 80
   },
@@ -304,17 +303,17 @@ Ship.type = {
   "rate" : {
     type: 'rate',
 
-    RESPAWN_DELAY: 200, // 240
+    RESPAWN_DELAY: 3.4, // 4
 
     ATTACK_HP: 6, // 8
-    ATTACK_RECOIL_DELAY: 6, // 8
+    ATTACK_RECOIL_DELAY: (1/10), // (1/8)
     ATTACK_RADIUS: 6, // 8
 
     // BLOCK_HP_CAPACITY: 6, // 8
-    BLOCK_RECOIL_DELAY: 12, // 8
+    BLOCK_RECOIL_DELAY: (1/5), // (1/8)
 
     SUB_TYPE: 'missile',
-    SUB_RECOIL_DELAY: 60, // 120
+    SUB_RECOIL_DELAY: 1, //s 2
     SUB_CAPACITY: 1,
     SUB_ENERGY_COST: 80
   },
@@ -324,55 +323,60 @@ Ship.type = {
 
     HP_CAPACITY: 22, // 20
 
-    LINEAR_VELOCITY_LIMIT: 2.6, // 3
+    LINEAR_VELOCITY_LIMIT: 156, // 188
 
     ATTACK_HP: 24, // 8
-    ATTACK_RECOIL_DELAY: 50, // 8
+    ATTACK_RECOIL_DELAY: (1/1.2), // (1/8)
     ATTACK_RADIUS: 12, // 8
-    ATTACK_LIFESPAN: 48, // 30
+    ATTACK_LIFESPAN: 0.8, // 0.5
 
     SUB_TYPE: 'block_bomb',
-    SUB_RECOIL_DELAY: 30,
+    SUB_RECOIL_DELAY: 0.5, //s
     SUB_ENERGY_COST: 50
   }
 };
 
 // BASE STATS
+// measurements will be expressed in:
+//  time: s
+//  distance: px
+//  velocity: px / s
+//  acceleration: px / s*s
 Ship.baseStats = {
   type: 'base',
 
-  HP_CAPACITY: 20,
+  HP_CAPACITY: 20, //hp
   // ANGULAR_FRICTION: 0.8,//0.9,
   // ANGULAR_VELOCITY_LIMIT: 0.12,
   // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
-  LINEAR_FRICTION: 0.9,
-  LINEAR_VELOCITY_LIMIT: 3,//8,
-  LINEAR_ACCELERATION_LIMIT: 0.26,//0.6,
+  LINEAR_FRICTION: 0.9, //%
+  LINEAR_VELOCITY_LIMIT: 188, //px/s (3px/f)
+  LINEAR_ACCELERATION_LIMIT: 16, //px/s*s (0.26px/f*f)
 
-  RESPAWN_DELAY: 240,
+  RESPAWN_DELAY: 4, //s (240f)
 
-  ATTACK_HP: 8,
-  ATTACK_RECOIL_DELAY: 8,
-  ATTACK_RADIUS: 8,
-  ATTACK_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians.8,
-  ATTACK_LIFESPAN: 30, //60,
-  ATTACK_ENERGY_FRACTION_HP: 0.3,
+  ATTACK_HP: 8, //hp
+  ATTACK_RECOIL_DELAY: 1/8, //b/s (8f == 7.5b/s)
+  ATTACK_RADIUS: 8, //px
+  ATTACK_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians,
+  ATTACK_LIFESPAN: 0.5, //s,
+  ATTACK_ENERGY_FRACTION_HP: 0.3, //%
 
-  REGEN_DELAY: 180,
-  REGEN_RATE: 0.4, // hp/frame
+  REGEN_DELAY: 3, //s (180f)
+  REGEN_RATE: 24, //hp/s (0.4hp/f)
 
-  BLOCK_CAPACITY: 40, //32,
-  BLOCK_HP_CAPACITY: 20, //16,
+  BLOCK_CAPACITY: 40, //#
+  BLOCK_HP_CAPACITY: 20, //hp
   BLOCK_SPREAD: (2 * Math.PI) * (0), // 0.3 (30%) angle sweep in radians.
-  BLOCK_RECOIL_DELAY: 8, // 4
-  BLOCK_ENERGY_COST: 8,
+  BLOCK_RECOIL_DELAY: 1/8, //b/s (8f == 7.5b/s)
+  BLOCK_ENERGY_COST: 8, //ep
 
   SUB_TYPE: 'block_bomb',
-  SUB_RECOIL_DELAY: 30,
-  SUB_CAPACITY: 5,
-  SUB_ENERGY_COST: 40,
+  SUB_RECOIL_DELAY: 0.5, //s
+  SUB_CAPACITY: 5, //#
+  SUB_ENERGY_COST: 40, //ep
 
-  ENERGY_CAPACITY: 100,
-  IDLE_ENERGY_REGEN_RATE: 0.07, // of automatic energy per frame
-  ACTIVE_ENERGY_REGEN_RATE: 0.4 // of automatic energy per second
+  ENERGY_CAPACITY: 100, // (ep)
+  IDLE_ENERGY_REGEN_RATE: 4.2, // of automatic energy per second (ep/s)
+  ACTIVE_ENERGY_REGEN_RATE: 24 // while charging energy per second (ep/s)
 };
