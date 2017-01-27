@@ -35,7 +35,7 @@ function refreshLobbyView() {
         option.innerHTML = t;
         select.appendChild(option);
       });
-      select.value = ENV.storage.type || 'balanced';//defoption.textContent;
+      select.value = ENV.storage.type || 'standard';//defoption.textContent;
       select.onchange = function(e) { socket.emit('set type', this.value); ENV.storage.type = this.value; };
       let right = document.createElement('span');
       let checkbox = document.createElement('input'); checkbox.type = "checkbox"; checkbox.name = "checkbox";
@@ -64,4 +64,4 @@ function refreshLobbyView() {
 
 }
 
-let types = ['damage', 'speed', 'balanced', 'rate', 'defense'];
+let types = ['damage', 'speed', 'standard', 'rate', 'defense'];

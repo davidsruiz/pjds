@@ -39,5 +39,5 @@ class Bullet {
 Bullet.stats = {
   MAX_RADIUS: 12,
   // radius: 8, //8,
-  SPEED: 600 //px/s
+  SPEED: 300 //600 //px/s
 };

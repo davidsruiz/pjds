@@ -19,7 +19,7 @@ socket.on('onconnected', function(obj) {
   let name = ENV.storage.user_name || "";
   socket.emit('set name', name);
 
-  let type = ENV.storage.type || "balanced"; // TODO: double hard-coded see view.js:36
+  let type = ENV.storage.type || "standard"; // TODO: double hard-coded see view.js:36
   if(type) socket.emit('set type', type);
 
   // if(sessionStorage.ready = !!(sessionStorage.nickname && sessionStorage.type)) socket.emit('ready');

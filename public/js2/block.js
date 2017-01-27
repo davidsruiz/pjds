@@ -22,15 +22,16 @@ class Block {
       this.disabled = false;
     }
 
-    update() {
+    update(dt) {
       if(!this.locked) {
         this.velocity.mul(this.FRICTION);
-        this.position.add(this.velocity);
+        this.position.add(this.velocity.mul_(dt));
 
         // this.radius = (this.velocity.length * 0.9 + 3); //(8 -> 3)
-        this.scale = (this.velocity.length * 0.9 + 3) / 10; //(.8 -> .3)
+        this.scale = (this.velocity.length * 0.015 + 3) / 10; //(.8 -> .3)
 
         if(this.velocity.length < this.LOWER_VELOCITY_LIMIT) this.lock();
+        // if((this.life_counter+=dt) > this.LIFESPAN) this.lock();
       }
 
       // if(++this.life_counter > this.LIFESPAN) this.disabled = true;
@@ -55,11 +56,11 @@ class Block {
   Block.stats = {
     MIN_RADIUS: 45, //18, //16, //10,
     MAX_RADIUS: 50, //36, //30, //20,
-    SPEED: 3,
+    SPEED: 180,
     FRICTION: 0.96,
-    LOWER_VELOCITY_LIMIT: 0.8,
+    LOWER_VELOCITY_LIMIT: 30,
     // DRIFT: 30,
-    // LIFESPAN: 120,
+    // LIFESPAN: 1, //s
 
     DISRUPTIVE_FRICTION: 0.1
   }

@@ -86,6 +86,8 @@ class Ship extends BasicShip {
   constructor(player) {
     super(player);
 
+    // this._angle = 0;
+
     this.energy = 100;
 
     this.block_friction = 0;
@@ -139,6 +141,9 @@ class Ship extends BasicShip {
     }
   }
 
+  // get angle() { return this._angle }
+  // set angle(angle) { if(this._angle != angle) this.recoil_counter = this.ATTACK_RECOIL_DELAY; this._angle = angle; }
+
   get health() { return this.hp / this.HP_CAPACITY }
   set health(percent) { this.hp = percent * this.HP_CAPACITY }
 
@@ -155,6 +160,7 @@ class Ship extends BasicShip {
 
       this.charge(this.IDLE_ENERGY_REGEN_RATE*dt);
       if(this.charging) this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
+      // if(this.charging && !this.stealth) this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
     } else {
       if((this.respawn_counter+=dt) > this.RESPAWN_DELAY) {
         this.respawn_counter = 0;
@@ -249,8 +255,8 @@ class Ship extends BasicShip {
 }
 
 Ship.type = {
-  "balanced" : {
-    type: 'balanced',
+  "standard" : {
+    type: 'standard',
 
     SUB_TYPE: 'attractor',
     SUB_RECOIL_DELAY: 0.5, //s
@@ -262,13 +268,13 @@ Ship.type = {
 
     HP_CAPACITY: 18, // 20
 
-    LINEAR_VELOCITY_LIMIT: 240, // 188
+    LINEAR_VELOCITY_LIMIT: 180, // 120
     // LINEAR_ACCELERATION_LIMIT: ,
 
     ATTACK_HP: 7, // 8
     ATTACK_RADIUS: 10, // 8
-    ATTACK_SPREAD: (2 * Math.PI) * (0.08), // (0.01)
-    ATTACK_LIFESPAN: 0.3, // 0.5
+    ATTACK_SPREAD: (2 * Math.PI) * (0.02), // (0.01)
+    ATTACK_LIFESPAN: 1, // 1.6
 
     // BLOCK_RECOIL_DELAY: ,
 
@@ -282,35 +288,35 @@ Ship.type = {
 
     HP_CAPACITY: 32, // 20
 
-    LINEAR_VELOCITY_LIMIT: 156, // 188
+    LINEAR_VELOCITY_LIMIT: 100, // 120
 
     ATTACK_HP: 6, // 8
-    ATTACK_RECOIL_DELAY: (1/6), // (1/8)
-    ATTACK_LIFESPAN: 0.6, // 0.5
+    ATTACK_RECOIL_DELAY: (1/3), // (1/4)
+    ATTACK_LIFESPAN: 1.8, // 1.6
 
     REGEN_RATE: 10.8, // 24
 
     // BLOCK_HP_CAPACITY: 12, // 8
-    BLOCK_RECOIL_DELAY: (1/6), // (1/8)
+    BLOCK_RECOIL_DELAY: (1/6), // (1/6)
     BLOCK_ENERGY_COST: 10, // 8
 
     SUB_TYPE: 'stealth_cloak',
     SUB_RECOIL_DELAY: 1, //s
     SUB_CAPACITY: 1,
-    SUB_ENERGY_COST: 80
+    SUB_ENERGY_COST: 90 // 70 when no charge upon stealth
   },
 
   "rate" : {
     type: 'rate',
 
-    RESPAWN_DELAY: 3.4, // 4
+    RESPAWN_DELAY: 3, // 4
 
     ATTACK_HP: 6, // 8
-    ATTACK_RECOIL_DELAY: (1/10), // (1/8)
+    ATTACK_RECOIL_DELAY: (1/6), // (1/4)
     ATTACK_RADIUS: 6, // 8
 
     // BLOCK_HP_CAPACITY: 6, // 8
-    BLOCK_RECOIL_DELAY: (1/5), // (1/8)
+    BLOCK_RECOIL_DELAY: (1/5), // (1/6)
 
     SUB_TYPE: 'missile',
     SUB_RECOIL_DELAY: 1, //s 2
@@ -323,12 +329,12 @@ Ship.type = {
 
     HP_CAPACITY: 22, // 20
 
-    LINEAR_VELOCITY_LIMIT: 156, // 188
+    LINEAR_VELOCITY_LIMIT: 100, // 120
 
     ATTACK_HP: 24, // 8
-    ATTACK_RECOIL_DELAY: (1/1.2), // (1/8)
+    ATTACK_RECOIL_DELAY: (1/1.2), // (1/4)
     ATTACK_RADIUS: 12, // 8
-    ATTACK_LIFESPAN: 0.8, // 0.5
+    ATTACK_LIFESPAN: 2.2, // 1.6
 
     SUB_TYPE: 'block_bomb',
     SUB_RECOIL_DELAY: 0.5, //s
@@ -350,16 +356,16 @@ Ship.baseStats = {
   // ANGULAR_VELOCITY_LIMIT: 0.12,
   // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
   LINEAR_FRICTION: 0.9, //%
-  LINEAR_VELOCITY_LIMIT: 188, //px/s (3px/f)
+  LINEAR_VELOCITY_LIMIT: 120, //188 //px/s (3px/f)
   LINEAR_ACCELERATION_LIMIT: 16, //px/s*s (0.26px/f*f)
 
   RESPAWN_DELAY: 4, //s (240f)
 
   ATTACK_HP: 8, //hp
-  ATTACK_RECOIL_DELAY: 1/8, //b/s (8f == 7.5b/s)
+  ATTACK_RECOIL_DELAY: 1/4, //8 //b/s (8f == 7.5b/s)
   ATTACK_RADIUS: 8, //px
   ATTACK_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians,
-  ATTACK_LIFESPAN: 0.5, //s,
+  ATTACK_LIFESPAN: 1.6, //0.5 //s,
   ATTACK_ENERGY_FRACTION_HP: 0.3, //%
 
   REGEN_DELAY: 3, //s (180f)
@@ -367,8 +373,8 @@ Ship.baseStats = {
 
   BLOCK_CAPACITY: 40, //#
   BLOCK_HP_CAPACITY: 20, //hp
-  BLOCK_SPREAD: (2 * Math.PI) * (0), // 0.3 (30%) angle sweep in radians.
-  BLOCK_RECOIL_DELAY: 1/8, //b/s (8f == 7.5b/s)
+  BLOCK_SPREAD: (2 * Math.PI) * (0.5), // 0.3 (30%) angle sweep in radians.
+  BLOCK_RECOIL_DELAY: 1/6, //b/s (8f == 7.5b/s)
   BLOCK_ENERGY_COST: 8, //ep
 
   SUB_TYPE: 'block_bomb',
