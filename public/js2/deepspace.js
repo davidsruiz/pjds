@@ -121,7 +121,7 @@ class DeepSpaceGame {
 
         // actual game stats
         this.game.scores = Array.new(this.teams.length, 100);
-        this.game.max = DeepSpaceGame.modes["ctf"].ring_radius;
+        this.game.max = Physics.distance(this.teams[0].spawn_camp.position, {x: centerX, y: centerY});
         this.game.lead = undefined; // team in the lead
 
         break;
@@ -282,8 +282,36 @@ class DeepSpaceGame {
         container.addChild(text);
       }
 
+      // if(ship == our_ship) {
+      //   let color = this.ships.main.owner.team.color,
+      //     view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
+      //     shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
+      //     offset = { x: 22, y: -22 };
+      //
+      //   view.x = shadow.x = offset.x;
+      //   view.y = shadow.y = offset.y;
+      //
+      //   container.addChild(container.meter_shadow = view.shadow = shadow);
+      //   container.addChild(container.meter = view);
+      // }
+
+
       this.view.layer.action.front.addChild(ship.view = container);
     });
+
+    if(our_ship) {
+      let container = our_ship.view,
+          color = this.ships.main.owner.team.color,
+          meter = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
+          shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
+          offset = { x: 22, y: -22 };
+
+      meter.x = shadow.x = offset.x;
+      meter.y = shadow.y = offset.y;
+
+      container.addChild(container.meter_shadow = meter.shadow = shadow);
+      container.addChild(container.meter = meter);
+    }
   }
 
   createPoolViews() {
@@ -356,26 +384,28 @@ class DeepSpaceGame {
     }
 
     // energy meter
-    if(!this.spectate) {
-      overlay.ship = {};
-      let color = this.ships.main.owner.team.color,
-          view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
-          shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
-          centerX = this.window.width / 2,
-          centerY = this.window.height / 2,
-          offset = { x: 22, y: -22 };
-
-      view.x = shadow.x = centerX + offset.x;
-      view.y = shadow.y = centerY + offset.y;
-
-      this.view.layer.overlay.addChild(view.shadow = shadow);
-      this.view.layer.overlay.addChild(overlay.ship.energyMeter = view);
-    }
+    // if(!this.spectate) {
+    //   overlay.ship = {};
+    //   let color = this.ships.main.owner.team.color,
+    //       view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
+    //       shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
+    //       centerX = this.window.width / 2,
+    //       centerY = this.window.height / 2,
+    //       offset = { x: 22, y: -22 };
+    //
+    //   view.x = shadow.x = centerX + offset.x;
+    //   view.y = shadow.y = centerY + offset.y;
+    //
+    //   this.view.layer.overlay.addChild(view.shadow = shadow);
+    //   this.view.layer.overlay.addChild(overlay.ship.energyMeter = view);
+    // }
 
     this.view.overlay = overlay;
   }
 
   setupCamera() {
+    this.view.layer.action.width = this.mapInfo.width;
+    this.view.layer.action.height = this.mapInfo.height;
     this.camera = new Camera(this.stage.canvas, this.view.layer.action);
 
     if(this.spectate) {
@@ -456,8 +486,8 @@ class DeepSpaceGame {
         ["lt2", [65]],
         // right: d
         ["rt2", [68]],
-        // block: space
-        ["block", [32]],
+        // block: space, v
+        ["block", [32, 86]],
         // sub: e
         ["sub", [69]]
       ];
@@ -509,7 +539,7 @@ class DeepSpaceGame {
         // ["move_h_axis", [37, 65], -keypressWeight, 0],
       // ];
 
-      var keyHandler = (e) => {
+      let keyHandler = (e) => {
         var type = e.type;
 
         if(type == 'keyup' || type == 'keydown') {
@@ -731,9 +761,11 @@ class DeepSpaceGame {
 
 
   loop() {
+    // stats.begin();
     this.updateDT();
     this.update();
     this.log();
+    // stats.end();
 
     getAnimationFrame(()=> this.game.ended ? true : this.loop())
   }
@@ -805,7 +837,8 @@ class DeepSpaceGame {
               x2 = 1;
               break;
             case 'sub':
-              ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
+              if(!ship.flag) ship.sub();
+              // ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
               break;
             case 'block':
               ship.block();
@@ -825,10 +858,21 @@ class DeepSpaceGame {
       }
 
       // validate new position TODO (revise)
-      if(ship.position.x < 0) ship.position.x = this.mapInfo.width;
-      if(ship.position.y < 0) ship.position.y = this.mapInfo.height;
-      if(ship.position.x > this.mapInfo.width) ship.position.x = 0;
-      if(ship.position.y > this.mapInfo.height) ship.position.y = 0;
+
+      if(ship.position.x < 0) { ship.position.x = 0; ship.velocity.x = 0 }
+      if(ship.position.y < 0) { ship.position.y = 0; ship.velocity.y = 0 }
+      if(ship.position.x > this.mapInfo.width) { ship.position.x = this.mapInfo.width; ship.velocity.x = 0; }
+      if(ship.position.y > this.mapInfo.height) { ship.position.y = this.mapInfo.height; ship.velocity.y = 0; }
+
+      // if(ship.position.x < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.height))
+      // if(ship.position.y < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.width))
+      // if(ship.position.x > this.mapInfo.width) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.height))
+      // if(ship.position.y > this.mapInfo.height) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.width))
+
+      // if(ship.position.x < 0) ship.position.x = this.mapInfo.width;
+      // if(ship.position.y < 0) ship.position.y = this.mapInfo.height;
+      // if(ship.position.x > this.mapInfo.width) ship.position.x = 0;
+      // if(ship.position.y > this.mapInfo.height) ship.position.y = 0;
     }
   }
 
@@ -1207,21 +1251,20 @@ class DeepSpaceGame {
     var flag = this.game.flag;
     if(!flag.idle) {
       var player = this.players.get(flag.holderID),
-          p = player.ship.last_known_position;
+          p = player.ship.last_known_position,
+          camp = player.team.spawn_camp;
       flag.position.x = p.x;
       flag.position.y = p.y;
 
       // real game stuff
-      var centerX = this.mapInfo.width / 2, // cache somehow...
-          centerY = this.mapInfo.height / 2,
-          distance = Physics.distance(p, {x: centerX, y: centerY}),
+      var distance = Physics.distance(p, camp.position) - camp.radius,
           percent = distance / this.game.max,
           low_score = this.game.scores[player.team.number],
-          current_score = 100 - Math.round(percent * 100);
+          current_score = Math.round(percent * 100);
 
       if(current_score < low_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
 
-      if(!(percent < 1) && player == this.player) NetworkHelper.out_game_over(player.team.number);
+      if((percent < 0) && player == this.player) NetworkHelper.out_game_over(player.team.number);
 
 
       // LEAD COMPARISON
@@ -1306,7 +1349,7 @@ class DeepSpaceGame {
     if(this.spectate) return;
 
     let ship = this.player.ship,
-        meterView = this.view.overlay.ship.energyMeter,
+        meterView = ship.view.meter,
         shadowView = meterView.shadow,
         percent = ship.energy/100;
     meterView.graphics = DeepSpaceGame.graphics.energyMeter(this.team.color, percent);
@@ -1390,6 +1433,20 @@ class DeepSpaceGame {
     if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
 
     v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);
+
+
+    // var v = this.view.flag, flag = this.game.flag;
+    //
+    // var not_visible = false;
+    // v.x = flag.position.x + this.camera.plane.x;
+    // v.y = flag.position.y + this.camera.plane.y;
+    // var padding = (flag.radius * 2)
+    // if(v.x < padding) { v.x = padding; not_visible = true; }
+    // if(v.x > this.window.width - padding) { v.x = this.window.width - padding; not_visible = true; }
+    // if(v.y < padding) { v.y = padding; not_visible = true; }
+    // if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
+    //
+    // v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);
   }
 
   updateCameraFocus() {

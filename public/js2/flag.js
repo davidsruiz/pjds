@@ -1,7 +1,7 @@
 class Flag {
 
   constructor(p) {
-    this.spawn = p;
+    this.spawn = this.position = p;
     this.radius = 18;
     this.reset();
 
@@ -10,7 +10,7 @@ class Flag {
 
   reset() {
     delete this.holderID;
-    this.position = this.spawn.copy();
+    // this.position = this.spawn.copy();
   }
 
   get idle() {return !(this.holderID)}

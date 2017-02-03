@@ -22,4 +22,14 @@ class Physics {
     fluid.velocity.add(force_vector);
   }
 
+  // static bounce_off_line(circle, line_P1, line_P2) {
+  //   let line = line_P2.sub_(line_P1);
+  //   let rejection = V2D.rejc(circle.position.sub_(line_P1), line);
+  //   if(true) {
+  //   // if(rejection.length < circle.radius) {
+  //     rejection.mul(-2).length = circle.velocity.length;
+  //     circle.velocity.set(rejection);
+  //   }
+  // }
+
 }

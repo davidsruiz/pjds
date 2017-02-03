@@ -53,7 +53,7 @@ Attractor.stats = {
   // y-intercept (max effect) is 120px/s and x-intercept (range) is 200
   RANGE: 240,
   MAX_INTENSITY: 2,
-  INTENSITY_FUNCTION(x) { return (Math.sqrt(Math.sqrt((Attractor.stats._A) - (x * (Attractor.stats._B))))/2)*40 },
+  INTENSITY_FUNCTION(x) { return (Math.sqrt(Math.sqrt((Attractor.stats._A) - (x * (Attractor.stats._B))))/2)*20 },
 
   LIFESPAN: 4 //s
 };
@@ -110,7 +110,7 @@ Repulsor.stats = {
   // a is 256 and b is
   RANGE: 160,
   MAX_INTENSITY: 2,
-  INTENSITY_FUNCTION(x) { return (Math.sqrt(Math.sqrt((Repulsor.stats._A) - (x * (Repulsor.stats._B))))/2)*40 },
+  INTENSITY_FUNCTION(x) { return (Math.sqrt(Math.sqrt((Repulsor.stats._A) - (x * (Repulsor.stats._B))))/2)*20 },
 
   LIFESPAN: 3 //s
 };
@@ -267,7 +267,7 @@ class Missile {
 Missile.stats = {
   radius: 12,
   SPEED: 220, //px/s
-  hp: 30,
+  hp: 16,
   MAX_TURN_SPEED: (Math.PI / 2), // radians/s
 
   VISION_RANGE: 400,

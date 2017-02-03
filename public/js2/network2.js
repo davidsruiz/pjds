@@ -32,16 +32,17 @@ class NetworkHelper {
   }
 
   static bullet_create(ship) { if(!DeepSpaceGame.runningInstance) return;
-    var id = Math.uuid();
-    var data = {
-      id: id,
-      team: ship.owner.team.number,
-      position: ship.shoot_position,
-      angle: ship.shoot_angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),
-      radius: ship.ATTACK_RADIUS,
-      hp: ship.ATTACK_HP,
-      lifespan: ship.ATTACK_LIFESPAN
-    }
+    let id = Math.uuid(),
+        data = {
+          id: id,
+          team: ship.owner.team.number,
+          position: ship.shoot_position,
+          angle: ship.shoot_angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),
+          radius: ship.ATTACK_RADIUS,
+          hp: ship.ATTACK_HP,
+          lifespan: ship.ATTACK_LIFESPAN,
+          velocity: ship.velocity
+        };
     socket.emit('bullet create', { senderID: ENV["id"], bulletData: data});
     ENV.game.startBullet(data);
     return id;

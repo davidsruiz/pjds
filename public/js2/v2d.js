@@ -5,7 +5,7 @@ class V2D {
   }
 
   static new() {
-    var v = new V2D();
+    let v = new V2D();
     switch(arguments.length) {
       case 0:
       v.set({x:0, y:0});
@@ -55,5 +55,31 @@ class V2D {
   div(n) { this.x /= n; this.y /= n; return this; }
 
   // non mutating
+  add_(n) { return this.copy().add(n) }
+  sub_(n) { return this.copy().sub(n) }
   mul_(n) { return this.copy().mul(n) }
+  div_(n) { return this.copy().div(n) }
+
+  // unit vector
+  unit_v() { return this.div_(this.length) }
+
+  // dot product
+  static dot(a, b) { return (a.x * b.x) + (a.y * b.y) }
+
+  // projection of a onto b
+  static proj(a, b) { return b.mul_( (V2D.dot(a, b)) / (V2D.dot(b, b)) ) }
+
+  // rejection of a from b
+  static rejc(a, b) { return a.sub_(V2D.proj(a, b)) }
+
+}
+
+
+class Rect {
+
+  constructor(x, y, w, h) {
+    this.x = x; this.y = y;
+    this.width = w; this.height = h;
+  }
+
 }

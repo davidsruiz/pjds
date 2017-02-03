@@ -2,14 +2,24 @@ class Camera {
 
   constructor(window, plane, focus) {
     this.window = window; this.plane = plane; this.focus = focus;
+    this.edge_x = -this.plane.width + this.window.width;
+    this.edge_y = -this.plane.height + this.window.height;
   }
 
   update() {
     const offsetX = this.window.width / 2,
         offsetY = this.window.height / 2;
 
-    this.plane.x = -this.focus.x + offsetX;
-    this.plane.y = -this.focus.y + offsetY;
+    let new_x = -this.focus.x + offsetX;
+    let new_y = -this.focus.y + offsetY;
+
+    if(new_x > 0) new_x = 0;
+    if(new_y > 0) new_y = 0;
+    if(new_x < this.edge_x) new_x = this.edge_x;
+    if(new_y < this.edge_y) new_y = this.edge_y;
+
+    this.plane.x = new_x;
+    this.plane.y = new_y;
   }
 
   showing(obj) {
@@ -20,6 +30,20 @@ class Camera {
       ((obj.position.y-r) + this.plane.y < this.height) &&
       ((obj.position.y+r) + this.plane.y > 0)
     )
+  }
+
+  closest_match(obj, padding = 10) {
+    let v = new V2D(),
+        not_visible = false;
+
+    v.x = obj.position.x + this.camera.plane.x;
+    v.y = obj.position.y + this.camera.plane.y;
+    if(v.x < padding) { v.x = padding; not_visible = true; }
+    if(v.x > this.window.width - padding) { v.x = this.window.width - padding; not_visible = true; }
+    if(v.y < padding) { v.y = padding; not_visible = true; }
+    if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
+
+    return { is_visible: !not_visible, position: v }
   }
 
   /*

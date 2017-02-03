@@ -156,10 +156,13 @@ class Ship extends BasicShip {
     super.update(dt);
     this.last_known_position = this.position;
     if(!this.disabled) {
-      if((this.regen_counter+=dt) > this.REGEN_DELAY) this.heal(this.REGEN_RATE*dt);
+      this.regen_counter+=dt;
 
       this.charge(this.IDLE_ENERGY_REGEN_RATE*dt);
-      if(this.charging) this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
+      if(this.charging) {
+        this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
+        if(this.regen_counter > this.REGEN_DELAY) this.heal(this.REGEN_RATE*dt);
+      }
       // if(this.charging && !this.stealth) this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
     } else {
       if((this.respawn_counter+=dt) > this.RESPAWN_DELAY) {
@@ -268,7 +271,7 @@ Ship.type = {
 
     HP_CAPACITY: 18, // 20
 
-    LINEAR_VELOCITY_LIMIT: 180, // 120
+    LINEAR_VELOCITY_LIMIT: 160, // 120
     // LINEAR_ACCELERATION_LIMIT: ,
 
     ATTACK_HP: 7, // 8
@@ -321,7 +324,7 @@ Ship.type = {
     SUB_TYPE: 'missile',
     SUB_RECOIL_DELAY: 1, //s 2
     SUB_CAPACITY: 1,
-    SUB_ENERGY_COST: 80
+    SUB_ENERGY_COST: 70
   },
 
   "damage" : {
@@ -357,7 +360,7 @@ Ship.baseStats = {
   // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
   LINEAR_FRICTION: 0.9, //%
   LINEAR_VELOCITY_LIMIT: 120, //188 //px/s (3px/f)
-  LINEAR_ACCELERATION_LIMIT: 16, //px/s*s (0.26px/f*f)
+  LINEAR_ACCELERATION_LIMIT: 10, //px/s*s (0.26px/f*f)
 
   RESPAWN_DELAY: 4, //s (240f)
 

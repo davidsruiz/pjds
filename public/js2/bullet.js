@@ -12,6 +12,7 @@ class Bullet {
     this.velocity = new V2D();
     this.velocity.length = this.SPEED;
     this.velocity.angle = data.angle;
+    this.velocity.add(V2D.proj(data.velocity, this.velocity));
 
     this.radius = data.radius;
 
@@ -39,5 +40,5 @@ class Bullet {
 Bullet.stats = {
   MAX_RADIUS: 12,
   // radius: 8, //8,
-  SPEED: 300 //600 //px/s
+  SPEED: 200 //600 //px/s
 };
