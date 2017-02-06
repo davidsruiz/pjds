@@ -13,10 +13,10 @@ class Camera {
     let new_x = -this.focus.x + offsetX;
     let new_y = -this.focus.y + offsetY;
 
-    if(new_x > 0) new_x = 0;
-    if(new_y > 0) new_y = 0;
-    if(new_x < this.edge_x) new_x = this.edge_x;
-    if(new_y < this.edge_y) new_y = this.edge_y;
+    // if(new_x > 0) new_x = 0;
+    // if(new_y > 0) new_y = 0;
+    // if(new_x < this.edge_x) new_x = this.edge_x;
+    // if(new_y < this.edge_y) new_y = this.edge_y;
 
     this.plane.x = new_x;
     this.plane.y = new_y;

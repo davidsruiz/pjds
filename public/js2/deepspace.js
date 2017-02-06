@@ -262,13 +262,14 @@ class DeepSpaceGame {
   }
 
   createShipViews() {
-    let our_ship = this.ships.main, our_team = our_ship.owner.team;
+    let our_ship = this.ships.main, our_team;
+    if(our_ship) our_team = our_ship.owner.team;
     this.ships.forEach((ship) => {
       let container = new createjs.Container();
       var hollow = DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2),
           filled = DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2);
       var view = new createjs.Shape(hollow);
-      view.hollow = hollow, view.filled = filled;
+      view.hollow = hollow, view.filled = filled; // TODO cache ships with interchangable bitmap instead
       container.ship = view;
       container.addChild(view);
 
@@ -837,8 +838,8 @@ class DeepSpaceGame {
               x2 = 1;
               break;
             case 'sub':
-              if(!ship.flag) ship.sub();
-              // ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
+              // if(!ship.flag) ship.sub();
+              ship.flag ? NetworkHelper.out_flag_drop() : ship.sub();
               break;
             case 'block':
               ship.block();
@@ -858,11 +859,11 @@ class DeepSpaceGame {
       }
 
       // validate new position TODO (revise)
-
-      if(ship.position.x < 0) { ship.position.x = 0; ship.velocity.x = 0 }
-      if(ship.position.y < 0) { ship.position.y = 0; ship.velocity.y = 0 }
-      if(ship.position.x > this.mapInfo.width) { ship.position.x = this.mapInfo.width; ship.velocity.x = 0; }
-      if(ship.position.y > this.mapInfo.height) { ship.position.y = this.mapInfo.height; ship.velocity.y = 0; }
+      let r = ship.radius + 8;
+      if(ship.position.x-r < 0) { ship.position.x = r; ship.velocity.x = 0 }
+      if(ship.position.y-r < 0) { ship.position.y = r; ship.velocity.y = 0 }
+      if(ship.position.x+r > this.mapInfo.width) { ship.position.x = this.mapInfo.width-r; ship.velocity.x = 0; }
+      if(ship.position.y+r > this.mapInfo.height) { ship.position.y = this.mapInfo.height-r; ship.velocity.y = 0; }
 
       // if(ship.position.x < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.height))
       // if(ship.position.y < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.width))
@@ -1152,7 +1153,9 @@ class DeepSpaceGame {
     var ship = this.ships.main, flag = this.game.flag;
     if(!ship.disabled && flag.idle)
       if(Physics.doTouch(ship, flag))
-        NetworkHelper.out_flag_pickup(ship.owner.id);
+        ship.pickup(flag);
+        // if(ship.pickup(flag))
+          // NetworkHelper.out_flag_pickup(ship.owner.id);
 
   }
 
@@ -1679,14 +1682,14 @@ class DeepSpaceGame {
     return true;
   }
 
-  pickupFlag(playerID) {
+  pickupFlag(playerID) { // flag activation needs to go through here
     var flag = this.game.flag, ship = null;
     // if(!flag.idle) NetworkHelper.out_flag_drop();
     flag.holderID = playerID;
 
     var player = this.players.get(flag.holderID);
     if(ship = player.ship)
-      ship.pickup(flag);
+      ship.setFlag(flag);
 
     var c = player.team.color, us = player.team == this.team;
     this.alert(
@@ -1706,7 +1709,7 @@ class DeepSpaceGame {
     if(id = flag.holderID) {
       var player = this.players.get(flag.holderID)
       if(ship = player.ship)
-        ship.drop(flag);
+        ship.clearFlag();
 
       flag.reset();
 
@@ -1845,20 +1848,20 @@ DeepSpaceGame.graphics = {
   spawn_camp_fill: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 64),
   // spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
   ship: {
-    "damage":   [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(6, -10).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(6, 10).lineTo(10, 0).lineTo(6, -10)],
+    "damage":   [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8)],
 
-    "speed":    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-10, -10).lineTo(-6, 0).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)],
+    "speed":    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
 
-    "standard": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-10, -10).lineTo(-10, 10).lineTo(10, 0).lineTo(-10, -10)],
+    "standard": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
 
-    "rate":     [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(-6, -10).lineTo(-10, 0).lineTo(-6, 10).lineTo(10, 0).lineTo(-6, -10),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(-6, -10).lineTo(-10, 0).lineTo(-6, 10).lineTo(10, 0).lineTo(-6, -10)],
+    "rate":     [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8)],
 
-    "defense":  [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(10, 0).lineTo(8, -5).lineTo(-10, -10).lineTo(-10, 10).lineTo(8, 5).lineTo(10, 0).lineTo(8, -5),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(10, 0).lineTo(8, -5).lineTo(-10, -10).lineTo(-10, 10).lineTo(8, 5).lineTo(10, 0).lineTo(8, -5)]
+    "defense":  [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4),
+                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4)]
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)

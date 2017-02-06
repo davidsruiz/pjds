@@ -321,12 +321,16 @@ sio.sockets.on('connection', function (client) {
     client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));
     client.on('sub destroy', data => client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop'));
 
-
+    // TODO: figure out what happens when a flag holder disconnects..
     client.on('flag pickup', data => {
       if(client.lobby) {
-        client.lobby.emit('flag pickup', data);
-        // client.lobby.first.emit('begin create asteroids')
-        client.lobby.state.flagHolder = data.playerID;
+        if(client.lobby.state.flagHolder) {
+          client.lobby.emit('flag pickup', data);
+          // client.lobby.first.emit('begin create asteroids')
+          client.lobby.state.flagHolder = data.playerID;
+        } else {
+          client.lobby.emit('flag drop', data);
+        }
       } else {
         client.emit('stop')
       }

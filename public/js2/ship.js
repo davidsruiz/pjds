@@ -9,8 +9,8 @@ class BasicShip {
         this.velocity = new V2D();
         this.acceleration = new V2D();
     this.angle = 0;
-        this.angular_velocity = 0;
-        this.angular_acceleration = 0;
+        // this.angular_velocity = 0;
+        // this.angular_acceleration = 0;
     this.health = 1;
     this.radius = 10;
     this.stealth = false;
@@ -77,8 +77,8 @@ class BasicShip {
     this.disabled = false;
   }
 
-  pickup(flag) { this.flag = flag }
-  drop(flag) { this.flag = undefined }
+  setFlag(flag) { this.flag = flag }
+  clearFlag() { this.flag = undefined }
 }
 
 class Ship extends BasicShip {
@@ -105,6 +105,7 @@ class Ship extends BasicShip {
     this.regen_counter = 0;
     this.block_recoil_counter = 0;
     this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
+    this.flag_recoil_counter = this.FLAG_RECOIL_DELAY;
 
     // this.assignAttrFrom(Ship.type[player.type]); >> moved to super!
     this.hp = this.HP_CAPACITY;
@@ -155,6 +156,7 @@ class Ship extends BasicShip {
   update(dt) {
     super.update(dt);
     this.last_known_position = this.position;
+
     if(!this.disabled) {
       this.regen_counter+=dt;
 
@@ -170,6 +172,7 @@ class Ship extends BasicShip {
         this.reset();
       }
     }
+    if(!this.flag) this.flag_recoil_counter+=dt;
     this.recoil_counter+=dt; this.block_recoil_counter+=dt; this.sub_recoil_counter+=dt;
   }
 
@@ -251,8 +254,12 @@ class Ship extends BasicShip {
   }
 
   pickup(flag) {
-    super.pickup(flag);
-    // this.energy = this.ENERGY_CAPACITY;
+    if(this.flag_recoil_counter > this.FLAG_RECOIL_DELAY) {
+      NetworkHelper.out_flag_pickup(this.owner.id);
+      this.flag_recoil_counter = 0;
+      return true;
+    }
+    return false;
   }
 
 }
@@ -387,5 +394,7 @@ Ship.baseStats = {
 
   ENERGY_CAPACITY: 100, // (ep)
   IDLE_ENERGY_REGEN_RATE: 4.2, // of automatic energy per second (ep/s)
-  ACTIVE_ENERGY_REGEN_RATE: 24 // while charging energy per second (ep/s)
+  ACTIVE_ENERGY_REGEN_RATE: 24, // while charging energy per second (ep/s)
+
+  FLAG_RECOIL_DELAY: 1 // s
 };
