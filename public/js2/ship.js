@@ -383,7 +383,7 @@ Ship.baseStats = {
 
   BLOCK_CAPACITY: 40, //#
   BLOCK_HP_CAPACITY: 20, //hp
-  BLOCK_SPREAD: (2 * Math.PI) * (0.5), // 0.3 (30%) angle sweep in radians.
+  BLOCK_SPREAD: (2 * Math.PI) * (0.3), // 0.3 (30%) angle sweep in radians.
   BLOCK_RECOIL_DELAY: 1/6, //b/s (8f == 7.5b/s)
   BLOCK_ENERGY_COST: 8, //ep
 

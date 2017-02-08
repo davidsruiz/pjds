@@ -21,13 +21,8 @@ function refreshLobbyView() {
       input.onblur = function() { socket.emit('set name', this.value.substr(0, 24)); editing = false; refreshLobbyView() };
       let row = document.createElement('span'); row.className = 'mi-row';
       let select = document.createElement('select');
-      // let placeholder = document.createElement('option');
-      // placeholder.innerHTML = 'choose type';
-      // placeholder.disabled = 'true';
-      // placeholder.value = "";
-      // select.appendChild(placeholder);
-      let defoption = document.createElement('option'); defoption.disabled = true; defoption.textContent = "choose ship type";
-      select.appendChild(defoption);
+      // let defoption = document.createElement('option'); defoption.disabled = true; defoption.textContent = "choose ship type";
+      // select.appendChild(defoption);
       // let random_option = document.createElement('option'); random_option.textContent = "random"; random_option.value = types.sample();
       // select.appendChild(random_option);
       types.forEach(t => {
@@ -37,11 +32,27 @@ function refreshLobbyView() {
       });
       select.value = ENV.storage.type || 'standard';//defoption.textContent;
       select.onchange = function(e) { socket.emit('set type', this.value); ENV.storage.type = this.value; };
-      let right = document.createElement('span');
+      let team = document.createElement('select');
+      let no_team = document.createElement('option');
+      no_team.innerHTML = '-';
+      no_team.value = -1;
+      team.appendChild(no_team);
+      ENV.lobby.team_capacity.times(i => {
+        let option = document.createElement('option');
+        option.innerHTML = i+1;
+        option.value = i;
+        team.appendChild(option);
+      });
+      team.value = ENV.storage.team || -1;
+      team.onchange = function(e) { socket.emit('set team', this.value); ENV.storage.team = this.value; };
+      // let right = document.createElement('span');
       let checkbox = document.createElement('input'); checkbox.type = "checkbox"; checkbox.name = "checkbox";
       checkbox.onchange = function() { if(this.checked) { socket.emit('ready'); ENV.sound.play('ready') } };
 
+      row.appendChild(document.createTextNode("type:"));
       row.appendChild(select);
+      if(ENV.lobby.type == 'private') row.appendChild(document.createTextNode("team:"));
+      if(ENV.lobby.type == 'private') row.appendChild(team);
       if(player.cleared) row.appendChild(document.createTextNode("ready?"));
       if(player.cleared) row.appendChild(checkbox); //row.appendChild(checkboxlabel);
 

@@ -13,7 +13,6 @@ socket.on('onconnected', function(obj) {
   // REQUEST JOIN lobby
   let lobbyID = window.location.pathname.slice(1);
   socket.emit('join lobby', lobbyID);
-  console.log(lobbyID);
 
   // send stored info
   let name = ENV.storage.user_name || "";
@@ -27,6 +26,13 @@ socket.on('onconnected', function(obj) {
   LOBBY.setupLink();
   LOBBY.focusOnInput();
 });
+
+socket.on('lobby joined', lobby_type => {
+  if(lobby_type == 'private') {
+    let team = ENV.storage.team || -1; // TODO: double hard-coded see view.js:36
+    if(team) socket.emit('set team', team);
+  }
+})
 
 // handle errors
 socket.on('error', msg => log(msg));

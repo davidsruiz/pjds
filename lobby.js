@@ -23,6 +23,7 @@ class Lobby {
       this.required_players = options.players || MIN_PLAYER_LIMIT;
       this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
       // this.limit = pCount || NUM_OF_PLAYERS;
+      this.max_teams = options.teams || MAX_NUM_OF_TEAMS;
       this.numOfTeams = options.teams;
       this.players = new Map();
       this.ongoing = false;
@@ -80,7 +81,9 @@ class Lobby {
     this.players.forEach((player)=>{
       obj[player.userid] = block(player)
     });
-    return { type: this.type, players: obj, capacity: this.limit };
+    let send = { type: this.type, players: obj, capacity: this.limit, team_capacity: this.max_teams };
+    // if(this.type == 'private') send.team_capacity = this.max_teams;
+    return send;
   }
 
   start(callback) {
@@ -88,11 +91,11 @@ class Lobby {
       this.gameOverCallback = callback;
       this.ongoing = true;
       this.timer.start(() => { this.timeout() });
-      var numOfTeams = this.numOfTeams || this.players.size; if(numOfTeams > MAX_NUM_OF_TEAMS) numOfTeams = MAX_NUM_OF_TEAMS;
+      var numOfTeams = this.setupTeams(); console.log(numOfTeams);
       var colors = DeepSpaceGame.colorCombinations.get(numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e]);
       var players = [], counter = 0;
       var block = (id, p, i) => {
-        p.team = i%numOfTeams;
+        // p.team = i%numOfTeams;
         return { name: p.name, team: p.team, index: i, id: id, type: p.type }
       };
       Array.from(this.players).shuffle().forEach(entry => {
@@ -112,6 +115,35 @@ class Lobby {
     }
     this.setupData.duration = this.timer.timeLeft - COUNTDOWN_DURATION;
     return this.setupData;
+  }
+
+  setupTeams() {
+    let teams = [];
+    for (let i = 0; i < this.max_teams; i++) teams.push([]);
+    // first players that have explicitly chosen a team get assigned to it (if valid)
+    for (let [, player] of this.players) {console.log(`player ${player.name || '-'} is team: ${player.team}`)
+      if(player.team < this.max_teams && player.team >= 0) {
+        teams[player.team].push(player);
+      } else {
+        player.team = -1;
+      }
+    }
+
+    // then empty teams are removed
+    teams = teams.filter(arr => arr.length != 0); console.log(teams.map(arr => arr.length));
+
+    // and every player without a team gets its own team
+    for (let [, player] of this.players)
+      if(player.team == -1)
+        teams.push([player]);
+
+    // players are given their final (and now organized) team number
+    teams.forEach( (team, i) => {
+      for(let player of team)
+        player.team = i;
+    });
+
+    return teams.length;
   }
 
   get ready() {
@@ -166,7 +198,7 @@ class Lobby {
 
   endCurrentGame() {
     this.clearLastGame();
-    this.gameOverCallback(); delete this.gameOverCallback;
+    if(this.gameOverCallback) {this.gameOverCallback(); delete this.gameOverCallback;}
     // this.pickupNewPlayers();
   }
 

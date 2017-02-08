@@ -212,7 +212,7 @@ sio.sockets.on('connection', function (client) {
           if(lobby.ongoing) {
             client.emit('start', lobby.start());
           }
-        }
+        } else { client.emit('lobby joined', lobby.type) }
         clients.set(client.userid, client);
         if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
       } else {
@@ -241,6 +241,19 @@ sio.sockets.on('connection', function (client) {
         // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
       } else {
         client.emit('error', 'set type request ignored');
+      }
+    });
+
+
+    client.on('set team', team => {
+      let lobby;
+      if((lobby = client.lobby) && lobby.type == 'private') {
+        if(team < lobby.max_teams && team >= 0) { // validation
+          if(client.active) lobby.players.get(client.userid).team = team;
+          client.emit('lobby state', lobby.simplify());
+        } else { client.emit('error', 'invalid team'); }
+      } else {
+        client.emit('error', 'set team request ignored');
       }
     });
 
@@ -324,7 +337,7 @@ sio.sockets.on('connection', function (client) {
     // TODO: figure out what happens when a flag holder disconnects..
     client.on('flag pickup', data => {
       if(client.lobby) {
-        if(client.lobby.state.flagHolder) {
+        if(!client.lobby.state.flagHolder) {
           client.lobby.emit('flag pickup', data);
           // client.lobby.first.emit('begin create asteroids')
           client.lobby.state.flagHolder = data.playerID;

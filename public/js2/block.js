@@ -33,7 +33,6 @@ class Block {
         if(this.velocity.length < this.LOWER_VELOCITY_LIMIT) this.lock();
         // if((this.life_counter+=dt) > this.LIFESPAN) this.lock();
       }
-
       // if(++this.life_counter > this.LIFESPAN) this.disabled = true;
     }
 
@@ -49,6 +48,7 @@ class Block {
     damage(hp) {
       this.hp -= hp;
       if(this.hp <= 0) this.disabled = true;
+      if(this.disabled) ENV.game.endBlock(this.id);
       return this.disabled;
     }
   }
@@ -56,7 +56,7 @@ class Block {
   Block.stats = {
     MIN_RADIUS: 45, //18, //16, //10,
     MAX_RADIUS: 50, //36, //30, //20,
-    SPEED: 180,
+    SPEED: 240,
     FRICTION: 0.96,
     LOWER_VELOCITY_LIMIT: 30,
     // DRIFT: 30,

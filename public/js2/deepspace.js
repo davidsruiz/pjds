@@ -1375,7 +1375,7 @@ class DeepSpaceGame {
     this.model.blocks.forEach(b => {
       var v = views.get(b.id);
       if(!b.locked || (v.visible = this.camera.showing(b))) {
-        v.alpha = b.health;
+        v.alpha = (b.health*0.9 + 0.1);
         if(!b.locked) {
           v.x = b.position.x;
           v.y = b.position.y;
