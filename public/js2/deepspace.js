@@ -506,9 +506,24 @@ class DeepSpaceGame {
     });
 
     // and also eventually blocks
+    mini.blocks = new Map();
 
 
     overlay_view.addChild(mini);
+  }
+
+  createOverlayMinimapBlockViewFor(block) {
+    let cache = DeepSpaceGame.graphicsCaches.minimap.blocks[block.team],
+        blv = new createjs.Bitmap(cache),
+        mini = this.view.overlay.minimap,
+        scale = mini.scale;
+
+    blv.alpha = 0.2
+    blv.x = block.position.x * scale;
+    blv.y = block.position.y * scale;
+
+    mini.addChild(blv);
+    mini.blocks.set(block.id, blv);
   }
 
   setupCamera() {
@@ -1157,6 +1172,19 @@ class DeepSpaceGame {
       gc.blocks.locked[team.number] = c.cacheCanvas;
     });
 
+    // minimap
+    gc.minimap = { blocks: [] };
+    this.teams.forEach(team => {
+
+      let radius = Block.stats.MAX_RADIUS * this.view.overlay.minimap.scale;
+
+      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius));
+
+      var s = radius * 1.2;
+      // fill.alpha = 0.16;
+      fill.cache(-s, -s, s*2, s*2);
+      gc.minimap.blocks[team.number] = fill.cacheCanvas;
+    });
   }
 
   actualize() {
@@ -1319,6 +1347,7 @@ class DeepSpaceGame {
     this.model.blocks.forEach(b => { if(b.locked) return;
       if(b.qualified) {
         this.setCollisionDivisions(b);
+        if(!this.spectate) this.createOverlayMinimapBlockViewFor(b);
         if(!this.spectate) if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
         b.locked = true;
         b.qualified = false;
@@ -1834,6 +1863,13 @@ class DeepSpaceGame {
     if(v) {
       this.view.blocks.delete(id);
       this.view.layer.action.back.removeChild(v);
+    }
+    if(!this.spectate) {
+      var v = this.view.overlay.minimap.blocks.get(id);
+      if(v) {
+        this.view.overlay.minimap.blocks.delete(id);
+        this.view.overlay.minimap.removeChild(v);
+      }
     }
     return true;
   }
