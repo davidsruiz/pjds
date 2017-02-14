@@ -164,7 +164,7 @@ class Ship extends BasicShip {
       if(this.charging) {
         this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
         if(this.regen_counter > this.REGEN_DELAY) this.heal(this.REGEN_RATE*dt);
-      }
+      } this.charging = false;
       // if(this.charging && !this.stealth) this.charge(this.ACTIVE_ENERGY_REGEN_RATE*dt);
     } else {
       if((this.respawn_counter+=dt) > this.RESPAWN_DELAY) {
@@ -381,7 +381,7 @@ Ship.baseStats = {
   REGEN_DELAY: 3, //s (180f)
   REGEN_RATE: 24, //hp/s (0.4hp/f)
 
-  BLOCK_CAPACITY: 40, //#
+  BLOCK_CAPACITY: 200, //#
   BLOCK_HP_CAPACITY: 20, //hp
   BLOCK_SPREAD: (2 * Math.PI) * (0.3), // 0.3 (30%) angle sweep in radians.
   BLOCK_RECOIL_DELAY: 1/6, //b/s (8f == 7.5b/s)

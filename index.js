@@ -248,9 +248,9 @@ sio.sockets.on('connection', function (client) {
     client.on('set team', team => {
       let lobby;
       if((lobby = client.lobby) && lobby.type == 'private') {
-        if(team < lobby.max_teams && team >= 0) { // validation
+        if(team < lobby.max_teams && team >= 0) { // validations
           if(client.active) lobby.players.get(client.userid).team = team;
-          client.emit('lobby state', lobby.simplify());
+          // client.emit('lobby state', lobby.simplify());
         } else { client.emit('error', 'invalid team'); }
       } else {
         client.emit('error', 'set team request ignored');

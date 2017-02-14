@@ -5,9 +5,6 @@ class Physics {
   }
 
   static doTouch(a, b) {
-    if(!(a.radius && b.radius)) { log('incompatible comparisons : no radii present'); return }
-    if(!(a.position && b.position)) { log('incompatible comparisons : no position provided'); return }
-
     return Physics.distance(a.position, b.position) < a.radius + b.radius
   }
 
@@ -31,5 +28,9 @@ class Physics {
   //     circle.velocity.set(rejection);
   //   }
   // }
+
+  static overlap(a, b) {
+    return (a.radius + b.radius - Physics.distance(a.position, b.position)) / (a.radius + b.radius)
+  }
 
 }

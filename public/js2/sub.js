@@ -164,8 +164,8 @@ BlockBomb.stats = {
   SPEED: 360, //px/s
   FRICTION: 0.99,
 
-  EXPLOSION_RANGE: 200,
-  EXPLOSION_DAMAGE_FUNCTION: x => (8000/((BlockBomb.stats._A * x)+100))-20, // 60hp at contact and 0hp at range px
+  EXPLOSION_RANGE: 120,
+  EXPLOSION_DAMAGE_FUNCTION: x => ((8000/((BlockBomb.stats._A * x)+100))-20)*3, // 60hp at contact and 0hp at range px
 
   LIFESPAN: 2.4 //s
 }

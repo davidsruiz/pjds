@@ -38,12 +38,12 @@ class DeepSpaceGame {
   }
 
   setup() {
+    this.setupPhysics();
     this.setupModel();
     this.setupView();
     this.setupListeners();
-    this.setupPhysics();
     this.setupLoop();
-    this.setupCaches();
+    this.setupReferences();
 
     if(this.spectate) this.actualize();
   }
@@ -67,7 +67,7 @@ class DeepSpaceGame {
 
   setupSpawnCamps() {
     this.teams.forEach(team => {
-      team.spawn_camp = {position: V2D.new(DeepSpaceGame.maps[0].spawn[team.game.teams.length-1][team.number]), radius: 64}
+      team.spawn_camp = {position: V2D.new(DeepSpaceGame.maps[0].spawn[team.game.teams.length-1][team.number]), radius: 64, team: team.number}
     });
   }
 
@@ -82,7 +82,7 @@ class DeepSpaceGame {
   }
 
   setupShips() {
-    this.ships = []
+    this.ships = [];
     this.players.forEach((player) => {
       var ship;
       if(localIDMatches(player.id) && !this.spectate) {
@@ -117,7 +117,10 @@ class DeepSpaceGame {
         // flag whatevers
         var centerX = this.mapInfo.width / 2;
         var centerY = this.mapInfo.height / 2;
-        this.game.flag = new Flag(new V2D(centerX, centerY));
+        let flag = new Flag(new V2D(centerX, centerY));
+        flag.collision_groups = [this.physics.collision_groups.FLAG];
+        this.setCollisionDivisions(flag);
+        this.game.flag = flag;
 
         // actual game stats
         this.game.scores = Array.new(this.teams.length, 100);
@@ -619,7 +622,246 @@ class DeepSpaceGame {
   }
 
   setupPhysics() {
+    this.setupCollisionSystem();
+    this.assignCollisionPatterns();
     this.setupReferenceGroups();
+  }
+
+  setupCollisionSystem() {
+    let physics = this.physics = {};
+
+    physics.block_size = 240;
+    physics.world_size = {width: this.mapInfo.width, height: this.mapInfo.height};
+
+    let rows = Math.ceil(physics.world_size.width / physics.block_size),
+        cols = Math.ceil(physics.world_size.height / physics.block_size);
+
+    physics.divisions = [];
+    // rows.times(i => {
+    //   physics.divisions.push([]);
+    //   cols.times(() => {
+    //     physics.divisions[i].push(new Set())
+    //   })
+    // })
+
+    physics.division_index = function (x, y) {
+      return (y * cols) + x;
+    }
+
+    physics.division_coordinates = function (i) {
+      return [i % rows, Math.floor(i / cols)]
+    }
+
+    /* collision testing will be composed of the following:
+
+     within each division, all the tests will be performed
+     with the objects available
+
+     each division will contain all the collision groups within..
+     they will be populated accordingly so when the tests are run
+     tests between objects listed in the groups in the division
+     will be tested. */
+    physics.collision_checks = [];
+    physics.collision_groups = {
+      SHIPS: Symbol('SHIPS'),
+      OUR_SHIP: Symbol('OUR_SHIP'),
+      OUR_SHIPS: Symbol('OUR_SHIPS'),
+      ENEMY_SHIPS: Symbol('ENEMY_SHIPS'),
+
+      OUR_BULLETS: Symbol('OUR_BULLETS'),
+      ENEMY_BULLETS: Symbol('ENEMY_BULLETS'),
+
+      BLOCKS: Symbol('BLOCKS'),
+      OUR_BLOCKS: Symbol('OUR_BLOCKS'),
+      ENEMY_BLOCKS: Symbol('ENEMY_BLOCKS'),
+
+      OUR_PROJ_SUBS: Symbol('OUR_PROJ_SUBS'),
+
+      SPAWN_CAMPS: Symbol('SPAWN_CAMPS'),
+      OUR_SPAWN_CAMP: Symbol('OUR_SPAWN_CAMP'),
+      ENEMY_SPAWN_CAMPS: Symbol('ENEMY_SPAWN_CAMPS'),
+
+      REFUGE: Symbol('REFUGE'), // block or camp
+      OUR_REFUGE: Symbol('OUR_REFUGE'),
+
+      FLAG: Symbol('FLAG')
+    };
+
+
+    (rows * cols).times(() => {
+      let obj = {};
+      for(let group of Object.values(physics.collision_groups)) obj[group] = new Set();
+      physics.divisions.push(obj);
+    })
+
+    /*
+      END RESULT LOOKS SOMETHING LIKE:
+      [.. {...}, {SHIPS: [Set], OUR_BULLETS: Set [b, b, ..], ...}, {...}, ...]
+
+     */
+  }
+
+  setCollisionDivisions(physics_body) {
+    this.clearCollisionDivisions(physics_body)
+
+    let d = physics_body.divisions = new Set(),
+        r = physics_body.radius,
+      [x, y] = [physics_body.position.x, physics_body.position.y];
+
+    [[1, 0], [0, -1], [-1, 0], [0, 1]].forEach(unit_offset_array => {
+      let check_x = x + (r * unit_offset_array[0]),
+          check_y = y + (r * unit_offset_array[1]);
+
+      let division_x = Math.floor(check_x / this.physics.block_size),
+          division_y = Math.floor(check_y / this.physics.block_size),
+          division_index = this.physics.division_index(division_x, division_y);
+
+      if(this.physics.divisions[division_index]) d.add(division_index);
+    });
+
+    for(let division_index of d)
+      for(let group of physics_body.collision_groups)
+        this.physics.divisions[division_index][group].add(physics_body);
+  }
+
+  clearCollisionDivisions(physics_body) {
+    if(physics_body.divisions) {
+      for(let i of physics_body.divisions)
+        for(let group of physics_body.collision_groups)
+          this.physics.divisions[i][group].delete(physics_body);
+    }
+  }
+
+  assignCollisionPatterns() {
+    let checks = this.physics.collision_checks,
+        groups = this.physics.collision_groups;
+
+
+    if(!this.spectate) {
+
+      // OUR BULLET <-> ENEMY SHIPS
+      checks.push([
+        groups.OUR_BULLETS,
+        groups.ENEMY_SHIPS,
+        (bullet, ship) => {
+          if(!bullet.disabled && !ship.disabled) {
+            NetworkHelper.out_ship_damage(ship.owner.id, bullet.hp);
+            NetworkHelper.bullet_destroy(bullet.id);
+          }
+        }]
+      );
+
+      // OUR BULLET <-> ENEMY BLOCKS
+      checks.push([
+        groups.OUR_BULLETS,
+        groups.ENEMY_BLOCKS,
+        (bullet, block) => {
+          if(!bullet.disabled && !block.disabled) {
+            NetworkHelper.block_damage(block.id, bullet.hp);
+            NetworkHelper.bullet_destroy(bullet.id);
+          }
+        }]
+      );
+
+      // OUR BULLET <-> ENEMY SPAWN_CAMPS
+      checks.push([
+        groups.OUR_BULLETS,
+        groups.ENEMY_SPAWN_CAMPS,
+        (bullet, spawn_camp) => {
+          if(!bullet.disabled) {
+            NetworkHelper.bullet_destroy(bullet.id);
+          }
+        }]
+      );
+
+      // OUR SHIP <-> OUR REFUGE
+      checks.push([
+        groups.OUR_SHIP,
+        groups.OUR_REFUGE,
+        (ship, refuge) => {
+          if(!ship.disabled) ship.charging = true;
+        }]
+      );
+
+      // OUR SHIP <-> FLAG
+      checks.push([
+        groups.OUR_SHIP,
+        groups.FLAG,
+        (ship, flag) => {
+          if(!ship.disabled && flag.idle) ship.pickup(flag);
+        }]
+      );
+
+      // OUR SUBS <-> ENEMY BLOCKS
+      checks.push([
+        groups.OUR_PROJ_SUBS,
+        groups.ENEMY_BLOCKS,
+        (sub, block) => {
+          if(!sub.disabled && !block.disabled) {
+            switch(sub.type) {
+              case 'attractor':
+              case 'repulsor':
+                NetworkHelper.sub_destroy(sub.id);
+                NetworkHelper.block_destroy(block.id);
+                break;
+              case 'block_bomb':
+              case 'missile':
+                sub.explode();
+                break;
+            }
+          }
+        }]
+      );
+
+      // OUR SUBS <-> ENEMY SHIPS
+      checks.push([
+        groups.OUR_PROJ_SUBS,
+        groups.ENEMY_SHIPS,
+        (sub, ship) => {
+          if(!sub.disabled && !ship.disabled) {
+            if(sub.type == 'missile') {
+              NetworkHelper.out_ship_damage(ship.owner.id, sub.hp);
+              NetworkHelper.sub_destroy(sub.id);
+            }
+          }
+        }]
+      );
+
+      // OUR SUBS <-> ENEMY SPAWN_CAMPS
+      checks.push([
+        groups.OUR_PROJ_SUBS,
+        groups.ENEMY_SPAWN_CAMPS,
+        (sub, spawn_camp) => {
+          if(!sub.disabled) NetworkHelper.sub_destroy(sub.id);
+        }]
+      );
+
+      // OUR SUBS <-> ENEMY SPAWN_CAMPS
+      checks.push([
+        groups.OUR_BLOCKS,
+        groups.OUR_BLOCKS,
+        (block_a, block_b) => {
+          if(block_a != block_b && !block_a.disabled && !block_b.disabled)
+            if(Physics.overlap(block_a, block_b) > 0.8)
+              NetworkHelper.block_destroy(block_a.id);
+        }]
+      );
+
+    }
+
+    // SHIPS <-> WALL OR CAMP (REFUGE)
+    checks.push([
+      groups.SHIPS,
+      groups.REFUGE,
+      (ship, refuge) => {
+        if(!ship.disabled) {
+          if(ship.owner.team.number != refuge.team) {
+            Physics.bounce(ship, refuge);
+          }
+        }
+      }]
+    );
+
   }
 
   setupReferenceGroups() {
@@ -661,8 +903,9 @@ class DeepSpaceGame {
     this.last_time = now;
   }
 
-  setupCaches() {
+  setupReferences() {
     this.setupShortcutsToCommonCalls();
+    this.setupFinishCollisionAssignment();
     this.setupGraphicsCaches();
   }
 
@@ -675,6 +918,34 @@ class DeepSpaceGame {
       this.player = this.ships.main.owner;
       this.team = this.player.team;
     }
+  }
+
+  setupFinishCollisionAssignment() {
+    /*
+      this method is run near end of the setup since things like ships and players
+      and teams and everything else is assigned and references can be made to the
+      local players team and such..
+     */
+
+    // spawn camps
+    this.teams.forEach(team => {
+      let spawn_c = team.spawn_camp;
+      spawn_c.collision_groups = [this.physics.collision_groups.SPAWN_CAMPS, this.physics.collision_groups.REFUGE] // TODO COLLISION OR PHYSICS CLASS PROTOCOLS
+      if(team == this.team) {
+        spawn_c.collision_groups.push(this.physics.collision_groups.OUR_SPAWN_CAMP);
+        spawn_c.collision_groups.push(this.physics.collision_groups.OUR_REFUGE);
+      } else {
+        spawn_c.collision_groups.push(this.physics.collision_groups.ENEMY_SPAWN_CAMPS);
+      }
+      this.setCollisionDivisions(spawn_c);
+    });
+
+    // ships
+    this.ships.forEach(ship => {
+      ship.collision_groups = [this.physics.collision_groups.SHIPS];
+      if(ship == this.ships.main) ship.collision_groups.push(this.physics.collision_groups.OUR_SHIP);
+      ship.collision_groups.push((ship.owner.team == this.team) ? this.physics.collision_groups.OUR_SHIPS : this.physics.collision_groups.ENEMY_SHIPS)
+    });
   }
 
   setupGraphicsCaches() {
@@ -865,6 +1136,8 @@ class DeepSpaceGame {
       if(ship.position.x+r > this.mapInfo.width) { ship.position.x = this.mapInfo.width-r; ship.velocity.x = 0; }
       if(ship.position.y+r > this.mapInfo.height) { ship.position.y = this.mapInfo.height-r; ship.velocity.y = 0; }
 
+      this.setCollisionDivisions(ship);
+
       // if(ship.position.x < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.height))
       // if(ship.position.y < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.width))
       // if(ship.position.x > this.mapInfo.width) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.height))
@@ -895,14 +1168,15 @@ class DeepSpaceGame {
   }
 
   updateBullets() {
-    this.model.bullets.forEach(b => { b.update(this.dt) });
+    this.model.bullets.forEach(b => { b.update(this.dt); this.setCollisionDivisions(b) });
     // this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
   }
 
   updateBlocks() { // needs needs work
     this.model.blocks.forEach(b => { if(b.locked) return;
       if(b.qualified) {
-        if(!this.spectate) if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b);
+        this.setCollisionDivisions(b);
+        if(!this.spectate) if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
         b.locked = true;
         b.qualified = false;
       }
@@ -914,6 +1188,7 @@ class DeepSpaceGame {
   updateSubs() {
     this.model.subs.forEach(p => {
       p.update(this.dt);
+      if(p.collision_groups) this.setCollisionDivisions(p);
 
       switch(p.type) {
         case 'attractor':
@@ -1008,246 +1283,14 @@ class DeepSpaceGame {
     // created. though in practice, perhaps
     // just it's attack moves. e.g. bullets
 
-    if(!this.spectate) this.bulletCollisions();
-    this.shipCollisions();
-    if(!this.spectate) this.subCollisions();
-  }
-
-  bulletCollisions() {
-    // checked in order of precidence
-    // e.g. a bullet colliding with a spawn
-    // camp is unable to collide with a ship
-    // safe within the walls
-
-    this.bulletSpawnCampCollisions();
-    this.bulletBlockCollisions();
-    this.bulletShipCollisions();
-  }
-
-  bulletShipCollisions() {
-    var main = this.ships.main;
-    main.bullets.forEach((id, same, set) => {
-      var b = this.model.bullets.get(id);
-      if(b && !b.disabled) {
-        // check against enemy ships
-        this.enemyPlayers.forEach(player => {
-          var ship = player.ship;
-          if(ship && !ship.disabled) {
-            if(Physics.doTouch(ship, b)) {
-              NetworkHelper.out_ship_damage(player.id, b.hp);
-              NetworkHelper.bullet_destroy(b.id);
-
-              // b.disabled = true;
-            }
-          }
-        });
-      } else {
-        // remove from tracked bullets list ... this.endBullet
-        // set.delete(id);
-      }
-    });
-  }
-
-  bulletBlockCollisions() {
-    this.ships.main.bullets.forEach((id, same, set) => {
-      var b = this.model.bullets.get(id);
-      if(b && !b.disabled) {
-        // check against enemy blocks
-        this.refGroups.enemyBlocks.forEach(block => {
-          if(block && !block.disabled) {
-            if(Physics.doTouch(block, b)) {
-              NetworkHelper.block_damage(block.id, b.hp);
-              NetworkHelper.bullet_destroy(b.id);
-            }
-          }
-        });
-      } else {
-        // remove from tracked bullets list ... this.endBullet
-        // set.delete(id);
-      }
-    });
-  }
-
-  bulletSpawnCampCollisions() {
-    for(let team of this.teams) {
-      if(team == this.team) continue;
-      this.ships.main.bullets.forEach((id, same, set) => {
-        var b = this.model.bullets.get(id);
-        if(b && !b.disabled) {
-          if(Physics.doTouch(team.spawn_camp, b)) {
-            NetworkHelper.bullet_destroy(b.id);
-          }
-        }
-      });
+    for(let div of this.physics.divisions) {
+      for(var [a_type, b_type, check] of this.physics.collision_checks)
+        for(let body_a of div[a_type])
+          for(let body_b of div[b_type])
+            if(Physics.doTouch(body_a, body_b))
+              check(body_a, body_b);
     }
-  }
 
-  shipCollisions() {
-    this.shipBlockCollisions();
-    if(!this.spectate) this.shipFlagCollisions();
-    this.shipSpawnCampCollisions();
-  }
-
-  shipBlockCollisions() {
-    // this.refGroups.enemyBlocks.forEach(block => {
-    //   if(block && !block.disabled) {
-    //     if(Physics.doTouch(ship, block)) {
-    //       // the destroy approach
-    //       // NetworkHelper.out_block_destroy(block.id);
-    //
-    //       // the slow down approach
-    //       // ship.acceleration.mul(0.1);
-    //       // log('ship-block')
-    //
-    //       // the convert approach
-    //       // NetworkHelper.block_change(block.id);
-    //
-    //       // the convert after upon exit approach
-    //       ship.intersecting.add(block);
-    //
-    //     }
-    //     // ship.block_friction = (Physics.doTouch(ship, block) ? block.DISRUPTIVE_FRICTION : 0);
-    //   }
-    // });
-    // ship.intersecting.forEach(block => {
-    //   if(block && !block.disabled) {
-    //     if(!Physics.doTouch(ship, block)) {
-    //       NetworkHelper.block_change(block.id);
-    //       ship.intersecting.delete(block);
-    //     }
-    //   }
-    // });
-
-    // bounce method
-    var ship;
-    if((ship = this.ships.main) && !ship.disabled) {
-      ship.intersecting.forEach(entity => {
-        if(!Physics.doTouch(ship, entity) || entity.disabled) {
-          ship.intersecting.delete(entity);
-        }
-      });
-
-      ship.charging = (ship.intersecting.size == 0) ? false : true;
-    }
-    // TODO: all this needs work
-    this.ships.forEach(ship => {
-      var ships_team = ship.owner.team.number
-
-      for(let [, block] of this.model.blocks) {
-        if(block.disabled || !block.locked) continue;
-
-        if(Physics.doTouch(ship, block)) {
-          if(ships_team == block.team) {
-            if(ship.intersecting) ship.intersecting.add(block);
-          } else {
-            Physics.bounce(ship, block)
-          }
-        }
-      }
-    });
-
-  }
-
-  shipFlagCollisions() {
-    if(this.gameMode != 'ctf') return;
-    var ship = this.ships.main, flag = this.game.flag;
-    if(!ship.disabled && flag.idle)
-      if(Physics.doTouch(ship, flag))
-        ship.pickup(flag);
-        // if(ship.pickup(flag))
-          // NetworkHelper.out_flag_pickup(ship.owner.id);
-
-  }
-
-  shipSpawnCampCollisions() { // TODO: refactor code
-    this.ships.forEach(ship => {
-      var ships_team = ship.owner.team
-
-      for(let team of this.teams) {
-        if(Physics.doTouch(ship, team.spawn_camp)) {
-          if(team == ships_team) {
-            if(ship.intersecting) ship.intersecting.add(team.spawn_camp);
-          } else {
-            Physics.bounce(ship, team.spawn_camp, 4.0)
-          }
-        }
-      }
-    });
-  }
-
-  subCollisions() {
-    this.subBlockCollisions();
-    this.subShipCollisions();
-    this.subSpawnCampCollisions();
-  }
-
-  subBlockCollisions() {
-    var p, b;
-    this.ships.main.subs.forEach(id => {
-      if((p = this.model.subs.get(id)) && !p.disabled) {
-
-        if(p.type != 'stealth_cloak') { // stealth does not collide
-          this.refGroups.enemyBlocks.forEach(b => {
-            if(b && !b.disabled) {
-              if(Physics.doTouch(p, b)) {
-                switch(p.type) {
-                  case 'attractor':
-                  case 'repulsor':
-                    NetworkHelper.sub_destroy(p.id);
-                    NetworkHelper.block_destroy(b.id);
-                    break;
-                  case 'block_bomb':
-                  case 'missile':
-                    p.explode();
-                  break;
-                }
-              }
-            }
-          });
-        }
-
-      }
-    });
-
-  }
-
-  subShipCollisions() {
-    var p;
-    this.ships.main.subs.forEach(id => {
-      if((p = this.model.subs.get(id)) && !p.disabled) {
-
-        if(p.type == 'missile') { // only missles collide with ships
-          this.enemyPlayers.forEach(player => {
-            var ship = player.ship;
-            if(ship && !ship.disabled) {
-              if(Physics.doTouch(ship, p)) {
-                NetworkHelper.out_ship_damage(player.id, p.hp);
-                NetworkHelper.sub_destroy(p.id)
-              }
-            }
-          });
-        }
-
-      }
-    });
-  }
-
-  subSpawnCampCollisions() {
-    for(let team of this.teams) {
-      if(team == this.team) continue;
-      var p;
-      this.ships.main.subs.forEach(id => {
-        if((p = this.model.subs.get(id)) && !p.disabled) {
-
-          if(p.type == 'missile') {
-            if(Physics.doTouch(team.spawn_camp, p)) {
-              NetworkHelper.sub_destroy(p.id);
-            }
-          }
-
-        }
-      });
-    }
   }
 
   updateGame() {
@@ -1258,6 +1301,8 @@ class DeepSpaceGame {
           camp = player.team.spawn_camp;
       flag.position.x = p.x;
       flag.position.y = p.y;
+
+      this.setCollisionDivisions(flag);
 
       // real game stuff
       var distance = Physics.distance(p, camp.position) - camp.radius,
@@ -1513,6 +1558,8 @@ class DeepSpaceGame {
     this.model.bullets.set(b.id, b);
     this.view.bullets.set(b.id, bv);
 
+    b.collision_groups = [this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS];
+
     // sound
     // if(this.camera.showing(b)) SoundHelper.fireShot();
 
@@ -1522,6 +1569,8 @@ class DeepSpaceGame {
   endBullet(id) {
     var b = this.model.bullets.get(id);
     if(!b) return;
+
+    this.clearCollisionDivisions(b);
 
     this.model.bullets.delete(id);
     if(!this.spectate) this.ships.main.bullets.delete(id);
@@ -1549,6 +1598,15 @@ class DeepSpaceGame {
 
     this.model.blocks.set(bl.id, bl);
     this.view.blocks.set(bl.id, blv);
+
+    bl.collision_groups = [this.physics.collision_groups.REFUGE]
+    if(this.teams[bl.team] != this.team) {
+      bl.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)
+    } else {
+      bl.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)
+      bl.collision_groups.push(this.physics.collision_groups.OUR_BLOCKS)
+    }
+    // bl.collision_groups = [this.teams[bl.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS];
 
     return bl;
   }
@@ -1586,11 +1644,23 @@ class DeepSpaceGame {
 
       }
     }
+
+    this.clearCollisionDivisions(b);
+    b.collision_groups = [this.physics.collision_groups.REFUGE]
+    if(this.teams[b.team] != this.team) {
+      b.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)
+    } else {
+      b.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)
+    }
+    this.setCollisionDivisions(b);
+
   }
 
   endBlock(id) {
     var b = this.model.blocks.get(id);
     if(!b) return false;
+
+    this.clearCollisionDivisions(b);
 
     this.model.blocks.delete(id);
     if(!this.spectate) this.ships.main.blocks.delete(id);
@@ -1653,6 +1723,8 @@ class DeepSpaceGame {
       this.view.subs.set(p.id, pv);
 
       // if(this.camera.showing(p)) SoundHelper.fireSub(); // no sound for stealth
+
+      p.collision_groups = (this.teams[p.team] == this.team) ? [this.physics.collision_groups.OUR_PROJ_SUBS] : [];
     }
 
     this.model.subs.set(p.id, p);
@@ -1665,6 +1737,8 @@ class DeepSpaceGame {
   endSub(id) {
     var p = this.model.subs.get(id);
     if(!p) return false;
+
+    this.clearCollisionDivisions(p);
 
     this.model.subs.delete(id);
     if(!this.spectate) this.ships.main.subs.delete(id);
@@ -2003,17 +2077,56 @@ DeepSpaceGame.maps = [
   }
 ];
 
-DeepSpaceGame.maps = [
-  {
+DeepSpaceGame.maps = [ // TODO : block bomb radius large hp damage less
+  { // 0
     name: "The Event Horizon",
     width: 1920, height: 1920,
     // width: 1024, height: 1024
     spawn: [
       [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
-      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 768 - 192, y: 768 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
       [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
       [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]
     ]
+  },
+  { // 1
+    name: "Liftor",
+    width: 1920, height: 1920,
+    teams: [2],
+
+    // first array is for the number of teams coresponding to the teams array
+    // second is place in the arrangement for that number of teams
+    // object is position
+    spawn: [
+      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
+
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]
+    ],
+    impermeables: {
+      copies: 2,
+      bodies: [
+        [32, // radius
+          [929, 76],
+          [582, 128],
+          [696, 176],
+          [811, 226],
+          [173, 892],
+          [173, 1028]
+        ],
+        [48,
+          [1218, 274],
+          [1242, 786],
+          [238, 960]
+        ],
+        [64,
+          [1654, 546],
+          [637, 578]
+        ]
+      ]
+    }
   }
 ];
 
