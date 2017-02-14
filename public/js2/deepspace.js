@@ -25,7 +25,7 @@ class DeepSpaceGame {
     // object itself gets set
     this.spectate = data.spectate;
     this.isHost = data.host;
-    this.mapInfo = DeepSpaceGame.maps[0];
+    this.mapInfo = DeepSpaceGame.maps[1];
     this.gameMode = 'ctf'; // data.mode;
     this.language = 'en';
     this.timer = new Timer(data.duration);
@@ -55,6 +55,7 @@ class DeepSpaceGame {
     this.setupObjectPools();
 
     this.setupGame();
+    this.setupMap();
   }
 
   setupTeams() {
@@ -67,7 +68,7 @@ class DeepSpaceGame {
 
   setupSpawnCamps() {
     this.teams.forEach(team => {
-      team.spawn_camp = {position: V2D.new(DeepSpaceGame.maps[0].spawn[team.game.teams.length-1][team.number]), radius: 64, team: team.number}
+      team.spawn_camp = {position: V2D.new(this.mapInfo.spawn[team.game.teams.length-1][team.number]), radius: 64, team: team.number}
     });
   }
 
@@ -129,6 +130,44 @@ class DeepSpaceGame {
 
         break;
     }
+  }
+
+  setupMap() {
+    let map = this.model.map = {},
+        info = this.mapInfo;
+
+    let cX = info.width / 2,
+        cY = info.height / 2;
+
+
+    // IMPERMEABLES
+    let initial_impermeables = [];
+    for(let radius_size_group of info.impermeables.bodies) {
+      let list = radius_size_group.slice(),
+          radius = list.shift();
+      for(let [x, y] of list) {
+        initial_impermeables.push({
+          radius: radius,
+          position: {x, y}
+        })
+      }
+    }
+
+    map.impermeables = [];
+    // in the future use the 'copies' variable on impermeables
+    map.impermeables.push(...initial_impermeables)
+    map.impermeables.push(...(initial_impermeables.map( obj => {
+      return {
+        radius: obj.radius,
+        position: {x: info.width-obj.position.x, y: info.width-obj.position.y}
+      }
+    })));
+
+    for(let imp of map.impermeables) {
+      imp.collision_groups = [this.physics.collision_groups.IMPERMEABLES]
+      this.setCollisionDivisions(imp);
+    }
+
   }
 
   setupView() {
@@ -210,7 +249,7 @@ class DeepSpaceGame {
   }
 
   createGameModeSpecificViewsAction() {
-    switch(this.gameMode) {
+    /*switch(this.gameMode) {
       case "ctf":
         // ring and flag
 
@@ -243,7 +282,19 @@ class DeepSpaceGame {
 
 
         break;
-    }
+    }*/
+
+    this.model.map.impermeables.forEach(block => {
+
+      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#263238', block.radius)),
+          pos = block.position;
+      view.x = pos.x;
+      view.y = pos.y;
+      var s = block.radius * 1.2;
+      view.cache(-s, -s, s*2, s*2);
+      this.view.layer.action.front.addChild(view);
+    });
+
   }
 
   createSpawnCampViews() {
@@ -668,6 +719,7 @@ class DeepSpaceGame {
       OUR_SHIPS: Symbol('OUR_SHIPS'),
       ENEMY_SHIPS: Symbol('ENEMY_SHIPS'),
 
+      BULLETS: Symbol('BULLETS'),
       OUR_BULLETS: Symbol('OUR_BULLETS'),
       ENEMY_BULLETS: Symbol('ENEMY_BULLETS'),
 
@@ -684,7 +736,8 @@ class DeepSpaceGame {
       REFUGE: Symbol('REFUGE'), // block or camp
       OUR_REFUGE: Symbol('OUR_REFUGE'),
 
-      FLAG: Symbol('FLAG')
+      FLAG: Symbol('FLAG'),
+      IMPERMEABLES: Symbol('IMPERMEABLES')
     };
 
 
@@ -774,6 +827,17 @@ class DeepSpaceGame {
         }]
       );
 
+      // OUR BULLET <-> IMPERMEABLES
+      // checks.push([
+      //   groups.OUR_BULLETS,
+      //   groups.IMPERMEABLES,
+      //   (bullet, imp) => {
+      //     if(!bullet.disabled) {
+      //       NetworkHelper.bullet_destroy(bullet.id);
+      //     }
+      //   }]
+      // );
+
       // OUR SHIP <-> OUR REFUGE
       checks.push([
         groups.OUR_SHIP,
@@ -857,6 +921,32 @@ class DeepSpaceGame {
         if(!ship.disabled) {
           if(ship.owner.team.number != refuge.team) {
             Physics.bounce(ship, refuge);
+          }
+        }
+      }]
+    );
+
+    // SHIPS <-> IMPERMEABLES
+    checks.push([
+      groups.SHIPS,
+      groups.IMPERMEABLES,
+      (ship, imp) => {
+        if(!ship.disabled) {
+          Physics.bounce(ship, imp);
+        }
+      }]
+    );
+
+    // BULLETS <-> IMPERMEABLES
+    checks.push([
+      groups.BULLETS,
+      groups.IMPERMEABLES,
+      (bullet, imp) => {
+        if(!bullet.disabled) {
+          if(Physics.overlap(bullet, imp) < 0.1) {
+            Physics.bounce(bullet, imp, 0.8);
+          } else {
+            NetworkHelper.bullet_destroy(bullet.id);
           }
         }
       }]
@@ -1558,7 +1648,8 @@ class DeepSpaceGame {
     this.model.bullets.set(b.id, b);
     this.view.bullets.set(b.id, bv);
 
-    b.collision_groups = [this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS];
+    b.collision_groups = [this.physics.collision_groups.BULLETS];
+    b.collision_groups.push(this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS);
 
     // sound
     // if(this.camera.showing(b)) SoundHelper.fireShot();
@@ -2084,7 +2175,7 @@ DeepSpaceGame.maps = [ // TODO : block bomb radius large hp damage less
     // width: 1024, height: 1024
     spawn: [
       [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
-      [{x: 192, y: 192}, {x: 768 - 192, y: 768 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
       [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
       [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]
     ]
