@@ -216,7 +216,6 @@ class DeepSpaceGame {
     this.createOverlayViews();
   }
 
-
   createLayers() {
     var layer = {}
 
@@ -455,7 +454,61 @@ class DeepSpaceGame {
     //   this.view.layer.overlay.addChild(overlay.ship.energyMeter = view);
     // }
 
+    // MINI MAP
+    if(!this.spectate) this.createOverlayMinimapViews(overlay, this.view.layer.overlay);
+
+
     this.view.overlay = overlay;
+  }
+
+  createOverlayMinimapViews(overlay_model, overlay_view) {
+
+    let mini = overlay_model.minimap = new createjs.Container();
+
+    mini.width = mini.height = 168;
+    mini.scale = mini.width / this.mapInfo.width;
+
+    let padd = 32;
+    mini.x = padd; mini.y = this.window.height - (padd + mini.height)
+
+    // background
+    let background = mini.background = new createjs.Shape();
+    background.graphics.beginFill('#263238').drawRect(0, 0, mini.width, mini.height);
+    background.cache(0, 0, mini.width, mini.height);
+    mini.addChild(background);
+
+    // spawns
+    this.teams.forEach(team => {
+      let camp = team.spawn_camp,
+          radius = camp.radius*mini.scale,
+          view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, radius)),
+          pos = camp.position;
+      view.x = pos.x*mini.scale;
+      view.y = pos.y*mini.scale;
+      var s = radius * 1.2;
+      view.cache(-s, -s, s * 2, s * 2);
+      mini.addChild(view);
+    });
+
+    // flag
+    let flag_view = mini.flag = new createjs.Shape(DeepSpaceGame.graphics.circle_fill('#ECEFF1', 6))
+    mini.addChild(flag_view);
+
+    // ships .. hmmm.. intel >.>
+    // (only same team for now)
+    let this_player = this.ships.main.owner, this_team = this_player.team
+    mini.players = [];
+    this_team.players.forEach(player => {
+      let view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(this_team.color, 4));
+      view.alpha = player == this_player ? 1 : 0.6;
+      mini.players.push(view);
+      mini.addChild(view);
+    });
+
+    // and also eventually blocks
+
+
+    overlay_view.addChild(mini);
   }
 
   setupCamera() {
@@ -1451,6 +1504,8 @@ class DeepSpaceGame {
 
     this.updateGameViews();
 
+    if(!this.spectate) this.updateMinimapView()
+
     this.stage.update(); // render changes!!
   }
 
@@ -1585,6 +1640,22 @@ class DeepSpaceGame {
     // if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
     //
     // v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);
+  }
+
+  updateMinimapView() {
+    let mini = this.view.overlay.minimap;
+
+    // ships
+    this.team.players.forEach( (player, i) => {
+      mini.players[i].x = player.ship.position.x * mini.scale;
+      mini.players[i].y = player.ship.position.y * mini.scale;
+    })
+
+    // flag
+    let flag = this.game.flag;
+    mini.flag.x = flag.position.x * mini.scale;
+    mini.flag.y = flag.position.y * mini.scale;
+
   }
 
   updateCameraFocus() {
@@ -2009,6 +2080,8 @@ class DeepSpaceGame {
 }
 
 DeepSpaceGame.graphics = {
+  circle_fill: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
+
   spawn_camp: (color) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, 64),
   spawn_camp_fill: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 64),
   // spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
