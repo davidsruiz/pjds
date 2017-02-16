@@ -19,7 +19,7 @@ class BasicShip {
     this.assignAttrFrom(Ship.type[player.type]);   // then overwrite with type specific changes
 
     this.spawn =
-      V2D.new(DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length-1][this.owner.team.number])
+      V2D.new(this.owner.team.game.mapInfo.spawn[this.owner.team.game.teams.length-1][this.owner.team.number])
       .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
     this.last_known_position = this.position;
     this.reset()
@@ -30,12 +30,15 @@ class BasicShip {
       let inert = this.acceleration.length == 0 ;
       !inert ? this.velocity.add(this.acceleration) : this.velocity.mul(this.LINEAR_FRICTION); // TODO double check friction
 
-      if(this.flag) this.velocity.mul(this.flag.drag);
+      // if(this.flag) this.velocity.mul(this.flag.drag);
 
-      if(this.velocity.length > this.LINEAR_VELOCITY_LIMIT)
-         this.velocity.length = this.LINEAR_VELOCITY_LIMIT;
+      let limit = this.LINEAR_VELOCITY_LIMIT; if(this.charging) limit += this.LINEAR_VELOCITY_LIMIT_EXTENDED; if(this.flag) limit -= this.flag.drag;
+      if(this.velocity.length > limit)
+         this.velocity.length = limit;
 
       this.position.add(this.velocity.mul_(dt));
+
+      this.charging = false;
 
       // this.angular_velocity += this.angular_acceleration
       // this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
@@ -154,7 +157,9 @@ class Ship extends BasicShip {
   get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
 
   update(dt) {
+    let c = this.charging;
     super.update(dt);
+    this.charging = c;
     this.last_known_position = this.position;
 
     if(!this.disabled) {
@@ -344,7 +349,8 @@ Ship.type = {
     ATTACK_HP: 24, // 8
     ATTACK_RECOIL_DELAY: (1/1.2), // (1/4)
     ATTACK_RADIUS: 12, // 8
-    ATTACK_LIFESPAN: 2.2, // 1.6
+    ATTACK_LIFESPAN: 1.6, // 2.2
+    ATTACK_SPEED: 140, // 200
 
     SUB_TYPE: 'block_bomb',
     SUB_RECOIL_DELAY: 0.5, //s
@@ -368,6 +374,7 @@ Ship.baseStats = {
   LINEAR_FRICTION: 0.9, //%
   LINEAR_VELOCITY_LIMIT: 120, //188 //px/s (3px/f)
   LINEAR_ACCELERATION_LIMIT: 10, //px/s*s (0.26px/f*f)
+  LINEAR_VELOCITY_LIMIT_EXTENDED: 40, //px/s
 
   RESPAWN_DELAY: 4, //s (240f)
 
@@ -377,13 +384,14 @@ Ship.baseStats = {
   ATTACK_SPREAD: (2 * Math.PI) * (0.01), // (1%) angle sweep in radians,
   ATTACK_LIFESPAN: 1.6, //0.5 //s,
   ATTACK_ENERGY_FRACTION_HP: 0.3, //%
+  ATTACK_SPEED: 200, //px/s
 
   REGEN_DELAY: 3, //s (180f)
   REGEN_RATE: 24, //hp/s (0.4hp/f)
 
   BLOCK_CAPACITY: 200, //#
   BLOCK_HP_CAPACITY: 20, //hp
-  BLOCK_SPREAD: (2 * Math.PI) * (0.3), // 0.3 (30%) angle sweep in radians.
+  BLOCK_SPREAD: (2 * Math.PI) * (0.2), // 0.3 (30%) angle sweep in radians.
   BLOCK_RECOIL_DELAY: 1/6, //b/s (8f == 7.5b/s)
   BLOCK_ENERGY_COST: 8, //ep
 

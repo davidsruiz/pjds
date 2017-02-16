@@ -10,7 +10,7 @@ class Bullet {
     this.position = new V2D(data.position.x, data.position.y);
 
     this.velocity = new V2D();
-    this.velocity.length = this.SPEED;
+    this.velocity.length = data.speed;
     this.velocity.angle = data.angle;
     this.velocity.add(data.velocity);
     // this.velocity.add(V2D.proj(data.velocity, this.velocity));

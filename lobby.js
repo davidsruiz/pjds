@@ -6,7 +6,7 @@ let Timer = require('./public/js2/timer.js');
 let MAX_PLAYER_LIMIT = 8;
 let MIN_PLAYER_LIMIT = 2;
 let MAX_NUM_OF_TEAMS = 4;
-let GAME_DURATION = 180000; // 3 min
+let GAME_DURATION = 300000; // 5 min 180000 3 min
 let COUNTDOWN_DURATION = 3000; // 3 sec
 
 
@@ -121,7 +121,7 @@ class Lobby {
     let teams = [];
     for (let i = 0; i < this.max_teams; i++) teams.push([]);
     // first players that have explicitly chosen a team get assigned to it (if valid)
-    for (let [, player] of this.players) {console.log(`player ${player.name || '-'} is team: ${player.team}`)
+    for (let [, player] of this.players) {
       if(player.team < this.max_teams && player.team >= 0) {
         teams[player.team].push(player);
       } else {

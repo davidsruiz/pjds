@@ -25,7 +25,7 @@ class DeepSpaceGame {
     // object itself gets set
     this.spectate = data.spectate;
     this.isHost = data.host;
-    this.mapInfo = DeepSpaceGame.maps[1];
+    this.mapInfo = DeepSpaceGame.maps[2];
     this.gameMode = 'ctf'; // data.mode;
     this.language = 'en';
     this.timer = new Timer(data.duration);
@@ -155,13 +155,36 @@ class DeepSpaceGame {
 
     map.impermeables = [];
     // in the future use the 'copies' variable on impermeables
+    // and make it odd symmetry
     map.impermeables.push(...initial_impermeables)
-    map.impermeables.push(...(initial_impermeables.map( obj => {
-      return {
-        radius: obj.radius,
-        position: {x: info.width-obj.position.x, y: info.width-obj.position.y}
+    if(info.impermeables.copies >= 2) {
+
+      map.impermeables.push(...(initial_impermeables.map( obj => {
+        return {
+          radius: obj.radius,
+          position: {x: info.width-obj.position.x, y: info.width-obj.position.y}
+        }
+      })));
+
+      if(info.impermeables.copies == 4) {
+
+        map.impermeables.push(...(initial_impermeables.map( obj => {
+          return {
+            radius: obj.radius,
+            position: {x: info.width-obj.position.y, y: obj.position.x}
+          }
+        })));
+
+        map.impermeables.push(...(initial_impermeables.map( obj => {
+          return {
+            radius: obj.radius,
+            position: {x: obj.position.y, y: info.width-obj.position.x}
+          }
+        })));
+
       }
-    })));
+
+    }
 
     for(let imp of map.impermeables) {
       imp.collision_groups = [this.physics.collision_groups.IMPERMEABLES]
@@ -285,7 +308,7 @@ class DeepSpaceGame {
 
     this.model.map.impermeables.forEach(block => {
 
-      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#263238', block.radius)),
+      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', block.radius)),
           pos = block.position;
       view.x = pos.x;
       view.y = pos.y;
@@ -477,11 +500,30 @@ class DeepSpaceGame {
     background.cache(0, 0, mini.width, mini.height);
     mini.addChild(background);
 
+    // map obstacles
+    var max = 128,
+        r = max * mini.scale,
+        block = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r)),
+        s = r * 1.2;
+    block.cache(-s, -s, s*2, s*2);
+    var cache = block.cacheCanvas;
+    
+    this.model.map.impermeables.forEach(block => {
+      var scale = (block.radius * mini.scale) / r,
+          view = new createjs.Bitmap(cache),
+          pos = block.position;
+      view.scaleX = view.scaleY = scale;
+      view.x = (pos.x*mini.scale) - (scale*cache.width/2);
+      view.y = (pos.y*mini.scale) - (scale*cache.height/2);
+      mini.addChild(view);
+    });
+
     // spawns
     this.teams.forEach(team => {
       let camp = team.spawn_camp,
-          radius = camp.radius*mini.scale,
-          view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, radius)),
+          radius = team == this.ships.main.owner.team ? 8 : 6,
+          // radius = camp.radius*mini.scale,
+          view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, 6)),
           pos = camp.position;
       view.x = pos.x*mini.scale;
       view.y = pos.y*mini.scale;
@@ -523,7 +565,11 @@ class DeepSpaceGame {
     blv.y = block.position.y * scale;
 
     mini.addChild(blv);
+    mini.setChildIndex(blv, 1)
     mini.blocks.set(block.id, blv);
+
+    // flag always on top
+    // mini.setChildIndex(mini.flag, mini.numChildren-1)
   }
 
   setupCamera() {
@@ -879,7 +925,7 @@ class DeepSpaceGame {
         (bullet, block) => {
           if(!bullet.disabled && !block.disabled) {
             NetworkHelper.block_damage(block.id, bullet.hp);
-            NetworkHelper.bullet_destroy(bullet.id);
+            if(bullet.hp < block.hp) NetworkHelper.bullet_destroy(bullet.id);
           }
         }]
       );
@@ -906,14 +952,14 @@ class DeepSpaceGame {
       //   }]
       // );
 
-      // OUR SHIP <-> OUR REFUGE
-      checks.push([
-        groups.OUR_SHIP,
-        groups.OUR_REFUGE,
-        (ship, refuge) => {
-          if(!ship.disabled) ship.charging = true;
-        }]
-      );
+      // // OUR SHIP <-> OUR REFUGE
+      // checks.push([
+      //   groups.OUR_SHIP,
+      //   groups.OUR_REFUGE,
+      //   (ship, refuge) => {
+      //     if(!ship.disabled) ship.charging = true;
+      //   }]
+      // );
 
       // OUR SHIP <-> FLAG
       checks.push([
@@ -933,8 +979,8 @@ class DeepSpaceGame {
             switch(sub.type) {
               case 'attractor':
               case 'repulsor':
-                NetworkHelper.sub_destroy(sub.id);
-                NetworkHelper.block_destroy(block.id);
+                // NetworkHelper.sub_destroy(sub.id);
+                // NetworkHelper.block_destroy(block.id);
                 break;
               case 'block_bomb':
               case 'missile':
@@ -989,6 +1035,8 @@ class DeepSpaceGame {
         if(!ship.disabled) {
           if(ship.owner.team.number != refuge.team) {
             Physics.bounce(ship, refuge);
+          } else {
+            ship.charging = true;
           }
         }
       }]
@@ -1185,6 +1233,18 @@ class DeepSpaceGame {
       fill.cache(-s, -s, s*2, s*2);
       gc.minimap.blocks[team.number] = fill.cacheCanvas;
     });
+    // (()=>{
+    //   let radius = 128 * this.view.overlay.minimap.scale;
+    //
+    //   let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(, radius));
+    //
+    //   var s = radius * 1.2;
+    //   // fill.alpha = 0.16;
+    //   fill.cache(-s, -s, s*2, s*2);
+    //   gc.minimap.blocks[team.number] = fill.cacheCanvas;
+    //
+    //   gc.minimap.impermeables = ;
+    // })
   }
 
   actualize() {
@@ -1292,7 +1352,8 @@ class DeepSpaceGame {
         ship.acceleration.set({x, y})
         if(ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
 
-        if(ship.acceleration.length) ship.angle = ship.acceleration.angle
+        // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
+        ship.angle = ship.velocity.angle;
 
         var direction_v = new V2D(x2, y2)
         ship.shoot_angle = direction_v.angle;
@@ -2324,6 +2385,68 @@ DeepSpaceGame.maps = [ // TODO : block bomb radius large hp damage less
         [64,
           [1654, 546],
           [637, 578]
+        ]
+      ]
+    }
+  },
+  { // 2
+    name: "Nautical",
+    width: 3072, height: 3072,
+    teams: [2],
+
+    // first array is for the number of teams coresponding to the teams array
+    // second is place in the arrangement for that number of teams
+    // object is position
+    spawn: [
+      // [{x: 192, y: 192}, {x: 3072 - 192, y: 3072 - 192}] // 2
+
+      [{x: 581, y: 555}, {x: 3072 - 581, y: 3072 - 555}, {x: 3072 - 581, y: 555}, {x: 581, y: 3072 - 555}],
+      [{x: 581, y: 555}, {x: 3072 - 581, y: 3072 - 555}, {x: 3072 - 581, y: 555}, {x: 581, y: 3072 - 555}],
+      [{x: 581, y: 555}, {x: 3072 - 581, y: 3072 - 555}, {x: 3072 - 581, y: 555}, {x: 581, y: 3072 - 555}],
+      [{x: 581, y: 555}, {x: 3072 - 581, y: 3072 - 555}, {x: 3072 - 581, y: 555}, {x: 581, y: 3072 - 555}]
+    ],
+    impermeables: {
+      copies: 4,
+      bodies: [
+        [32, // radius
+          [325, 764],
+          [989, 98],
+          [746, 898],
+          [1054, 1308],
+          [1179, 1260],
+          [1514, 1308],
+          [993, 1356],
+          [534, 1308],
+          [1546, 194],
+          [1488, 130],
+          [173, 1028],
+          [173, 892],
+          [470, 880],
+          [325, 764],
+          [667, 892]
+        ],
+        [48,
+          [1218, 274],
+          [1242, 786],
+          [618, 1260],
+          [1139, 1340],
+          [238, 960],
+          [794, 818]
+        ],
+        [64,
+          [1084, 475],
+          [422, 322],
+          [914, 784],
+          [1654, 546],
+          [1279, 1219],
+          [1423, 1228]
+        ],
+        [96,
+          [298, 539],
+          [967, 610]
+        ],
+        [128,
+          [831, 411]
         ]
       ]
     }

@@ -5,7 +5,7 @@ class Flag {
     this.radius = 18;
     this.reset();
 
-    this.drag = 0.8; // additional friction
+    this.drag = 80; // takes from ships vel limit
   }
 
   reset() {

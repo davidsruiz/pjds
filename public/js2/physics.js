@@ -15,7 +15,8 @@ class Physics {
         // distance = Physics.distance(fluid.position, stationary.position),
         // collision_distance = fluid.radius + stationary.radius,
         force_vector = fluid.position.copy().sub(stationary.position);
-    force_vector.length = vel * bounce_multiplier;
+    force_vector.length = 300; //px/s
+    // force_vector.length = vel * bounce_multiplier;
     fluid.velocity.add(force_vector);
   }
 
