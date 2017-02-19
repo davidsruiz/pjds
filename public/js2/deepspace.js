@@ -326,9 +326,11 @@ class DeepSpaceGame {
 
   createSpawnCampViews() {
 
+    // this.view.teams = { spawn_camp: []}
+
     // DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number]
     var s = 64 + 2;
-    this.teams.forEach(team => {
+    this.teams.forEach((team, i) => {
       var group = new createjs.Container(),
           camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
           fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),
@@ -339,6 +341,7 @@ class DeepSpaceGame {
       group.addChild(fill);
       group.addChild(camp);
       group.cache(-s, -s, s*2, s*2);
+      team.spawn_camp.view = group;
       this.view.layer.action.back.addChild(group);
     });
   }
@@ -806,7 +809,7 @@ class DeepSpaceGame {
   setupCollisionSystem() {
     let physics = this.physics = {};
 
-    physics.block_size = 240;
+    physics.block_size = 512;
     physics.world_size = {width: this.mapInfo.width, height: this.mapInfo.height};
 
     let rows = Math.ceil(physics.world_size.width / physics.block_size),
@@ -1232,6 +1235,7 @@ class DeepSpaceGame {
     });
 
     // minimap
+    if(this.spectate) return; // TODO make minimap accesible to all even spectators
     gc.minimap = { blocks: [] };
     this.teams.forEach(team => {
 
@@ -1615,28 +1619,33 @@ class DeepSpaceGame {
   updateShipViews() {
     this.ships.forEach((ship)=>{
 
-      var visibility = 1;
-      if(ship.disabled) {
-        visibility = 0;
-      } else if(ship.stealth) {
-        if(!this.spectate && ship.owner.team == this.ships.main.owner.team) {
-          visibility = Math.flipCoin(0.2) ? 0 : 0.4;
-        } else {
+      if(ship.view.visible = this.camera.showing(ship) || ship == this.ships.main) {
+
+        var visibility = 1;
+        if(ship.disabled) {
           visibility = 0;
+        } else if(ship.stealth) {
+          if(ship.owner.team == this.team) {
+            visibility = Math.flipCoin(0.2) ? 0 : 0.4;
+          } else {
+            visibility = 0;
+          }
+        } else {
+          visibility = 1;
         }
-      } else {
-        visibility = 1;
+
+        let ship_view = ship.view.ship;
+        ship_view.alpha = ship.health * visibility;
+        ship_view.rotation = Math.degrees(ship.angle);
+
+        ship.view.x = ship.position.x;
+        ship.view.y = ship.position.y;
+
+        // ship.view.graphics.clear();
+        ship_view.image = ((ship.flag) ? ship_view.filled : ship_view.hollow);
+
       }
 
-      let ship_view = ship.view.ship;
-      ship_view.alpha = ship.health * visibility;
-      ship_view.rotation = Math.degrees(ship.angle);
-
-      ship.view.x = ship.position.x;
-      ship.view.y = ship.position.y;
-
-      // ship.view.graphics.clear();
-      ship_view.image = ((ship.flag) ? ship_view.filled : ship_view.hollow);
     });
     this.updateEnergyMeterView();
   }
@@ -1700,24 +1709,29 @@ class DeepSpaceGame {
   }
 
   updateBackground() {
-    let background = this.view.layer.background.map_background,
-        full_map_width = this.mapInfo.width,
-        full_map_height = this.mapInfo.height,
-        {x, y} = this.camera.focus,
-        half_window_width = this.window.width/2,
-        half_window_height = this.window.height/2;
-
-    if(x < half_window_width) background.x = half_window_width - x;
-    if(x > (full_map_width - half_window_width)) background.x = full_map_width - half_window_width - x;
-
-    if(y < half_window_height) background.y = half_window_height - y;
-    if(y > (full_map_height - half_window_height)) background.y = full_map_height - half_window_height - y;
+    // let background = this.view.layer.background.map_background,
+    //     full_map_width = this.mapInfo.width,
+    //     full_map_height = this.mapInfo.height,
+    //     {x, y} = this.camera.focus,
+    //     half_window_width = this.window.width/2,
+    //     half_window_height = this.window.height/2;
+    //
+    // if(x < half_window_width) background.x = half_window_width - x;
+    // if(x > (full_map_width - half_window_width)) background.x = full_map_width - half_window_width - x;
+    //
+    // if(y < half_window_height) background.y = half_window_height - y;
+    // if(y > (full_map_height - half_window_height)) background.y = full_map_height - half_window_height - y;
   }
 
   updateMap() {
+    this.teams.forEach(team => {
+      team.spawn_camp.view.visible = this.camera.showing(team.spawn_camp);
+    })
+
     this.model.map.impermeables.forEach((imp, i) => {
       this.view.map.impermeables[i].visible = this.camera.showing(imp);
     });
+
   }
 
   updateGrid() {
