@@ -67,7 +67,7 @@ class Camera {
     // a continuous post check is required for slower machines that run at < 60 fps
     let [obj, prop] = whileCondition;
     let check = () => { (obj[prop]) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
-    (()=>{ check() }).wait(1000);
+    (()=>{ check() }).wait(1100);
   }
 
 }
