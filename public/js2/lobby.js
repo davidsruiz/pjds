@@ -162,6 +162,7 @@ var LOBBY = {
   },
 
   setClock(interval) {
+    if(interval < 0) interval = 0;
     let seconds = Math.round(interval/1000),
         minutes = Math.floor(seconds/60),
         remaining_seconds = seconds % 60;

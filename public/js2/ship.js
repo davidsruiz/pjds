@@ -28,11 +28,11 @@ class BasicShip {
   update(dt) {
     if(!this.disabled) {
       let inert = this.acceleration.length == 0 ;
-      !inert ? this.velocity.add(this.acceleration) : this.velocity.mul(this.LINEAR_FRICTION); // TODO double check friction
+      !inert ? this.velocity.add(this.acceleration.mul_(60*dt)) : this.velocity.mul(Math.pow(this.LINEAR_FRICTION, (60*dt)) ); // TODO revise
 
       // if(this.flag) this.velocity.mul(this.flag.drag);
 
-      let limit = this.LINEAR_VELOCITY_LIMIT; if(this.charging) limit += this.LINEAR_VELOCITY_LIMIT_EXTENDED; if(this.flag) limit -= this.flag.drag;
+      let limit = this.LINEAR_VELOCITY_LIMIT; if(this.flag) limit *= this.flag.drag; if(this.charging) limit += this.LINEAR_VELOCITY_LIMIT_EXTENDED;
       if(this.velocity.length > limit)
          this.velocity.length = limit;
 
@@ -283,7 +283,7 @@ Ship.type = {
 
     HP_CAPACITY: 18, // 20
 
-    LINEAR_VELOCITY_LIMIT: 160, // 120
+    LINEAR_VELOCITY_LIMIT: 140, // 120
     // LINEAR_ACCELERATION_LIMIT: ,
 
     ATTACK_HP: 7, // 8

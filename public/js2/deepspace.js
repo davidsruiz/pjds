@@ -262,12 +262,14 @@ class DeepSpaceGame {
   createBackgroundViews() {
     var canvas = this.stage.canvas, background = new createjs.Shape();
     background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);
+    background.cache(0, 0, canvas.width, canvas.height);
     this.view.layer.background.addChild(background);
 
     background = new createjs.Shape();
-    background.graphics.beginFill('#455A64').drawRect(0, 0, this.mapInfo.width, this.mapInfo.height);
-
-    this.view.layer.action.back.addChild(background);
+    background.graphics.beginFill('#455A64').drawRect(0, 0, canvas.width, canvas.height);
+    background.cache(0, 0, canvas.width, canvas.height);
+    this.view.layer.background.map_background = background;
+    this.view.layer.background.addChild(background);
   }
 
   createGameModeSpecificViewsAction() {
@@ -306,6 +308,8 @@ class DeepSpaceGame {
         break;
     }*/
 
+    this.view.map = { impermeables: [] }
+
     this.model.map.impermeables.forEach(block => {
 
       var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', block.radius)),
@@ -314,6 +318,7 @@ class DeepSpaceGame {
       view.y = pos.y;
       var s = block.radius * 1.2;
       view.cache(-s, -s, s*2, s*2);
+      this.view.map.impermeables.push(view)
       this.view.layer.action.front.addChild(view);
     });
 
@@ -324,16 +329,17 @@ class DeepSpaceGame {
     // DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number]
     var s = 64 + 2;
     this.teams.forEach(team => {
-      var camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
+      var group = new createjs.Container(),
+          camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
           fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),
           pos = team.spawn_camp.position;
       fill.alpha = 0.08;
-      camp.x = fill.x = pos.x;
-      camp.y = fill.y = pos.y;
-      camp.cache(-s, -s, s*2, s*2);
-      fill.cache(-s, -s, s*2, s*2);
-      this.view.layer.action.back.addChild(fill);
-      this.view.layer.action.back.addChild(camp);
+      group.x = pos.x;
+      group.y = pos.y;
+      group.addChild(fill);
+      group.addChild(camp);
+      group.cache(-s, -s, s*2, s*2);
+      this.view.layer.action.back.addChild(group);
     });
   }
 
@@ -342,10 +348,13 @@ class DeepSpaceGame {
     if(our_ship) our_team = our_ship.owner.team;
     this.ships.forEach((ship) => {
       let container = new createjs.Container();
-      var hollow = DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2),
-          filled = DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2);
-      var view = new createjs.Shape(hollow);
-      view.hollow = hollow, view.filled = filled; // TODO cache ships with interchangable bitmap instead
+      var hollow = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2)),
+          filled = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2)),
+          s = ship.radius*1.2;
+      hollow.cache(-s, -s, s*2, s*2); filled.cache(-s, -s, s*2, s*2);
+      var view = new createjs.Bitmap(hollow.cacheCanvas);
+      view.regX = view.regY = s;
+      view.hollow = hollow.cacheCanvas, view.filled = filled.cacheCanvas; // TODO cache ships with interchangable bitmap instead
       container.ship = view;
       container.addChild(view);
 
@@ -354,7 +363,7 @@ class DeepSpaceGame {
         var text = new createjs.Text(ship.owner.name, "14px Roboto", our_team.color);
         text.y = -30;
         text.textAlign = "center";
-        // text.cache()
+        // text.cache(-50, -30, 100, 60)
         container.text = text;
         container.addChild(text);
       }
@@ -382,6 +391,8 @@ class DeepSpaceGame {
           meter = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
           shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
           offset = { x: 22, y: -22 };
+
+      shadow.cache(-9, -9, 18, 18);
 
       meter.x = shadow.x = offset.x;
       meter.y = shadow.y = offset.y;
@@ -1158,7 +1169,7 @@ class DeepSpaceGame {
     // TODO: deinit graphics caches
 
     // cache background
-    this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);
+    // this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);
 
     // create single cache for common objects
     this.setupCommonGraphicsCachePool();
@@ -1353,7 +1364,7 @@ class DeepSpaceGame {
         if(ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
 
         // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
-        ship.angle = ship.velocity.angle;
+        if(ship.velocity.length) ship.angle = ship.velocity.angle;
 
         var direction_v = new V2D(x2, y2)
         ship.shoot_angle = direction_v.angle;
@@ -1590,6 +1601,8 @@ class DeepSpaceGame {
     this.updateSubViews();
 
     this.updateCamera();
+    this.updateBackground();
+    this.updateMap();
     this.updateGrid();
 
     this.updateGameViews();
@@ -1623,7 +1636,7 @@ class DeepSpaceGame {
       ship.view.y = ship.position.y;
 
       // ship.view.graphics.clear();
-      ship_view.graphics = ((ship.flag) ? ship_view.filled : ship_view.hollow);
+      ship_view.image = ((ship.flag) ? ship_view.filled : ship_view.hollow);
     });
     this.updateEnergyMeterView();
   }
@@ -1684,6 +1697,27 @@ class DeepSpaceGame {
   updateCamera() {
     this.camera.update();
     // if(camera.position)
+  }
+
+  updateBackground() {
+    let background = this.view.layer.background.map_background,
+        full_map_width = this.mapInfo.width,
+        full_map_height = this.mapInfo.height,
+        {x, y} = this.camera.focus,
+        half_window_width = this.window.width/2,
+        half_window_height = this.window.height/2;
+
+    if(x < half_window_width) background.x = half_window_width - x;
+    if(x > (full_map_width - half_window_width)) background.x = full_map_width - half_window_width - x;
+
+    if(y < half_window_height) background.y = half_window_height - y;
+    if(y > (full_map_height - half_window_height)) background.y = full_map_height - half_window_height - y;
+  }
+
+  updateMap() {
+    this.model.map.impermeables.forEach((imp, i) => {
+      this.view.map.impermeables[i].visible = this.camera.showing(imp);
+    });
   }
 
   updateGrid() {
@@ -1977,6 +2011,7 @@ class DeepSpaceGame {
         break;
       }
       var pv = new createjs.Shape(graphics);
+      pv.cache(-12, -12, 24, 24);
       this.view.layer.action.back.addChild(pv);
 
       this.view.subs.set(p.id, pv);
@@ -2391,7 +2426,7 @@ DeepSpaceGame.maps = [ // TODO : block bomb radius large hp damage less
   },
   { // 2
     name: "Nautical",
-    width: 3072, height: 3072,
+    width: 3072 * 1, height: 3072 * 1,
     teams: [2],
 
     // first array is for the number of teams coresponding to the teams array
