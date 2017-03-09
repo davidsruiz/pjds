@@ -54,20 +54,22 @@ class Camera {
     // log(this.focus); log(new_focus);
     const timingFunction = BezierEasing(0.4, 0.0, 0.2, 1),
           old_focus = this.focus;
-    setIntervalTimeout((i, total)=>{
-      const percentage = (i+1) / total;
+    setAnimationTimeout((dt, elapsed, timeout)=>{
+      const percentage = elapsed / timeout;
       const p1 = new V2D(old_focus.x, old_focus.y);
       const p2 = new V2D(new_focus.x, new_focus.y);
       const delta_v = p2.sub(p1);
       delta_v.length = delta_v.length * timingFunction(percentage);
       p1.add(delta_v);
-      this.focus = ((percentage != 1) ? {x:p1.x, y:p1.y} : new_focus);
-    }, 16, 1000);
+      this.focus = {x:p1.x, y:p1.y};
+    }, 1, ()=>{
+      this.focus = new_focus;
+    });
 
     // a continuous post check is required for slower machines that run at < 60 fps
     let [obj, prop] = whileCondition;
     let check = () => { (obj[prop]) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
-    (()=>{ check() }).wait(1100);
+    (()=>{ check() }).wait(1000);
   }
 
 }

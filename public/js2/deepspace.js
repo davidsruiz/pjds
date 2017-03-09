@@ -209,10 +209,10 @@ class DeepSpaceGame {
     this.createViews();
   }
 
-  setupCanvas() { // (revise)
+  setupCanvas() { // TODO: (revise)
     var canvas = $('#canvas')[0];
-    canvas.width = 1024;
-    canvas.height = 768;
+    canvas.width = document.body.clientWidth; if(canvas.width>1024) canvas.width=1024;
+    canvas.height = document.body.clientHeight; if(canvas.height>768) canvas.height=768;
     // canvas.width = 512;
     // canvas.height = 480;
 
@@ -578,6 +578,8 @@ class DeepSpaceGame {
     blv.x = block.position.x * scale;
     blv.y = block.position.y * scale;
 
+    blv.regX = blv.regY = (cache.width/2);
+
     mini.addChild(blv);
     mini.setChildIndex(blv, 1)
     mini.blocks.set(block.id, blv);
@@ -796,6 +798,70 @@ class DeepSpaceGame {
         // OTHER
         inputStack.set("sub", gamepad.buttons[0].pressed);
       };
+
+      // MOBILE
+      let raw_acc_data = [0, 0], applied_acc_data = [0, 0]; // [x, y]
+      let threshold = 1, bias = [0, 0]; // deadzone
+      bias = ENV.storage.calibration = (ENV.storage.calibration) ? ENV.storage.calibration.split(",").map(Number) : [0, 0];
+      // let origin = [0, bias];
+      if (ENV.mobile && window.DeviceMotionEvent != undefined) {
+        window.ondevicemotion = function(e) {
+          raw_acc_data = [e.accelerationIncludingGravity.x, e.accelerationIncludingGravity.y];
+          // if ( e.rotationRate )  {
+          //   document.getElementById("rotationAlpha").innerHTML = e.rotationRate.alpha;
+          //   document.getElementById("rotationBeta").innerHTML = e.rotationRate.beta;
+          //   document.getElementById("rotationGamma").innerHTML = e.rotationRate.gamma;
+          // }
+        }
+
+        inputStack.updateMotion = function() {
+          let orientation = window.orientation,
+            [raw_x, raw_y] = raw_acc_data, [x, y] = [raw_x, raw_y];
+
+          if(orientation === 90) { x = -raw_y, y = raw_x }
+          else if(orientation === -90) { x = raw_y, y = -raw_x }
+          else if(orientation === 180 || orientation === -180) { x = -x, y = -y }
+
+          applied_acc_data = [x, y];
+          x -= bias[0]; // bias towards player;
+          y -= bias[1];
+
+          if(x >  threshold) { inputStack.add('rt') } else { inputStack.delete('rt') }
+          if(x < -threshold) { inputStack.add('lt') } else { inputStack.delete('lt') }
+          if(y >  threshold) { inputStack.add('up') } else { inputStack.delete('up') }
+          if(y < -threshold) { inputStack.add('dn') } else { inputStack.delete('dn') }
+
+        };
+      }
+
+      var left = document.querySelector('#touch_layer > .left');
+      left.addEventListener('touchstart', e => { inputStack.add('block') });
+      left.addEventListener('touchend', e => { inputStack.delete('block') });
+
+      let joystick = new V2D(), joystick_deadzone_radius = 30;
+      var right = document.querySelector('#touch_layer > .right');
+      right.addEventListener('touchstart', e => { inputStack.add('shoot') });
+      right.addEventListener('touchend', e => { inputStack.delete('shoot') });
+      var right_hammer = new Hammer(right);
+      right_hammer.on('pan', function(e) {
+        console.log(e)
+      });
+
+      var hammertime = new Hammer(document.querySelector('#touch_layer'));
+      hammertime.get('tap').set({taps: 2})
+      hammertime.get('swipe').set({ direction: Hammer.DIRECTION_LEFT })
+      hammertime.on('tap', function(ev) {
+        inputStack.add('sub');
+        ( () => inputStack.delete('sub') ).wait(200);
+      });
+      hammertime.on('swipe', function(e) {
+        // calibrate
+        bias = applied_acc_data;
+        ENV.storage.calibration = bias;
+      });
+
+
+
     }
 
   }
@@ -871,7 +937,7 @@ class DeepSpaceGame {
 
     (rows * cols).times(() => {
       let obj = {};
-      for(let group of Object.values(physics.collision_groups)) obj[group] = new Set();
+      for(let group of Object.keys(physics.collision_groups)) obj[physics.collision_groups[group]] = new Set();
       physics.divisions.push(obj);
     })
 
@@ -1304,7 +1370,8 @@ class DeepSpaceGame {
   }
 
   updateInput() {
-    if(!this.spectate) this.updateGamepadInput();
+    // if(!this.spectate) this.updateGamepadInput();
+    if(!this.spectate) if(this.player.input.updateMotion) this.player.input.updateMotion();
   }
 
   // updateGamepadInput() {}
@@ -1326,7 +1393,8 @@ class DeepSpaceGame {
       if(ship == this.ships.main && !ship.disabled) {
 
         var input = ship.owner.input,
-            x = 0, y = 0, x2 = 0, y2 = 0;
+            x = 0, y = 0, x2 = 0, y2 = 0,
+              s = false;
 
         for(var prop of input) {
           switch(prop) {
@@ -1361,6 +1429,9 @@ class DeepSpaceGame {
             case 'block':
               ship.block();
               break;
+            case 'shoot':
+              s = true;
+              break;
           }
         }
 
@@ -1371,9 +1442,11 @@ class DeepSpaceGame {
         if(ship.velocity.length) ship.angle = ship.velocity.angle;
 
         var direction_v = new V2D(x2, y2)
-        ship.shoot_angle = direction_v.angle;
+        ship.shoot_angle = direction_v.length ? direction_v.angle : ship.angle;
 
-        if(direction_v.length) ship.shoot();
+        // if(direction_v.length) ship.shoot();
+
+        if(s || direction_v.length) ship.shoot();
       }
 
       // validate new position TODO (revise)
@@ -1685,8 +1758,9 @@ class DeepSpaceGame {
           v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
         }
       }
-      if(b.qualified && !b.isForeign) {
-        v.image = DeepSpaceGame.graphicsCaches.blocks.locked[b.team];
+      if(b.qualified) {
+        let type = b.isForeign ? 'enemy' : 'locked';
+        v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
       }
     });
   }
@@ -1889,7 +1963,7 @@ class DeepSpaceGame {
 
     // create a view for it.
     bl.isForeign = this.spectate || bl.team != this.team.number;
-    let type = bl.isForeign ? 'enemy' : 'unlocked';
+    let type = false ? 'enemy' : 'unlocked';
     let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
     var blv = new createjs.Bitmap(cache);
     blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;

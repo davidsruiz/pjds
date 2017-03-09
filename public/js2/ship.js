@@ -181,7 +181,7 @@ class Ship extends BasicShip {
     this.recoil_counter+=dt; this.block_recoil_counter+=dt; this.sub_recoil_counter+=dt;
   }
 
-  shoot() {
+  shoot() { // TODO: fix
     if(this.recoil_counter > this.ATTACK_RECOIL_DELAY && this.drain(this.ATTACK_HP*this.ATTACK_ENERGY_FRACTION_HP)) {
 
       var id = NetworkHelper.bullet_create(this);
@@ -305,15 +305,14 @@ Ship.type = {
 
     LINEAR_VELOCITY_LIMIT: 100, // 120
 
-    ATTACK_HP: 6, // 8
+    ATTACK_HP: 8, // 8
     ATTACK_RECOIL_DELAY: (1/3), // (1/4)
     ATTACK_LIFESPAN: 1.8, // 1.6
 
     REGEN_RATE: 10.8, // 24
 
-    // BLOCK_HP_CAPACITY: 12, // 8
     BLOCK_RECOIL_DELAY: (1/6), // (1/6)
-    BLOCK_ENERGY_COST: 10, // 8
+    // BLOCK_ENERGY_COST: 10, // 8
 
     SUB_TYPE: 'stealth_cloak',
     SUB_RECOIL_DELAY: 1, //s
@@ -391,7 +390,7 @@ Ship.baseStats = {
 
   BLOCK_CAPACITY: 200, //#
   BLOCK_HP_CAPACITY: 20, //hp
-  BLOCK_SPREAD: (2 * Math.PI) * (0.2), // 0.3 (30%) angle sweep in radians.
+  BLOCK_SPREAD: (2 * Math.PI) * (0.1), // 0.2 (30%) angle sweep in radians.
   BLOCK_RECOIL_DELAY: 1/6, //b/s (8f == 7.5b/s)
   BLOCK_ENERGY_COST: 8, //ep
 
@@ -406,3 +405,5 @@ Ship.baseStats = {
 
   FLAG_RECOIL_DELAY: 1 // s
 };
+
+// SPECIALS??? LARGE HEAVY BLOCK, or INTEL

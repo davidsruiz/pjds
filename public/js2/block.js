@@ -10,7 +10,7 @@ class Block {
       this.position = new V2D(data.position.x, data.position.y);
 
       this.velocity = new V2D();
-      this.velocity.length = this.SPEED;
+      this.velocity.length = data.speed;
       this.velocity.angle = data.angle;
 
       this.radius = data.radius;
@@ -28,7 +28,7 @@ class Block {
         this.position.add(this.velocity.mul_(dt));
 
         // this.radius = (this.velocity.length * 0.9 + 3); //(8 -> 3)
-        this.scale = (this.velocity.length * 0.015 + 3) / 10; //(.8 -> .3)
+        this.scale = (this.velocity.length * 0.006 + 3) / 10; //(.8 -> .3)
 
         // if(this.velocity.length < this.LOWER_VELOCITY_LIMIT) this.lock();
         if((this.life_counter+=dt) > this.LIFESPAN) this.lock();
@@ -55,8 +55,10 @@ class Block {
 
   Block.stats = {
     MIN_RADIUS: 45, //18, //16, //10,
-    MAX_RADIUS: 50, //36, //30, //20,
+    MAX_RADIUS: 70, //36, //30, //20,
     SPEED: 440,
+    MIN_SPEED: 360,
+    MAX_SPEED: 900,
     FRICTION: 0.96,
     LOWER_VELOCITY_LIMIT: 30,
     // DRIFT: 30,

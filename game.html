@@ -2,6 +2,9 @@
 <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="user-scalable=no">
+        <!--<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=0.8, maximum-scale=0.8">-->
+        <!--<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">-->
         <title>DEEP SPACE</title>
         <link rel="stylesheet" href="/styles/normalization.css" charset="utf-8">
         <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
@@ -12,12 +15,14 @@
 
         <link rel="stylesheet" href="styles/style.css" charset="utf-8" />
         <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+        <script src="https://gist.githubusercontent.com/attenzione/7098476/raw/e2903109d9c79f78cee09ac7f59243d9e5009892/jquery.doubletap.js"></script> <!--EXTENSION-->
         <script src="http://chancejs.com/chance.min.js"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
         <script src="https://code.createjs.com/easeljs-0.8.2.min.js"></script>
         <script src="/js2/ext/bezier-easing.js"></script>
         <script src="https://rawgit.com/mrdoob/stats.js/master/build/stats.min.js"></script>
         <script type="text/javascript" src="/js2/ext/dat.gui.min.js"></script>
+        <script src="/js2/ext/hammer.min.js"></script>
 
         <script src="/js2/env.js"></script>
         <script src="/js2/gui.js"></script>
@@ -55,7 +60,7 @@
     </head>
     <body>
       <div id="countdown_layer" class="layer">
-        <span id="countdown">3</span>
+        <span id="countdown" class="center">3</span>
       </div>
       <div id="menu_layer" class="layer">
         <div id="space" class="layer">
@@ -160,6 +165,10 @@ The practice lobby is a sandbox style lobby with no restrains in time or rank</s
                <!--<span id="log"></span>-->
                <span id="clock"></span>
            </div>
+            <div id="touch_layer">
+                <div class="left"></div>
+                <div class="right"></div>
+            </div>
           <canvas id="canvas"></canvas>
         </div>
         <div class="drawer non_select" id="help_drawer">

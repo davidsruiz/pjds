@@ -32,6 +32,8 @@ class NetworkHelper {
   }
 
   static bullet_create(ship) { if(!DeepSpaceGame.runningInstance) return;
+    // let angle = options.shoot_simple ? ship.angle : ship.shoot_angle,
+    //     shoot_position = options.shoot_simple ? ship.front_weapon_position : ship.shoot_position;
     let id = Math.uuid(),
         data = {
           id: id,
@@ -104,7 +106,8 @@ class NetworkHelper {
       angle: (ship.angle) + ((ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1)),
       hp: ship.BLOCK_HP_CAPACITY,
       // radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)
-      radius: Block.stats.MAX_RADIUS
+      radius: Block.stats.MAX_RADIUS,
+      speed: Math.randomIntMinMax(Block.stats.MIN_SPEED, Block.stats.MAX_SPEED)
     }};
     socket.emit('block create', send_data);
     NetworkHelper.in_block_create(send_data);

@@ -75,7 +75,7 @@ Math.randomMinMax = (min, max) => (Math.random()*(max - min)) + min;
 Math.randomIntMinMax = (min, max) => Math.floor((Math.random()*(max - min)) + min);
 
 
-const setIntervalTimeout = function(block, interval, timeout) {
+/*const setIntervalTimeout = function(block, interval, timeout) {
 
   var ms_delay = Math.round(interval),
     animate_length = Math.round(timeout);
@@ -91,6 +91,37 @@ const setIntervalTimeout = function(block, interval, timeout) {
       block(i-1, frame_count);
     }).wait(wait_time);
   })
+
+};*/
+
+const setAnimationTimeout = function(block, timeout, callback = ()=>{}) {
+
+  let last_time = (new Date()).getTime();
+
+  // the variable percentage of a second that has gone by since the last frame
+  // usually expressed: 0.016 when running 60 fps
+  let dt = 0;
+  let elapsed = 0;
+
+  let update = () => {
+    let now = (new Date()).getTime();
+    dt = (now - last_time) / 1000;
+    last_time = now;
+    elapsed += dt;
+  };
+
+  let loop = (() => {
+    update();
+    log(`${dt} :: ${elapsed} :: ${timeout}`)
+    if(elapsed < timeout) {
+      block(dt, elapsed, timeout);
+      requestAnimationFrame(loop);
+    } else {
+      callback();
+    }
+  });
+
+  loop();
 
 };
 
