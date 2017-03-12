@@ -841,10 +841,22 @@ class DeepSpaceGame {
       let joystick = new V2D(), joystick_deadzone_radius = 30;
       var right = document.querySelector('#touch_layer > .right');
       right.addEventListener('touchstart', e => { inputStack.add('shoot') });
-      right.addEventListener('touchend', e => { inputStack.delete('shoot') });
+      right.addEventListener('touchend', e => {
+        inputStack.delete('shoot');
+        inputStack.delete('up2'); inputStack.delete('dn2'); inputStack.delete('lt2'); inputStack.delete('rt2');
+      });
       var right_hammer = new Hammer(right);
-      right_hammer.on('pan', function(e) {
-        console.log(e)
+      right_hammer.on('panmove', function(e) {
+        var v = new V2D(e.deltaX, e.deltaY), a = v.angle;
+        if(v.length > joystick_deadzone_radius) {
+          if(a <-0.39 && a >-2.74) { inputStack.add('up2') } else { inputStack.delete('up2') }
+          if(a > 0.39 && a < 2.74) { inputStack.add('dn2') } else { inputStack.delete('dn2') }
+          if(a > 1.96 || a <-1.96) { inputStack.add('lt2') } else { inputStack.delete('lt2') }
+          if(a >-1.18 && a < 1.18) { inputStack.add('rt2') } else { inputStack.delete('rt2') }
+        } else {
+
+        }
+        // console.log(e)
       });
 
       var hammertime = new Hammer(document.querySelector('#touch_layer'));
@@ -914,6 +926,7 @@ class DeepSpaceGame {
       ENEMY_SHIPS: Symbol('ENEMY_SHIPS'),
 
       BULLETS: Symbol('BULLETS'),
+      MY_BULLETS: Symbol('MY_BULLETS'),
       OUR_BULLETS: Symbol('OUR_BULLETS'),
       ENEMY_BULLETS: Symbol('ENEMY_BULLETS'),
 
@@ -986,9 +999,9 @@ class DeepSpaceGame {
 
     if(!this.spectate) {
 
-      // OUR BULLET <-> ENEMY SHIPS
+      // MY BULLET <-> ENEMY SHIPS
       checks.push([
-        groups.OUR_BULLETS,
+        groups.MY_BULLETS,
         groups.ENEMY_SHIPS,
         (bullet, ship) => {
           if(!bullet.disabled && !ship.disabled) {
@@ -998,9 +1011,9 @@ class DeepSpaceGame {
         }]
       );
 
-      // OUR BULLET <-> ENEMY BLOCKS
+      // MY BULLET <-> ENEMY BLOCKS
       checks.push([
-        groups.OUR_BULLETS,
+        groups.MY_BULLETS,
         groups.ENEMY_BLOCKS,
         (bullet, block) => {
           if(!bullet.disabled && !block.disabled) {
@@ -1010,9 +1023,9 @@ class DeepSpaceGame {
         }]
       );
 
-      // OUR BULLET <-> ENEMY SPAWN_CAMPS
+      // MY BULLET <-> ENEMY SPAWN_CAMPS
       checks.push([
-        groups.OUR_BULLETS,
+        groups.MY_BULLETS,
         groups.ENEMY_SPAWN_CAMPS,
         (bullet, spawn_camp) => {
           if(!bullet.disabled) {
@@ -1680,7 +1693,7 @@ class DeepSpaceGame {
     this.updateCamera();
     this.updateBackground();
     this.updateMap();
-    this.updateGrid();
+    // this.updateGrid();
 
     this.updateGameViews();
 
@@ -1933,6 +1946,7 @@ class DeepSpaceGame {
 
     b.collision_groups = [this.physics.collision_groups.BULLETS];
     b.collision_groups.push(this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS);
+    if(!this.spectate && b.creator == this.player.id) b.collision_groups.push(this.physics.collision_groups.MY_BULLETS);
 
     // sound
     // if(this.camera.showing(b)) SoundHelper.fireShot();
@@ -2329,7 +2343,7 @@ DeepSpaceGame.graphics = {
   block_center: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 2),
 
   attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
-  repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
+  h: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
   block_bomb: color => new createjs.Graphics().beginFill(color).moveTo(-10, 0).arcTo(-10, -10, 0, -10, 10).lineTo(0, 10).arcTo(-9, 9, -10, 0, 10),
   missile: color => new createjs.Graphics().beginFill(color).moveTo(6, 0).lineTo(-6, -6).lineTo(-6, 6).lineTo(6, 0),
 
@@ -2350,16 +2364,16 @@ DeepSpaceGame.renderingParameters = {
 DeepSpaceGame.localizationStrings = {
   alerts: {
     enemyTakesFlag: {
-      en: (color) => `The ${color} team has the pearl!`
+      en: (color) => `The ${color} team has the moon!`
     },
     teamTakesFlag: {
-      en: () => `We have the pearl!`
+      en: () => `We have the moon!`
     },
     enemyDropsFlag: {
-      en: (color) => `The ${color} team dropped the pearl!`
+      en: (color) => `The ${color} team dropped the moon!`
     },
     teamDropsFlag: {
-      en: () => `We dropped the pearl!`
+      en: () => `We dropped the moon!`
     },
     yourKill: {
       en: (name) => `you got ${name}`

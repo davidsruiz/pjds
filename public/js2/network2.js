@@ -37,6 +37,7 @@ class NetworkHelper {
     let id = Math.uuid(),
         data = {
           id: id,
+          creator: ship.owner.id,
           team: ship.owner.team.number,
           position: ship.shoot_position,
           angle: ship.shoot_angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),

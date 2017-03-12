@@ -76,3 +76,11 @@ function refreshLobbyView() {
 }
 
 let types = ['damage', 'speed', 'standard', 'rate', 'defense'];
+
+
+// scroll view
+// let resetScrollView = () => {
+// var scroll_view = document.querySelector('#touch_layer .scroll');
+// scroll_view.scrollTop = scroll_view.scrollHeight/2;
+// };
+// $(()=>resetScrollView());

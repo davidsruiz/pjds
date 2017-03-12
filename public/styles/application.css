@@ -70,7 +70,7 @@ body { position: relative; }
 #menu_layer .content, #game_layer .content {
   position: relative; top: 50%; transform: translateY(-50%);
 }
-.center {
+.v-center {
   position: relative; top: 50%; transform: translateY(-50%);
 }
 
@@ -358,10 +358,12 @@ body { background: #242e33 }
 #game_layer > .content {
   width: auto; height: auto;
 }
-#overlay {
+#overlay, #tint {
   position: absolute;
   width: 100%;
+  height: 100%;
 }
+#tint { background: linear-gradient( 45deg, blue, red ); opacity: 0.2; top: 0; left: 0; }
 #clock {
   color: white;
   z-index: 40;
@@ -384,9 +386,11 @@ body { background: #242e33 }
 /* touch layer */
 #touch_layer {
   position: absolute;
+  top: 0; left: 0;
   width: 100%;
   height: 100%;
   display: inline-block;
+  z-index: 2;
 }
 
 #touch_layer > * {
@@ -401,5 +405,11 @@ body { background: #242e33 }
 }
 
 #touch_layer > .right {
+  overflow: scroll;
+}
 
+#touch_layer > .right > .scroll {
+  display: inline-block;
+  height:100%;
+  width:100%;
 }

@@ -64,12 +64,13 @@ class Camera {
       this.focus = {x:p1.x, y:p1.y};
     }, 1, ()=>{
       this.focus = new_focus;
+      check();
     });
 
     // a continuous post check is required for slower machines that run at < 60 fps
     let [obj, prop] = whileCondition;
     let check = () => { (obj[prop]) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
-    (()=>{ check() }).wait(1000);
+    // (()=>{ check() }).wait(1000);
   }
 
 }

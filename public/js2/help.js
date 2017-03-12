@@ -2,7 +2,7 @@
 class Carousel {
 
   constructor() {
-    this.imgNode = document.querySelector('.carousel .center')
+    this.imgNode = document.querySelector('.carousel .middle')
   }
 
   set(arr) {
@@ -66,7 +66,7 @@ window.addEventListener('load', ()=>{
   var carousel = ENV.help.carousel = new Carousel();
   carousel.set(['images/', 'help-a.png', 'help-b.png', 'help-c.png', 'help-d.png']);
   document.querySelector('.carousel .right').onclick = () => { carousel.next() }
-  document.querySelector('.carousel .center').onclick = () => { carousel.next() }
+  document.querySelector('.carousel .middle').onclick = () => { carousel.next() }
   document.querySelector('.carousel .left').onclick = () => { carousel.prev() }
   document.querySelector('.drawer .close').addEventListener('click', () => { carousel.autoplay = false });
 

@@ -3,6 +3,7 @@ class Bullet {
   constructor(data) {
     this.id = data.id;
     this.team = data.team;
+    this.creator = data.creator;
 
     this.assignAttrFrom(Bullet.stats);
 

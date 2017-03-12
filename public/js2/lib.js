@@ -112,7 +112,7 @@ const setAnimationTimeout = function(block, timeout, callback = ()=>{}) {
 
   let loop = (() => {
     update();
-    log(`${dt} :: ${elapsed} :: ${timeout}`)
+    // log(`${dt} :: ${elapsed} :: ${timeout}`);
     if(elapsed < timeout) {
       block(dt, elapsed, timeout);
       requestAnimationFrame(loop);
