@@ -28,18 +28,3 @@ ENV.view = {};
 // });
 
 
-var lastTouchEnd = 0;
-document.documentElement.addEventListener('touchend', function (event) {
-  var now = (new Date()).getTime();
-  if (now - lastTouchEnd <= 300) {
-    event.preventDefault();
-  }
-  lastTouchEnd = now;
-}, false);
-
-window.addEventListener('load', ()=> {
-  document.querySelector('#touch_layer').addEventListener('touchstart', function (event) { event.preventDefault() }, true);
-  document.querySelector('#touch_layer').addEventListener('touchend', function (event) { event.preventDefault() }, false);
-});
-
-

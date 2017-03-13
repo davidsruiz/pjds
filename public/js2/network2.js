@@ -225,4 +225,14 @@ class NetworkHelper {
     ENV.game.disconnectPlayer(userid);
   }
 
+
+  /*static add() { // static no longer works as network helper now holds state
+    NetworkHelper.messages.push(new Array(...arguments));
+  }
+
+  static release() { // static no longer works as network helper now holds state
+    socket.emit('combined', NetworkHelper.messages); NetworkHelper.messages = [];
+  }*/
+
 }
+// NetworkHelper.messages = [];

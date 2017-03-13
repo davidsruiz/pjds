@@ -319,6 +319,7 @@ sio.sockets.on('connection', function (client) {
 
     // during game
     // client.on('input stack', data => client.lobby ? client.lobby.broadcast('input stack', data, client) : client.emit('stop'));
+
     client.on('ship update', data => client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop'));
     client.on('ship override', data => client.lobby ? client.lobby.broadcast('ship override', data, client) : client.emit('stop'));
     client.on('bullet create', data => client.lobby ? client.lobby.broadcast('bullet create', data, client) : client.emit('stop'));
@@ -333,6 +334,20 @@ sio.sockets.on('connection', function (client) {
 
     client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));
     client.on('sub destroy', data => client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop'));
+
+   /*client.on('combined', messages => {
+      if(!client.lobby) { client.emit('stop'); return; }
+
+      for(var [key, data] of messages) {
+        switch(key) {
+          case 'ship update':
+            client.lobby.broadcast('ship update', data, client); break;
+          case 'ship override':
+            client.lobby.broadcast('ship override', data, client); break;
+        }
+      }
+    });*/
+
 
     // TODO: figure out what happens when a flag holder disconnects..
     client.on('flag pickup', data => {

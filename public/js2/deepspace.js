@@ -574,7 +574,7 @@ class DeepSpaceGame {
         mini = this.view.overlay.minimap,
         scale = mini.scale;
 
-    blv.alpha = 0.2
+    // blv.alpha = 0.2
     blv.x = block.position.x * scale;
     blv.y = block.position.y * scale;
 
@@ -1317,10 +1317,10 @@ class DeepSpaceGame {
     if(this.spectate) return; // TODO make minimap accesible to all even spectators
     gc.minimap = { blocks: [] };
     this.teams.forEach(team => {
-
+      '#37474F'
       let radius = Block.stats.MAX_RADIUS * this.view.overlay.minimap.scale;
 
-      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius));
+      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 30), radius));
 
       var s = radius * 1.2;
       // fill.alpha = 0.16;
@@ -1364,6 +1364,8 @@ class DeepSpaceGame {
     this.log();
     // stats.end();
 
+    // NetworkHelper.release();
+
     getAnimationFrame(()=> this.game.ended ? true : this.loop())
   }
 
@@ -1374,7 +1376,7 @@ class DeepSpaceGame {
     var over = this.game.disabled;
     if(!over) this.updateInput();
     this.updateModel(); // TODO: improve performance
-    if(!over) if(!this.spectate) this.checkForCollisions();
+    if(!over) this.checkForCollisions();
     // if(this.isHost) this.generateMapEntities();
 
     if(!over) this.updateGame();
@@ -2343,7 +2345,7 @@ DeepSpaceGame.graphics = {
   block_center: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 2),
 
   attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
-  h: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
+  repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
   block_bomb: color => new createjs.Graphics().beginFill(color).moveTo(-10, 0).arcTo(-10, -10, 0, -10, 10).lineTo(0, 10).arcTo(-9, 9, -10, 0, 10),
   missile: color => new createjs.Graphics().beginFill(color).moveTo(6, 0).lineTo(-6, -6).lineTo(-6, 6).lineTo(6, 0),
 
