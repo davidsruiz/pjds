@@ -1496,7 +1496,7 @@ class DeepSpaceGame {
 
       NetworkHelper.out_ship_update(ship.export_update());
 
-      if((new Date()).getTime()%60 < 2) NetworkHelper.out_ship_override(ship.export_override());
+      if((new Date()).getTime()%60 < 6) NetworkHelper.out_ship_override(ship.export_override());
       if(ship.flag && ship.disabled) NetworkHelper.out_flag_drop();
       // if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
     }
