@@ -8,7 +8,7 @@ class Camera {
 
   update() {
     const offsetX = this.window.width / 2,
-        offsetY = this.window.height / 2;
+          offsetY = this.window.height / 2;
 
     let new_x = -this.focus.x + offsetX;
     let new_y = -this.focus.y + offsetY;

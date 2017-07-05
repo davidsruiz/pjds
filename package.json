@@ -1,15 +1,20 @@
 {
   "name": "deep-space",
-  "author" : "David Ruiz",
+  "author": "David Ruiz",
   "description": "A coop asteroids game",
   "license": "MIT",
   "version": "0.1.0",
   "dependencies": {
     "express": "3.3.x",
+    "node-uuid": "1.3.3",
     "socket.io": "0.9.x",
-    "node-uuid": "1.3.3"
+    "swearjar": "^0.2.0"
   },
   "engine": {
     "node": "0.10.x"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.6.0"
   }
 }

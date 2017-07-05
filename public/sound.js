@@ -3,30 +3,30 @@ var TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return t
 class Sound {
 
   constructor(set) {
-    this.root = '/sound/'
-    this._volume = 0.4;
-    this._pan = 0;
-    this._mute = 0;
-    this.activated = new Map();
-    createjs.Sound.on("fileload", this.loadHandler, this);
-
-      // every loaded sound is here
-    this.loaded = new Set();
-      // loading sounds waiting play
-    this.waiting = new Set();
-      // where looping information is stored if needed
-    this.looping = new Map();
-    if(set) this.load(set);
+    // this.root = '/sound/'
+    // this._volume = 0.4;
+    // this._pan = 0;
+    // this._mute = 0;
+    // this.activated = new Map();
+    // createjs.Sound.on("fileload", this.loadHandler, this);
+    //
+    //   // every loaded sound is here
+    // this.loaded = new Set();
+    //   // loading sounds waiting play
+    // this.waiting = new Set();
+    //   // where looping information is stored if needed
+    // this.looping = new Map();
+    // if(set) this.load(set);
   }
 
   load(set) {
 
-    set = Sound.sets[set];
-
-    for(var item of set) {
-      createjs.Sound.registerSound(this.root + item[1], item[0]);
-      if(item[2] !== undefined) this.looping.set(item[0], {start: item[2], end: item[3]})
-    }
+    // set = Sound.sets[set];
+    //
+    // for(var item of set) {
+    //   createjs.Sound.registerSound(this.root + item[1], item[0]);
+    //   if(item[2] !== undefined) this.looping.set(item[0], {start: item[2], end: item[3]})
+    // }
   }
 
   loadHandler(e) {
@@ -39,24 +39,24 @@ class Sound {
   }
 
   play(id) {
-    if(this.activated.has(id)) {
-      var instance = this.activated.get(id);
-      (instance.playState == "playFinished") ? instance.play() : instance.position = 0;
-    } else if(this.loaded.has(id)) {
-      var instance = createjs.Sound.play(id);
-      this.activated.set(id, instance);
-      instance.volume = this.volume; instance.pan = this.pan; instance.muted = this.mute;
-      if(this.looping.has(id)) {
-        var {start, end} = this.looping.get(id);
-        end = end || instance.duration;
-        instance.setLoop(99);
-        instance.setDuration(end)
-        instance.setStartTime(start) // effective next cycle
-        setTimeout(() => { instance.setDuration(end - start); }, end); // effective immediately, hence delay
-      }
-    } else {
-      this.waiting.add(id);
-    }
+    // if(this.activated.has(id)) {
+    //   var instance = this.activated.get(id);
+    //   (instance.playState == "playFinished") ? instance.play() : instance.position = 0;
+    // } else if(this.loaded.has(id)) {
+    //   var instance = createjs.Sound.play(id);
+    //   this.activated.set(id, instance);
+    //   instance.volume = this.volume; instance.pan = this.pan; instance.muted = this.mute;
+    //   if(this.looping.has(id)) {
+    //     var {start, end} = this.looping.get(id);
+    //     end = end || instance.duration;
+    //     instance.setLoop(99);
+    //     instance.setDuration(end)
+    //     instance.setStartTime(start) // effective next cycle
+    //     setTimeout(() => { instance.setDuration(end - start); }, end); // effective immediately, hence delay
+    //   }
+    // } else {
+    //   this.waiting.add(id);
+    // }
   }
 
   pause(id) {
@@ -67,14 +67,14 @@ class Sound {
   }
 
   stop(id) {
-    if(this.activated.has(id)) {
-      var instance = this.activated.get(id);
-      instance.paused = true;
-      instance.position = 0;
-      instance.stop()
-    } else if(this.waiting.has(id)) {
-      this.waiting.delete(id)
-    }
+    // if(this.activated.has(id)) {
+    //   var instance = this.activated.get(id);
+    //   instance.paused = true;
+    //   instance.position = 0;
+    //   instance.stop()
+    // } else if(this.waiting.has(id)) {
+    //   this.waiting.delete(id)
+    // }
   }
 
   get volume() {
@@ -106,9 +106,9 @@ class Sound {
   }
 
   set mute(new_mute) {
-    this._mute = !!new_mute;
-    for(var [,instance] of this.activated)
-      instance.muted = this._mute;
+    // this._mute = !!new_mute;
+    // for(var [,instance] of this.activated)
+    //   instance.muted = this._mute;
   }
 
 }

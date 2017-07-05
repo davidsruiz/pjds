@@ -15,8 +15,8 @@ var LOBBY = {
     this.showLayer('#countdown_layer');
 
     var countdown = (n = this.coundownTime) => {
-      $('#countdown').text(n--);
-      if(n >= 0) setTimeout(()=>{countdown(n)}, 1000);
+      $('#countdown').text(n>0 ? n : 'GO');
+      if(n-- >= 0) setTimeout(()=>{countdown(n)}, 1000);
     };
 
     countdown();
@@ -24,9 +24,9 @@ var LOBBY = {
   },
 
   revealGame(callback) {
-    this.hideLayer('#countdown_layer');
     this.hideLayer('#menu_layer');
     if(callback) callback();
+    setTimeout(()=>{ this.hideLayer('#countdown_layer'); }, 600);
   },
 
   hideLayer(css_selector) {
@@ -50,11 +50,11 @@ var LOBBY = {
   },
 
   /*
-   *  LOBBY.endGame: stops interaction with the game and partially hides it from view. Serves as an interlude while waiting
+   *  LOBBY.disableGame: stops interaction with the game and partially hides it from view. Serves as an interlude while waiting
    *  for any last server operations. Usually seceded by LOBBY.showResults
    *  part 1 of 2 in closing a match
    */
-  endGame() {
+  disableGame() {
 
     // fades in the overlay
     $('#countdown').text('FINISH');
@@ -162,18 +162,46 @@ var LOBBY = {
   },
 
   setClock(interval) {
+    // interval -= TIME.sec(10);
+
     if(interval < 0) interval = 0;
+
     let seconds = Math.round(interval/1000),
-        minutes = Math.floor(seconds/60),
-        remaining_seconds = seconds % 60;
+      minutes = Math.floor(seconds/60),
+      remaining_seconds = seconds % 60;
     if(remaining_seconds < 10) remaining_seconds = "0" + remaining_seconds;
-    $('#clock').text(`${minutes}:${remaining_seconds}`);
+    let str = `${minutes}:${remaining_seconds}`;
+
+    LOBBY.writeClock(str);
+  },
+
+  writeClock(str) {
+    $('#clock').text(str);
   },
 
   refreshClock() {
-    LOBBY.setClock(ENV.game.timer.timeLeft);
+    ENV.game.game.overtime ? LOBBY.writeClock('OVERTIME') : LOBBY.setClock(ENV.game.timer.timeLeft);
+    // LOBBY.setClock(ENV.game.timer.timeLeft);
     if(!ENV.game.game.disabled) setTimeout(()=>{ LOBBY.refreshClock() }, 1000);
   }
 
 
+};
+
+
+ENV.lobby = {
+  code: null,
+  password: null,
+  game_settings: {
+    map: null,
+    player_capacity: null,
+    mode: null,
+    stock: null
+  },
+  players: [
+    // {name, rank, team, ready, ship, slots []}
+  ],
+  spectators: [
+    // {name}
+  ]
 };

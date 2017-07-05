@@ -24,7 +24,7 @@ class Block {
 
     update(dt) {
       if(!this.locked) {
-        this.velocity.mul(this.FRICTION);
+        this.velocity.mul(Math.pow(this.FRICTION, (60*dt)));
         this.position.add(this.velocity.mul_(dt));
 
         // this.radius = (this.velocity.length * 0.9 + 3); //(8 -> 3)

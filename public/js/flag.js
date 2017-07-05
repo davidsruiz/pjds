@@ -5,7 +5,7 @@ class Flag {
     this.radius = 18;
     this.reset();
 
-    this.drag = 0.4; // reduce vel limit to %
+    this.drag = 0.3; // reduce vel limit to %
     // this.drag = 80; // takes from ships vel limit
   }
 

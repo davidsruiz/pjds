@@ -98,3 +98,24 @@ window.addEventListener('load', ()=> {
   document.querySelector('#touch_layer').addEventListener('touchstart', function (event) { event.preventDefault() }, true);
   document.querySelector('#touch_layer').addEventListener('touchend', function (event) { event.preventDefault() }, false);
 });
+
+
+
+var TINT = {
+  assortment: [
+    ['#0000ff', '#ff0000'],
+    ['#0000ff', '#aedc39'],
+    ['#0048ff', '#cc00ff']
+  ],
+
+  shuffle() {
+    let [c1, c2] = TINT.assortment.sample(), deg = Math.randomIntMinMax(15, 75);
+    TINT.load(deg, c1, c2);
+  },
+
+  load(deg, c1, c2) {
+    let elem = document.querySelector('#tint');
+    if (elem) $(elem).css('background', `linear-gradient(${deg}deg, ${c1}, ${c2})`);
+  }
+
+};

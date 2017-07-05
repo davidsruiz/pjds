@@ -22,27 +22,56 @@ Math.randomIntMinMax = (min, max) => Math.floor((Math.random()*(max - min)) + mi
 
 class Lobby {
   constructor(id, type, options = {}) {
-      this.id = id;
-      this.type = type;
-      this.required_players = options.players || MIN_PLAYER_LIMIT;
-      this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
-      // this.limit = pCount || NUM_OF_PLAYERS;
-      this.max_teams = options.teams || MAX_NUM_OF_TEAMS;
-      this.numOfTeams = options.teams;
-      this.players = new Map();
-      this.ongoing = false;
-      this.connected = new Map();
+    this.id = id;
+    this.type = type;
+    this.required_players = options.players || MIN_PLAYER_LIMIT;
+    this.limit = options.max_players || options.players || MAX_PLAYER_LIMIT; // max_players_allowed
+    // this.limit = pCount || NUM_OF_PLAYERS;
+    this.max_teams = options.teams || MAX_NUM_OF_TEAMS;
+    this.numOfTeams = options.teams;
+    this.players = new Set();
+    this.ongoing = false;
 
-      this.colors;
-      // this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
+    this.connected = new Set();
 
-      this.state = {scores: [], overtime: false};
-      this.timer = new Timer(GAME_DURATION + COUNTDOWN_DURATION);
-      this.setupData;
+    this.colors;
+    // this.colors = DeepSpaceGame.colorCombinations.get(this.numOfTeams).sample().shuffle().map(e => DeepSpaceGame.colors[e])
 
-      this.gameOverCallback;
+    this.state = {scores: [], overtime: false};
+    this.timer = new Timer(GAME_DURATION + COUNTDOWN_DURATION);
+    this.setupData;
+
+    this.gameOverCallback;
   }
   get full() {return !(this.players.size < this.limit) }
+
+
+
+
+  connect(client) {
+    this.connected.add(client);
+    client.lobby = this;
+  }
+
+  disconnect(client) {
+    this.connected.delete(client);
+    delete client.lobby;
+  }
+
+  join(client, ship_data) {
+    let status = ""; //
+  }
+
+
+
+
+
+
+
+
+
+
+
   join(client) {
     var joined = false;
     if(this.players.size < this.limit && !this.ongoing) {
@@ -54,6 +83,7 @@ class Lobby {
     client.lobby = this;
     return joined;
   }
+
   remove(client) {
     this.players.delete(client.userid);
     this.connected.delete(client.userid);
@@ -76,7 +106,7 @@ class Lobby {
   }
 
   // to remove circular dependencies and minimize bandwidth consumption,
-    // only select data is sent over.
+  // only select data is sent over.
   simplify() {
     var obj = {};
     var block = (e) => {
@@ -257,21 +287,51 @@ class Lobby {
         return player.team;
   }
 
+
+
+  // PASSWORD
+  // format: /\d{4}\
+
   setPassword(p) {
-    this._password = p;
+    // validation: 4 digits
+    if(/\d{4}/.test(p)) {
+      this._password = p;
+      return true;
+    }
+    return false;
   }
 
-  clearPassword() { this.setPassword() }
+  clearPassword() { delete this._password }
 
   testPassword(p) {
     return this._password === p;
   }
 
-  get locked() { return this._password !== undefined }
+  get locked() { return typeof this._password !== 'undefined' }
 
 
   map() {
-    return 1234;
+    // normalization
+    // player -> { name, rank, team, ready, ship, slots [] }
+    const play_arr = Array.from(this.players).map(c => c.name).filter(str => str);
+    // spectator -> name
+    const spec_arr = Array.from(this.connected).map(c => c.id_).filter(str => str);
+
+    return {
+      type: this.type,
+      code: this.id,
+      password: this._password,
+      game_settings: {
+        map: null,
+        player_capacity: null,
+        mode: null,
+        stock: null
+      },
+      players: [
+        // {name, rank, team, ready, ship, slots []}
+      ],
+      spectators: spec_arr
+    };
   }
 
 }
@@ -308,25 +368,25 @@ DeepSpaceGame.colors = [
 ];
 
 DeepSpaceGame.colorCombinations = new Map([
-[1, [[0], [1], [2], [3], [4], [5]]],
-[2, [
-  [1, 4], // red, blue
-  [1, 2], // red, yellow
-  [5, 2], // purple, yellow
-  [2, 4], // yellow, blue
-  [2, 0], // yellow, pink
-  [0, 4], // pink, blue
-  [4, 3]  // blue, green
-]],
-[3,[
-  [1, 3, 4], // red, green, blue
-  [2, 3, 4], // yellow, green, blue
-  [0, 2, 4]  // pink, yellow, blue
-]],
-[4,[
-  [1, 2, 3, 4], // red, yellow, green, blue
-  [0, 2, 3, 4] // pink, yellow, green, blue
-]]]
+  [1, [[0], [1], [2], [3], [4], [5]]],
+  [2, [
+    [1, 4], // red, blue
+    [1, 2], // red, yellow
+    [5, 2], // purple, yellow
+    [2, 4], // yellow, blue
+    [2, 0], // yellow, pink
+    [0, 4], // pink, blue
+    [4, 3]  // blue, green
+  ]],
+  [3,[
+    [1, 3, 4], // red, green, blue
+    [2, 3, 4], // yellow, green, blue
+    [0, 2, 4]  // pink, yellow, blue
+  ]],
+  [4,[
+    [1, 2, 3, 4], // red, yellow, green, blue
+    [0, 2, 3, 4] // pink, yellow, green, blue
+  ]]]
 );
 
 DeepSpaceGame.maps = [

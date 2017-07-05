@@ -202,22 +202,78 @@ class NetworkHelper {
   static in_flag_drop(data) { if(!DeepSpaceGame.runningInstance) return;
     if(!ENV.spectate) {
       let game = ENV.game, team_number = game.player.team.number, team_score = game.game.scores[team_number];
-      if(ENV.game.game.flag.holderID == ENV["id"]) socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
+      if(ENV.game.game.flag.holderID == ENV["id"]) {
+        if(false && ENV.game.game.overtime) { // always false
+          NetworkHelper.out_game_over(team_number);
+        } else {
+          socket.emit('flag progress confirm', { senderID: ENV["id"], team: team_number, score: team_score });
+        }
+      }
     }
     if(!ENV.game.game.disabled) ENV.game.dropFlag();
 
   }
 
-  // game end
+  /*
+   * --- Game Management ---
+   *
+   * end_with_winner (IN)
+   *   - ends the game with given winner and score
+   *
+   * progress
+   * :: request_local_progress (IN)
+   *   - server requests progress. (usually responded with NetworkHelper.send_local_progress)
+   * :: send_local_progress (OUT)
+   *   - sends local player's team's progress(team, score)
+   *
+   * go_overtime (IN)
+   *   - tells the game to switch into overtime
+   *
+   */
+
+  static end_with_winner(data) {
+    let {winningTeam, score} = data;
+    LOBBY.disableGame();
+    setTimeout(() => LOBBY.showResults(), 3000);
+  }
+
+  static end_game() {
+    LOBBY.disableGame();
+    setTimeout(() => LOBBY.showResults(), 3000);
+  }
+
+  static request_local_progress() {
+    NetworkHelper.send_local_progress();
+  }
+
+  static send_local_progress() {
+    if(!ENV.spectate) {
+      let game = ENV.game, team_number = game.player.team.number, team_score = game.game.scores[team_number];
+      if(ENV.game.game.flag.holderID == ENV["id"]) socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
+    }
+  }
+
+  static go_overtime() {
+    ENV.game.takeOvertime();
+  }
+
+
+  static progress(team, score) { socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score }) }
+
   static out_game_over(winningTeam) { if(!DeepSpaceGame.runningInstance) return;
     socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
   }
   static in_game_over(data) { if(!DeepSpaceGame.runningInstance) return;
-    LOBBY.endGame();
+    LOBBY.disableGame();
     setTimeout(NetworkHelper.in_game_over_ready, 3000);
   }
   static in_game_over_ready() { if(!DeepSpaceGame.runningInstance) return;
     LOBBY.showResults();
+  }
+
+  static in_game_overtime() { if(!DeepSpaceGame.runningInstance) return;
+    ENV.game.takeOvertime();
+    setTimeout(LOBBY.disableGame, TIME.sec(30));
   }
 
   // disconnect players

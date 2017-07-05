@@ -15,10 +15,47 @@ class User {
       this.refreshUserView();
     }
 
-    this.watch('id', this.idChangeHandler)
-    this.watch('name', this.nameChangeHandler)
-    this.watch('rank', this.propChangeHandler)
-    this.watch('simple_rank', this.propChangeHandler)
+    this.watch('id', this.idChangeHandler);
+    this.watch('name', this.nameChangeHandler);
+    this.watch('rank', this.propChangeHandler);
+    this.watch('simple_rank', this.propChangeHandler);
+
+    // promises
+    this.get_id = () => {
+      return new Promise((resolve, reject) => {
+        if (this.id) {
+          resolve(this.id);
+        } else {
+          $.ajax({
+            url: '/id',
+            type: 'POST'
+          })
+            .done(resolve);
+        }
+      });
+
+    }
+    this.get_name = () => {
+      return new Promise((resolve, reject) => {
+        let name = this.name,
+            validation = name => {
+              // only alphanumeric and whitespace characters
+              if(!(/^(\w|\s)+$/.test(name))) return false;
+
+              // no profanity
+              if(swearjar.profane(name)) return false;
+
+              return true;
+            }
+
+        while(!name || (name.trim()==="") || !validation(name)) {
+          name = window.prompt('please enter a display name');
+        }
+
+        this.name = name.trim();
+        resolve(name);
+      })
+    }
   }
 
   refreshUserView() {

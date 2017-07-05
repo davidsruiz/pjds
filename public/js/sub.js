@@ -30,7 +30,7 @@ class Attractor {
   }
 
   update(dt) {
-    this.velocity.mul(this.FRICTION); // TODO friction...dt...?
+    this.velocity.mul(Math.pow(this.FRICTION, (60*dt)));
     this.position.add(this.velocity.mul_(dt));
     this.rotation += ((this.velocity.length / 21600) + 0.05);
     if((this.life_counter+=dt) > this.LIFESPAN) {
@@ -89,7 +89,7 @@ class Repulsor {
   }
 
   update(dt) {
-    this.velocity.mul(this.FRICTION);
+    this.velocity.mul(Math.pow(this.FRICTION, (60*dt)));
     this.position.add(this.velocity.mul_(dt));
     this.rotation += ((this.velocity.length / 21600) + 0.05);
     if((this.life_counter+=dt) > this.LIFESPAN) {
@@ -144,7 +144,7 @@ class BlockBomb {
 
   update(dt) {
     // if(this.disabled) ENV.game.endSub(this.id);
-    this.velocity.mul(this.FRICTION);
+    this.velocity.mul(Math.pow(this.FRICTION, (60*dt)));
     this.position.add(this.velocity.mul_(dt));
     // this.rotation += ((this.velocity.length / 360) + 0.05);
     this.rotation += ((this.velocity.length / 2400) + 0.0);

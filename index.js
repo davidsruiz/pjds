@@ -63,7 +63,7 @@ console.log('\t :: Express :: Listening on port ' + gameport );
 
 app.get( '/', function( req, res ){
 
-  res.sendfile("home.html");
+  res.sendfile("home2.html");
 
 });
 
@@ -193,125 +193,226 @@ sio.configure(function (){
     //So we can send that client looking for a game to play,
     //as well as give that client a unique ID to use so we can
     //maintain the list if players.
+
+
+
+
+
 sio.sockets.on('connection', function (client) {
 
-      //tell the player they connected, giving them their id
-    client.emit('onconnected', { id: UUID() } );
-    client.on('userid', (id) => {
-      client.userid = id;
-      console.log(`client ${client.userid} +`.green);
-    });
+  client.on('connect', data => {
+    // data [lobby_id, user_id, user_name]
+    // reply with either auth or connected
 
-    client.on('join lobby', lobbyID => {
-      let lobby = LM.lobby(lobbyID);
-      if(lobby) {
-        // check if there is room in lobby
-        lobby.emit('lobby state', lobby.simplify());
-        if(!lobby.join(client)) {
-          client.emit('spectate');
-          if(lobby.ongoing) {
-            client.emit('start', lobby.start());
-          }
-        } else { client.emit('lobby joined', lobby.type) }
-        clients.set(client.userid, client);
-        if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
+    // identify lobby
+    const lobby = LM.lobby(data[0]);
+    if(lobby) {
+
+      // assign values to client
+      client.id_ = data[1] || UUID();
+      client.name = data[2];
+
+      // require authentication (or not)
+      if(lobby.locked) {
+        client.emit('auth');
       } else {
-        client.emit('error', `lobby ${lobbyID} not found`);
+        // connect to lobby
+        lobby.connect(client);
+        // send client it's ID copy of lobby as now stands
+        client.emit('connected', [client.id_, lobby.map()])
       }
-    });
+    } else { client.emit('error', `lobby ${data[0]} not found`); }
 
-    client.on('set name', name => {
-      let lobby
-      if(lobby = client.lobby) {
-        if(client.active) lobby.players.get(client.userid).name = name;
+    // client.emit('connected');
+  });
 
-        lobby.emit('lobby state', lobby.simplify());
+  client.on('auth', data => {
+    // data [lobby_id, password]
+    // reply with either auth or connected
 
-        // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
-      } else {
-        client.emit('error', 'set name request ignored');
-      }
-    });
+    // identify lobby
+    const lobby = LM.lobby(data[0]);
+    if(lobby) {
 
-    client.on('set type', type => {
-      let lobby
-      if(lobby = client.lobby) {
-        if(client.active) lobby.players.get(client.userid).type = type;
-        client.emit('lobby state', lobby.simplify());
-        // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
-      } else {
-        client.emit('error', 'set type request ignored');
-      }
-    });
+      // check if password is needed
+      if(lobby.locked) {
 
-
-    client.on('set team', team => {
-      let lobby;
-      if((lobby = client.lobby) && lobby.type == 'private') {
-        if(team < lobby.max_teams && team >= 0) { // validations
-          if(client.active) lobby.players.get(client.userid).team = team;
-          // client.emit('lobby state', lobby.simplify());
-        } else { client.emit('error', 'invalid team'); }
-      } else {
-        client.emit('error', 'set team request ignored');
-      }
-    });
-
-
-    client.on('ready', () => {
-      let lobby;
-      if(lobby = client.lobby) {
-        if(lobby.playerCleared(client)) client.ready = true;
-        lobby.emit('lobby state', lobby.simplify());
-        console.log('ready');
-        if(lobby.sustainable && lobby.ready)
-          {
-            lobby.emit('start', lobby.start(()=>{
-              // on finish.. TODO: fix this.. also encapsulate all of these anonymous functions into a controller class
-              if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
-            }));
-          }
-      } else {
-        client.emit('error', 'ready request ignored');
-      }
-
-    });
-
-
-
-    client.on('disconnect', function () {
-
-            //Useful to know when someone disconnects
-        console.log(`client ${client.userid} -`.red);
-
-        clients.delete(client.userid);
-
-        let lobby = client.lobby;
-        if(lobby) {
-          let was_active = client.active;
-          lobby.remove(client);
-          if(lobby.ongoing && was_active) {
-            if(lobby.state.flagHolder == client.userid) lobby.emit('flag drop');
-            lobby.emit('disconnect player', client.userid);
-            if(lobby.unsustainable) {
-              lobby.emit('game error', 'a communications error occured');
-              lobby.endCurrentGame();
-            }
-          }
-          lobby.emit('lobby state', lobby.simplify());
-          if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
-
-          // once a lobby has been vacated by all players it is safe for that lobby to cease existence
-          // a single player joining an empty lobby will not happen often except with private practice lobbies
-          // otherwise keep it in the realm
-          setTimeout(()=>{ let del = false;
-            if(lobby.connected.size == 0) { LM.delete(lobby.id); del = true }
-            console.log(`lobby ${lobby.id} ${del ? `deleted` : `preserved`}`);
-          }, 5000);
-
+        // test against password
+        if(lobby.testPassword(data[1])) {
+          lobby.connect(client);
+          client.emit('connected', [client.id, lobby.map()]);
+        } else {
+          client.emit('auth');
         }
+      } else {
+        console.warn(`no auth needed! for lobby ${data[0]}`);
+        client.emit('connected', [client.id, lobby.map()]);
+      }
+    } else { client.emit('error', `lobby ${data[0]} not found`); }
 
-    }); //client.on disconnect
+  });
+
+  client.on('join', data => {
+
+    // verify participant to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      // return if client has already joined
+      if(lobby.players.has(client)) return;
+
+      // actual joining
+      lobby.join(client, data);
+
+    }
+
+  });
+
+
+
+
+
+
+
+
+  client.on('disconnect', data => {
+
+    // remove connection to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      lobby.disconnect(client);
+
+    } else {  }
+
+  });
+
+
+
+
+
+
+
+
+
+  //
+  //     //tell the player they connected, giving them their id
+  //   client.emit('onconnected', { id: UUID() } );
+  // client.on('userid', (id) => {
+  //     client.userid = id;
+  //     console.log(`client ${client.userid} +`.green);
+  //   });
+  //
+  //   client.on('join lobby', lobbyID => {
+  //     let lobby = LM.lobby(lobbyID);
+  //     if(lobby) {
+  //       // check if there is room in lobby
+  //       lobby.emit('lobby state', lobby.simplify());
+  //       if(!lobby.join(client)) {
+  //         client.emit('spectate');
+  //         if(lobby.ongoing) {
+  //           client.emit('start', lobby.start());
+  //         }
+  //       } else { client.emit('lobby joined', lobby.type) }
+  //       clients.set(client.userid, client);
+  //       if(lobby.type == 'public') LM.updateLobbyPlacement(lobby); // TODO
+  //     } else {
+  //       client.emit('error', `lobby ${lobbyID} not found`);
+  //     }
+  //   });
+  //
+  //   client.on('set name', name => {
+  //     let lobby
+  //     if(lobby = client.lobby) {
+  //       if(client.active) lobby.players.get(client.userid).name = name;
+  //
+  //       lobby.emit('lobby state', lobby.simplify());
+  //
+  //       // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
+  //     } else {
+  //       client.emit('error', 'set name request ignored');
+  //     }
+  //   });
+  //
+  //   client.on('set type', type => {
+  //     let lobby
+  //     if(lobby = client.lobby) {
+  //       if(client.active) lobby.players.get(client.userid).type = type;
+  //       client.emit('lobby state', lobby.simplify());
+  //       // if(lobby.full && lobby.ready) lobby.emit('start', lobby.game());
+  //     } else {
+  //       client.emit('error', 'set type request ignored');
+  //     }
+  //   });
+  //
+  //
+  //   client.on('set team', team => {
+  //     let lobby;
+  //     if((lobby = client.lobby) && lobby.type == 'private') {
+  //       if(team < lobby.max_teams && team >= -1) { // validations
+  //         if(client.active) lobby.players.get(client.userid).team = team;
+  //         // client.emit('lobby state', lobby.simplify());
+  //       } else { client.emit('error', 'invalid team'); }
+  //     } else {
+  //       client.emit('error', 'set team request ignored');
+  //     }
+  //   });
+  //
+  //
+  //   client.on('ready', () => {
+  //     let lobby;
+  //     if(lobby = client.lobby) {
+  //       if(lobby.playerCleared(client)) client.ready = true;
+  //       lobby.emit('lobby state', lobby.simplify());
+  //       console.log('ready');
+  //       if(lobby.sustainable && lobby.ready)
+  //         {
+  //           lobby.emit('start', lobby.start(()=>{
+  //             // on finish.. TODO: fix this.. also encapsulate all of these anonymous functions into a controller class
+  //             if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
+  //           }));
+  //         }
+  //     } else {
+  //       client.emit('error', 'ready request ignored');
+  //     }
+  //
+  //   });
+  //
+  //
+  //
+  //   client.on('disconnect', function () {
+  //
+  //           //Useful to know when someone disconnects
+  //       console.log(`client ${client.userid} -`.red);
+  //
+  //       clients.delete(client.userid);
+  //
+  //       let lobby = client.lobby;
+  //       if(lobby) {
+  //         let was_active = client.active;
+  //         lobby.remove(client);
+  //         if(lobby.ongoing && was_active) {
+  //           if(lobby.state.flagHolder == client.userid) lobby.emit('flag drop');
+  //           lobby.emit('disconnect player', client.userid);
+  //           if(lobby.unsustainable) {
+  //             lobby.emit('game error', 'a communications error occured');
+  //             lobby.endCurrentGame();
+  //           }
+  //         }
+  //         lobby.emit('lobby state', lobby.simplify());
+  //         if(lobby.type == 'public') LM.updateLobbyPlacement(lobby);
+  //
+  //         // once a lobby has been vacated by all players it is safe for that lobby to cease existence
+  //         // a single player joining an empty lobby will not happen often except with private practice lobbies
+  //         // otherwise keep it in the realm
+  //         setTimeout(()=>{ let del = false;
+  //           if(lobby.connected.size == 0) { LM.delete(lobby.id); del = true }
+  //           console.log(`lobby ${lobby.id} ${del ? `deleted` : `preserved`}`);
+  //         }, 5000);
+  //
+  //       }
+  //
+  //   }); //client.on disconnect
 
 
 
@@ -356,6 +457,8 @@ sio.sockets.on('connection', function (client) {
           client.lobby.emit('flag pickup', data);
           // client.lobby.first.emit('begin create asteroids')
           client.lobby.state.flagHolder = data.playerID;
+          if(typeof client.lobby.state.leadTeam == 'undefined')
+            client.lobby.state.leadTeam = client.lobby.getTeam(client.userid);
         } else {
           client.lobby.emit('flag drop', data);
         }
@@ -371,18 +474,36 @@ sio.sockets.on('connection', function (client) {
         client.emit('stop')
       }
     });
-    client.on('flag progress', data => {
+    client.on('flag progress confirm', data => {
       if(client.lobby) {
         console.log(`client ${client.name} sent ${data.score}`);
         if(client.userid == client.lobby.state.flagHolder) {
           client.lobby.state.scores[data.team] = {t: data.team, s: data.score};
           client.lobby.state.flagHolder = undefined;
-          console.log(`data.team ${data.team}, data.score: ${data.score}`);
+          client.lobby.state.leadTeam = client.lobby.game_lead_team;
+          console.log(`client.on('flag progress confirm' >> current team lead: ${client.lobby.game_lead_team}`);
+
+          // if(client.lobby.ongoing) this.finish();
+          // console.log(`data.team ${data.team}, data.score: ${data.score}`);
         }
       } else {
         client.emit('stop')
       }
     });
+
+
+  client.on('flag progress', data => {
+    if(client.lobby) {
+      console.log(`client ${client.name} sent ${data.score}`);
+      if(data.score >= 0 && data.score <= 100) {
+        client.lobby.state.scores[data.team] = {t: data.team, s: data.score};
+        client.lobby.state.leadTeam = client.lobby.game_lead_team;
+        console.log(`client.on('flag progress' >> current team lead: ${client.lobby.game_lead_team}`);
+      }
+    } else {
+      client.emit('stop')
+    }
+  });
 
     client.on('msg ship kill', data => client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop'));
 
@@ -391,11 +512,24 @@ sio.sockets.on('connection', function (client) {
       if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
         console.log(`from 'game over'. winningTeam: ${data.winningTeam}`);
         if(lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
-        lobby.emit('game over', data);
+
+        lobby.emit('game over');
+        // lobby.emit('end with winner', {winner: data.winningTeam});
         lobby.endCurrentGame();
         lobby.emit('lobby state', lobby.simplify());
       }
     });
+
+    // let client_game_over = (data) => {
+    //   let lobby;
+    //   if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
+    //     console.log(`from 'game over'. winningTeam: ${data.winningTeam}`);
+    //     if(lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
+    //     lobby.emit('game over', data);
+    //     lobby.endCurrentGame();
+    //     lobby.emit('lobby state', lobby.simplify());
+    //   }
+    // };
 
 
 

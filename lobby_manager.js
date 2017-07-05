@@ -1,6 +1,6 @@
 
 "use strict";
-var Lobby = require('./lobby.js');
+var Lobby = require('./server_lobby.js');
 var shortid = require('shortid');
 Set.prototype.draw = function() { var next = this.values().next().value; this.delete(next); return next }
 Map.prototype.shift = function() { var key = this.keys().next().value; var next = this.get(key); this.delete(key); return next }

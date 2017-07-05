@@ -1,7 +1,6 @@
 // deep space js by david ruiz.
 
 
-
 class DeepSpaceGame {
 
   // at initialization we can assume the environment
@@ -12,12 +11,19 @@ class DeepSpaceGame {
   constructor(data) {
     this.interpret(data);
     this.setup();
-    this.loop();
+    // this.loop();
   }
 
-  static start(data) {
-    if(DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();
+  static create(data) {
+    if (DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();
     return DeepSpaceGame.runningInstance = new DeepSpaceGame(data);
+  }
+
+  start() {
+    this.loop();
+    this.timer.start(() => {
+      this.timerExpire()
+    });
   }
 
   interpret(data) {
@@ -29,9 +35,16 @@ class DeepSpaceGame {
     this.gameMode = 'ctf'; // data.mode;
     this.language = 'en';
     this.timer = new Timer(data.duration);
-    this.timer.start(() => { this.timerExpire() });
-    SoundHelper.start();
-    // this.soundHelper = SoundHelper.start();
+
+
+    // SoundHelper.start(); // new
+    // this.soundHelper = SoundHelper.start(); // olc
+
+    try {
+      if (TINT) TINT.load(...data.tint)
+    } catch (e) {
+      log('tint load failed')
+    }
 
     // everything else:
     this.setupData = data;
@@ -45,7 +58,7 @@ class DeepSpaceGame {
     this.setupLoop();
     this.setupReferences();
 
-    if(this.spectate) this.actualize();
+    if (this.spectate) this.actualize();
   }
 
   setupModel() {
@@ -61,14 +74,20 @@ class DeepSpaceGame {
   setupTeams() {
     this.teams = [];
     let teamCount = this.setupData.teams;
-    teamCount.times((i) => { this.teams.push(new Team(this, i)) });
+    teamCount.times((i) => {
+      this.teams.push(new Team(this, i))
+    });
 
     this.setupSpawnCamps();
   }
 
   setupSpawnCamps() {
     this.teams.forEach(team => {
-      team.spawn_camp = {position: V2D.new(this.mapInfo.spawn[team.game.teams.length-1][team.number]), radius: 64, team: team.number}
+      team.spawn_camp = {
+        position: V2D.new(this.mapInfo.spawn[team.game.teams.length - 1][team.number]),
+        radius: 64,
+        team: team.number
+      }
     });
   }
 
@@ -86,7 +105,7 @@ class DeepSpaceGame {
     this.ships = [];
     this.players.forEach((player) => {
       var ship;
-      if(localIDMatches(player.id) && !this.spectate) {
+      if (localIDMatches(player.id) && !this.spectate) {
         ship = new Ship(player);
         ship.isMain = true;
         this.ships.main = ship;
@@ -109,10 +128,12 @@ class DeepSpaceGame {
 
   setupGame() {
     this.game = {};
-    this.game.disabled = false;
-    this.game.ended = false;
+    this.game.disabled = false; // interaction disabled
+    this.game.ended = false; // game over happened
+    this.game.overtime = false; // game overtime happened
+
     // this.timer = DeepSpaceGame.modes[this.gameMode];
-    switch(this.gameMode) {
+    switch (this.gameMode) {
       case "ctf":
 
         // flag whatevers
@@ -134,51 +155,53 @@ class DeepSpaceGame {
 
   setupMap() {
     let map = this.model.map = {},
-        info = this.mapInfo;
+      info = this.mapInfo;
 
     let cX = info.width / 2,
-        cY = info.height / 2;
+      cY = info.height / 2;
 
 
     // IMPERMEABLES
-    let initial_impermeables = [];
-    for(let radius_size_group of info.impermeables.bodies) {
+    let initial_impermeables = [], radii = new Set();
+    for (let radius_size_group of info.impermeables.bodies) {
       let list = radius_size_group.slice(),
-          radius = list.shift();
-      for(let [x, y] of list) {
+        radius = list.shift();
+      for (let [x, y] of list) {
         initial_impermeables.push({
           radius: radius,
           position: {x, y}
         })
       }
+      radii.add(radius);
     }
 
     map.impermeables = [];
+    map.impermeables.radii = radii;
     // in the future use the 'copies' variable on impermeables
     // and make it odd symmetry
     map.impermeables.push(...initial_impermeables)
-    if(info.impermeables.copies >= 2) {
+    if (info.impermeables.copies >= 2) {
 
-      map.impermeables.push(...(initial_impermeables.map( obj => {
+      map.impermeables.push(...(initial_impermeables.map(obj => {
         return {
           radius: obj.radius,
-          position: {x: info.width-obj.position.x, y: info.width-obj.position.y}
+          position: {x: info.width - obj.position.x, y: info.width - obj.position.y}
         }
       })));
 
-      if(info.impermeables.copies == 4) {
+      if (info.impermeables.copies == 4) {
 
-        map.impermeables.push(...(initial_impermeables.map( obj => {
+        map.impermeables.push(...(initial_impermeables.map(obj => {
           return {
             radius: obj.radius,
-            position: {x: info.width-obj.position.y, y: obj.position.x}
+            position: {x: info.width - obj.position.y, y: obj.position.x}
           }
         })));
 
-        map.impermeables.push(...(initial_impermeables.map( obj => {
+        map.impermeables.push(...(initial_impermeables.map(obj => {
           return {
             radius: obj.radius,
-            position: {x: obj.position.y, y: info.width-obj.position.x}
+            position: {x: obj.position.y, y: info.width - obj.position.x}
           }
         })));
 
@@ -186,7 +209,7 @@ class DeepSpaceGame {
 
     }
 
-    for(let imp of map.impermeables) {
+    for (let imp of map.impermeables) {
       imp.collision_groups = [this.physics.collision_groups.IMPERMEABLES]
       this.setCollisionDivisions(imp);
     }
@@ -211,14 +234,17 @@ class DeepSpaceGame {
 
   setupCanvas() { // TODO: (revise)
     var canvas = $('#canvas')[0];
-    canvas.width = document.body.clientWidth; if(canvas.width>1024) canvas.width=1024;
-    canvas.height = document.body.clientHeight; if(canvas.height>768) canvas.height=768;
+    canvas.width = document.body.clientWidth;
+    if (canvas.width > 1024) canvas.width = 1024;
+    canvas.height = document.body.clientHeight;
+    if (canvas.height > 768) canvas.height = 768;
     // canvas.width = 512;
     // canvas.height = 480;
 
     var stage = new createjs.Stage();
     stage.canvas = canvas;
     stage.snapToPixel = true;
+    // gui.add(stage, 'snapToPixel');
 
     this.stage = stage;
   }
@@ -261,11 +287,11 @@ class DeepSpaceGame {
 
   createBackgroundViews() {
     var canvas = this.stage.canvas, background = new createjs.Shape();
-    background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);
-    background.cache(0, 0, canvas.width, canvas.height);
-    this.view.layer.background.addChild(background);
-
-    background = new createjs.Shape();
+    // background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);
+    // background.cache(0, 0, canvas.width, canvas.height);
+    // this.view.layer.background.addChild(background);
+    //
+    // background = new createjs.Shape();
     background.graphics.beginFill('#455A64').drawRect(0, 0, canvas.width, canvas.height);
     background.cache(0, 0, canvas.width, canvas.height);
     this.view.layer.background.map_background = background;
@@ -274,50 +300,57 @@ class DeepSpaceGame {
 
   createGameModeSpecificViewsAction() {
     /*switch(this.gameMode) {
-      case "ctf":
-        // ring and flag
+     case "ctf":
+     // ring and flag
 
-        var centerX = this.mapInfo.width / 2;
-        var centerY = this.mapInfo.height / 2;
+     var centerX = this.mapInfo.width / 2;
+     var centerY = this.mapInfo.height / 2;
 
-        var r = DeepSpaceGame.modes["ctf"].ring_radius, s = r * 1.2;
-        var ring = new createjs.Shape(
-          DeepSpaceGame.graphics.ring(r)
-        );
-        ring.cache(-s, -s, s*2, s*2);
+     var r = DeepSpaceGame.modes["ctf"].ring_radius, s = r * 1.2;
+     var ring = new createjs.Shape(
+     DeepSpaceGame.graphics.ring(r)
+     );
+     ring.cache(-s, -s, s*2, s*2);
 
-        // var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
-        // var flag = new createjs.Shape(
-        //   DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
-        // );
-        // flag.shadow = DeepSpaceGame.graphics.flag_shadow();
-        // flag.cache(-s, -s, s*2, s*2);
-        //
-        ring.x = centerX; ring.y = centerY;
-        // flag.x = centerX; flag.y = centerY;
-
-
-        this.view.layer.action.back.addChild(ring);
-        // this.view.layer.action.back.addChild(flag);
-
-        // this.view.flag = flag;
-
-        // actual game things
+     // var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
+     // var flag = new createjs.Shape(
+     //   DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
+     // );
+     // flag.shadow = DeepSpaceGame.graphics.flag_shadow();
+     // flag.cache(-s, -s, s*2, s*2);
+     //
+     ring.x = centerX; ring.y = centerY;
+     // flag.x = centerX; flag.y = centerY;
 
 
-        break;
-    }*/
+     this.view.layer.action.back.addChild(ring);
+     // this.view.layer.action.back.addChild(flag);
 
-    this.view.map = { impermeables: [] }
+     // this.view.flag = flag;
 
+     // actual game things
+
+
+     break;
+     }*/
+
+    // create caches
+    var caches = new Map();
+    this.model.map.impermeables.radii.forEach(r => {
+      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r));
+      var s = r * 1.2;
+      view.cache(-s, -s, s * 2, s * 2);
+
+      caches.set(r, view.cacheCanvas);
+    })
+
+    // create views
+    this.view.map = {impermeables: []}
     this.model.map.impermeables.forEach(block => {
-
-      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', block.radius)),
-          pos = block.position;
-      view.x = pos.x;
-      view.y = pos.y;
-      var s = block.radius * 1.2;
-      view.cache(-s, -s, s*2, s*2);
+      var view = new createjs.Bitmap(caches.get(block.radius)),
+        pos = block.position;
+      view.x = pos.x - block.radius * 1.2;
+      view.y = pos.y - block.radius * 1.2;
       this.view.map.impermeables.push(view)
       this.view.layer.action.front.addChild(view);
     });
@@ -332,15 +365,15 @@ class DeepSpaceGame {
     var s = 64 + 2;
     this.teams.forEach((team, i) => {
       var group = new createjs.Container(),
-          camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
-          fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),
-          pos = team.spawn_camp.position;
+        camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
+        fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),
+        pos = team.spawn_camp.position;
       fill.alpha = 0.08;
       group.x = pos.x;
       group.y = pos.y;
       group.addChild(fill);
       group.addChild(camp);
-      group.cache(-s, -s, s*2, s*2);
+      group.cache(-s, -s, s * 2, s * 2);
       team.spawn_camp.view = group;
       this.view.layer.action.back.addChild(group);
     });
@@ -348,13 +381,14 @@ class DeepSpaceGame {
 
   createShipViews() {
     let our_ship = this.ships.main, our_team;
-    if(our_ship) our_team = our_ship.owner.team;
+    if (our_ship) our_team = our_ship.owner.team;
     this.ships.forEach((ship) => {
       let container = new createjs.Container();
       var hollow = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2)),
-          filled = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2)),
-          s = ship.radius*1.2;
-      hollow.cache(-s, -s, s*2, s*2); filled.cache(-s, -s, s*2, s*2);
+        filled = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2)),
+        s = ship.radius * 1.2;
+      hollow.cache(-s, -s, s * 2, s * 2);
+      filled.cache(-s, -s, s * 2, s * 2);
       var view = new createjs.Bitmap(hollow.cacheCanvas);
       view.regX = view.regY = s;
       view.hollow = hollow.cacheCanvas, view.filled = filled.cacheCanvas; // TODO cache ships with interchangable bitmap instead
@@ -362,7 +396,7 @@ class DeepSpaceGame {
       container.addChild(view);
 
       //text
-      if(ship.owner.team == our_team && ship != our_ship) {
+      if (ship.owner.team == our_team && ship != our_ship) {
         var text = new createjs.Text(ship.owner.name, "14px Roboto", our_team.color);
         text.y = -30;
         text.textAlign = "center";
@@ -388,12 +422,12 @@ class DeepSpaceGame {
       this.view.layer.action.front.addChild(ship.view = container);
     });
 
-    if(our_ship) {
+    if (our_ship) {
       let container = our_ship.view,
-          color = this.ships.main.owner.team.color,
-          meter = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
-          shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
-          offset = { x: 22, y: -22 };
+        color = this.ships.main.owner.team.color,
+        meter = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
+        shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
+        offset = {x: 22, y: -22};
 
       shadow.cache(-9, -9, 18, 18);
 
@@ -430,7 +464,7 @@ class DeepSpaceGame {
     overlay.score = new createjs.Container();
     overlay.score.team = [];
     var imagined_width = 120;
-    this.teams.forEach((team, i)=>{
+    this.teams.forEach((team, i) => {
       var text = new createjs.Text(this.game.scores[i].toString(), "48px Roboto", team.color);
       text.x = (i * imagined_width) + (imagined_width / 2);
       text.textAlign = "center";
@@ -443,18 +477,22 @@ class DeepSpaceGame {
     this.view.layer.overlay.addChild(overlay.score);
 
     // var imagined_width = 512;
-    overlay.message = new createjs.Text("", "24px Roboto"); overlay.message.textAlign = "center";
-    overlay.message.x = (this.window.width / 2); overlay.message.y = 76;
+    overlay.message = new createjs.Text("", "24px Roboto");
+    overlay.message.textAlign = "center";
+    overlay.message.x = (this.window.width / 2);
+    overlay.message.y = 76;
 
     this.view.layer.overlay.addChild(overlay.message);
 
     // var imagined_width = 512;
-    overlay.kill_message = new createjs.Text("", "24px Roboto"); overlay.kill_message.textAlign = "center";
-    overlay.kill_message.x = (this.window.width / 2); overlay.kill_message.y = this.window.height - 76;
+    overlay.kill_message = new createjs.Text("", "24px Roboto");
+    overlay.kill_message.textAlign = "center";
+    overlay.kill_message.x = (this.window.width / 2);
+    overlay.kill_message.y = this.window.height - 76;
 
     this.view.layer.overlay.addChild(overlay.kill_message);
 
-    switch(this.gameMode) {
+    switch (this.gameMode) {
       case "ctf":
         // var centerX = this.mapInfo.width / 2;
         // var centerY = this.mapInfo.height / 2;
@@ -464,7 +502,7 @@ class DeepSpaceGame {
           DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
         );
         flag.shadow = DeepSpaceGame.graphics.flag_shadow();
-        flag.cache(-s, -s, s*2, s*2);
+        flag.cache(-s, -s, s * 2, s * 2);
 
         // flag.x = centerX; flag.y = centerY;
 
@@ -492,7 +530,7 @@ class DeepSpaceGame {
     // }
 
     // MINI MAP
-    if(!this.spectate) this.createOverlayMinimapViews(overlay, this.view.layer.overlay);
+    if (!this.spectate) this.createOverlayMinimapViews(overlay, this.view.layer.overlay);
 
 
     this.view.overlay = overlay;
@@ -506,7 +544,8 @@ class DeepSpaceGame {
     mini.scale = mini.width / this.mapInfo.width;
 
     let padd = 32;
-    mini.x = padd; mini.y = this.window.height - (padd + mini.height)
+    mini.x = padd;
+    mini.y = this.window.height - (padd + mini.height)
 
     // background
     let background = mini.background = new createjs.Shape();
@@ -516,31 +555,31 @@ class DeepSpaceGame {
 
     // map obstacles
     var max = 128,
-        r = max * mini.scale,
-        block = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r)),
-        s = r * 1.2;
-    block.cache(-s, -s, s*2, s*2);
+      r = max * mini.scale,
+      block = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r)),
+      s = r * 1.2;
+    block.cache(-s, -s, s * 2, s * 2);
     var cache = block.cacheCanvas;
-    
+
     this.model.map.impermeables.forEach(block => {
       var scale = (block.radius * mini.scale) / r,
-          view = new createjs.Bitmap(cache),
-          pos = block.position;
+        view = new createjs.Bitmap(cache),
+        pos = block.position;
       view.scaleX = view.scaleY = scale;
-      view.x = (pos.x*mini.scale) - (scale*cache.width/2);
-      view.y = (pos.y*mini.scale) - (scale*cache.height/2);
+      view.x = (pos.x * mini.scale) - (scale * cache.width / 2);
+      view.y = (pos.y * mini.scale) - (scale * cache.height / 2);
       mini.addChild(view);
     });
 
     // spawns
     this.teams.forEach(team => {
       let camp = team.spawn_camp,
-          radius = team == this.ships.main.owner.team ? 8 : 6,
-          // radius = camp.radius*mini.scale,
-          view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, 6)),
-          pos = camp.position;
-      view.x = pos.x*mini.scale;
-      view.y = pos.y*mini.scale;
+        radius = team == this.ships.main.owner.team ? 8 : 6,
+        // radius = camp.radius*mini.scale,
+        view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, 6)),
+        pos = camp.position;
+      view.x = pos.x * mini.scale;
+      view.y = pos.y * mini.scale;
       var s = radius * 1.2;
       view.cache(-s, -s, s * 2, s * 2);
       mini.addChild(view);
@@ -570,15 +609,15 @@ class DeepSpaceGame {
 
   createOverlayMinimapBlockViewFor(block) {
     let cache = DeepSpaceGame.graphicsCaches.minimap.blocks[block.team],
-        blv = new createjs.Bitmap(cache),
-        mini = this.view.overlay.minimap,
-        scale = mini.scale;
+      blv = new createjs.Bitmap(cache),
+      mini = this.view.overlay.minimap,
+      scale = mini.scale;
 
     // blv.alpha = 0.2
     blv.x = block.position.x * scale;
     blv.y = block.position.y * scale;
 
-    blv.regX = blv.regY = (cache.width/2);
+    blv.regX = blv.regY = (cache.width / 2);
 
     mini.addChild(blv);
     mini.setChildIndex(blv, 1)
@@ -593,7 +632,7 @@ class DeepSpaceGame {
     this.view.layer.action.height = this.mapInfo.height;
     this.camera = new Camera(this.stage.canvas, this.view.layer.action);
 
-    if(this.spectate) {
+    if (this.spectate) {
       this.activePlayerIndex = 0;
       // this.playerShipViews = new Map();
       // this.setupData.players.forEach((p, i)=>{
@@ -613,15 +652,15 @@ class DeepSpaceGame {
     this.inputHandlers = new Map();
     var receiver = window;
 
-    if(this.spectate) {
+    if (this.spectate) {
       var keyHandler = (e) => {
-        if(e.keyCode == 37) { // left: ◀︎
+        if (e.keyCode == 37) { // left: ◀︎
           this.activePlayerIndex--;
-          if(this.activePlayerIndex < 0) this.activePlayerIndex = this.activePlayers.length - 1;
+          if (this.activePlayerIndex < 0) this.activePlayerIndex = this.activePlayers.length - 1;
         }
-        if(e.keyCode == 39) { // right: ▶︎
+        if (e.keyCode == 39) { // right: ▶︎
           this.activePlayerIndex++;
-          if(this.activePlayerIndex >= this.activePlayers.length) this.activePlayerIndex = 0;
+          if (this.activePlayerIndex >= this.activePlayers.length) this.activePlayerIndex = 0;
         }
         this.updateCameraFocus();
       }
@@ -714,32 +753,32 @@ class DeepSpaceGame {
       //   // block: c , ;
       //   ["sub", [67, 186], true, false]
 
-        // // up: ▲ , w
-        // ["move_v_axis", [38, 87], keypressWeight, 0],
-        // // down: ▼ , s
-        // ["move_v_axis", [40, 83], -keypressWeight, 0],
-        // // right: ▶︎ , d
-        // ["move_h_axis", [39, 68], keypressWeight, 0],
-        // // left: ◀︎ , a
-        // ["move_h_axis", [37, 65], -keypressWeight, 0],
+      // // up: ▲ , w
+      // ["move_v_axis", [38, 87], keypressWeight, 0],
+      // // down: ▼ , s
+      // ["move_v_axis", [40, 83], -keypressWeight, 0],
+      // // right: ▶︎ , d
+      // ["move_h_axis", [39, 68], keypressWeight, 0],
+      // // left: ◀︎ , a
+      // ["move_h_axis", [37, 65], -keypressWeight, 0],
       // ];
 
       let keyHandler = (e) => {
         var type = e.type;
 
-        if(type == 'keyup' || type == 'keydown') {
+        if (type == 'keyup' || type == 'keydown') {
           var eventCode = e.keyCode;
 
           keymap.forEach((row) => {
             row[1].forEach((code) => {
-              if(code == eventCode) {
+              if (code == eventCode) {
 
                 // row[0] e.g. 'up' or 'block'
                 // row[2] is value on keydown
                 // row[3] is value on keyup
 
-                if(!type.is('keyup')) {
-                  if(!inputStack.has(row[0])) {
+                if (!type.is('keyup')) {
+                  if (!inputStack.has(row[0])) {
                     inputStack.add(row[0]);
                     inputStack.changed = true;
                   }
@@ -771,33 +810,35 @@ class DeepSpaceGame {
       receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
       // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input
       // .. thus it is left here .. please revise
-      this.updateGamepadInput = (!navigator.getGamepads) ? () => {} : () => {
-        var gamepad = navigator.getGamepads()[0];
-        if(!gamepad) return;
+      this.updateGamepadInput = (!navigator.getGamepads) ? () => {
+        } : () => {
+          var gamepad = navigator.getGamepads()[0];
+          if (!gamepad) return;
 
-        var val, deadZone;
+          var val, deadZone;
 
-        // UP
-        deadZone = 0.0;
-        val = gamepad.axes[3]; val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
-        val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-        inputStack.set("forward", val);
+          // UP
+          deadZone = 0.0;
+          val = gamepad.axes[3];
+          val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
+          val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
+          inputStack.set("forward", val);
 
-        // LEFT and RIGHT
-        deadZone = 0.15;
-        val = gamepad.axes[0];
-        val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-        inputStack.set("turn", val);
+          // LEFT and RIGHT
+          deadZone = 0.15;
+          val = gamepad.axes[0];
+          val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
+          inputStack.set("turn", val);
 
-        // FIRE
-        inputStack.set("shoot", gamepad.buttons[3].pressed);
+          // FIRE
+          inputStack.set("shoot", gamepad.buttons[3].pressed);
 
-        // BLOCK
-        inputStack.set("block", gamepad.buttons[7].pressed);
+          // BLOCK
+          inputStack.set("block", gamepad.buttons[7].pressed);
 
-        // OTHER
-        inputStack.set("sub", gamepad.buttons[0].pressed);
-      };
+          // OTHER
+          inputStack.set("sub", gamepad.buttons[0].pressed);
+        };
 
       // MOBILE
       let raw_acc_data = [0, 0], applied_acc_data = [0, 0]; // [x, y]
@@ -805,7 +846,7 @@ class DeepSpaceGame {
       bias = ENV.storage.calibration = (ENV.storage.calibration) ? ENV.storage.calibration.split(",").map(Number) : [0, 0];
       // let origin = [0, bias];
       if (ENV.mobile && window.DeviceMotionEvent != undefined) {
-        window.ondevicemotion = function(e) {
+        window.ondevicemotion = function (e) {
           raw_acc_data = [e.accelerationIncludingGravity.x, e.accelerationIncludingGravity.y];
           // if ( e.rotationRate )  {
           //   document.getElementById("rotationAlpha").innerHTML = e.rotationRate.alpha;
@@ -814,45 +855,92 @@ class DeepSpaceGame {
           // }
         }
 
-        inputStack.updateMotion = function() {
+        inputStack.updateMotion = function () {
           let orientation = window.orientation,
             [raw_x, raw_y] = raw_acc_data, [x, y] = [raw_x, raw_y];
 
-          if(orientation === 90) { x = -raw_y, y = raw_x }
-          else if(orientation === -90) { x = raw_y, y = -raw_x }
-          else if(orientation === 180 || orientation === -180) { x = -x, y = -y }
+          if (orientation === 90) {
+            x = -raw_y, y = raw_x
+          }
+          else if (orientation === -90) {
+            x = raw_y, y = -raw_x
+          }
+          else if (orientation === 180 || orientation === -180) {
+            x = -x, y = -y
+          }
 
           applied_acc_data = [x, y];
           x -= bias[0]; // bias towards player;
           y -= bias[1];
 
-          if(x >  threshold) { inputStack.add('rt') } else { inputStack.delete('rt') }
-          if(x < -threshold) { inputStack.add('lt') } else { inputStack.delete('lt') }
-          if(y >  threshold) { inputStack.add('up') } else { inputStack.delete('up') }
-          if(y < -threshold) { inputStack.add('dn') } else { inputStack.delete('dn') }
+          if (x > threshold) {
+            inputStack.add('rt')
+          } else {
+            inputStack.delete('rt')
+          }
+          if (x < -threshold) {
+            inputStack.add('lt')
+          } else {
+            inputStack.delete('lt')
+          }
+          if (y > threshold) {
+            inputStack.add('up')
+          } else {
+            inputStack.delete('up')
+          }
+          if (y < -threshold) {
+            inputStack.add('dn')
+          } else {
+            inputStack.delete('dn')
+          }
 
         };
       }
 
       var left = document.querySelector('#touch_layer > .left');
-      left.addEventListener('touchstart', e => { inputStack.add('block') });
-      left.addEventListener('touchend', e => { inputStack.delete('block') });
+      left.addEventListener('touchstart', e => {
+        inputStack.add('block')
+      });
+      left.addEventListener('touchend', e => {
+        inputStack.delete('block')
+      });
 
       let joystick = new V2D(), joystick_deadzone_radius = 30;
       var right = document.querySelector('#touch_layer > .right');
-      right.addEventListener('touchstart', e => { inputStack.add('shoot') });
+      right.addEventListener('touchstart', e => {
+        inputStack.add('shoot')
+      });
       right.addEventListener('touchend', e => {
         inputStack.delete('shoot');
-        inputStack.delete('up2'); inputStack.delete('dn2'); inputStack.delete('lt2'); inputStack.delete('rt2');
+        inputStack.delete('up2');
+        inputStack.delete('dn2');
+        inputStack.delete('lt2');
+        inputStack.delete('rt2');
       });
       var right_hammer = new Hammer(right);
-      right_hammer.on('panmove', function(e) {
+      right_hammer.on('panmove', function (e) {
         var v = new V2D(e.deltaX, e.deltaY), a = v.angle;
-        if(v.length > joystick_deadzone_radius) {
-          if(a <-0.39 && a >-2.74) { inputStack.add('up2') } else { inputStack.delete('up2') }
-          if(a > 0.39 && a < 2.74) { inputStack.add('dn2') } else { inputStack.delete('dn2') }
-          if(a > 1.96 || a <-1.96) { inputStack.add('lt2') } else { inputStack.delete('lt2') }
-          if(a >-1.18 && a < 1.18) { inputStack.add('rt2') } else { inputStack.delete('rt2') }
+        if (v.length > joystick_deadzone_radius) {
+          if (a < -0.39 && a > -2.74) {
+            inputStack.add('up2')
+          } else {
+            inputStack.delete('up2')
+          }
+          if (a > 0.39 && a < 2.74) {
+            inputStack.add('dn2')
+          } else {
+            inputStack.delete('dn2')
+          }
+          if (a > 1.96 || a < -1.96) {
+            inputStack.add('lt2')
+          } else {
+            inputStack.delete('lt2')
+          }
+          if (a > -1.18 && a < 1.18) {
+            inputStack.add('rt2')
+          } else {
+            inputStack.delete('rt2')
+          }
         } else {
 
         }
@@ -861,17 +949,16 @@ class DeepSpaceGame {
 
       var hammertime = new Hammer(document.querySelector('#touch_layer'));
       hammertime.get('tap').set({taps: 2})
-      hammertime.get('swipe').set({ direction: Hammer.DIRECTION_LEFT })
-      hammertime.on('tap', function(ev) {
+      hammertime.get('swipe').set({direction: Hammer.DIRECTION_LEFT})
+      hammertime.on('tap', function (ev) {
         inputStack.add('sub');
         ( () => inputStack.delete('sub') ).wait(200);
       });
-      hammertime.on('swipe', function(e) {
+      hammertime.on('swipe', function (e) {
         // calibrate
         bias = applied_acc_data;
         ENV.storage.calibration = bias;
       });
-
 
 
     }
@@ -891,7 +978,7 @@ class DeepSpaceGame {
     physics.world_size = {width: this.mapInfo.width, height: this.mapInfo.height};
 
     let rows = Math.ceil(physics.world_size.width / physics.block_size),
-        cols = Math.ceil(physics.world_size.height / physics.block_size);
+      cols = Math.ceil(physics.world_size.height / physics.block_size);
 
     physics.divisions = [];
     // rows.times(i => {
@@ -950,13 +1037,13 @@ class DeepSpaceGame {
 
     (rows * cols).times(() => {
       let obj = {};
-      for(let group of Object.keys(physics.collision_groups)) obj[physics.collision_groups[group]] = new Set();
+      for (let group of Object.keys(physics.collision_groups)) obj[physics.collision_groups[group]] = new Set();
       physics.divisions.push(obj);
     })
 
     /*
-      END RESULT LOOKS SOMETHING LIKE:
-      [.. {...}, {SHIPS: [Set], OUR_BULLETS: Set [b, b, ..], ...}, {...}, ...]
+     END RESULT LOOKS SOMETHING LIKE:
+     [.. {...}, {SHIPS: [Set], OUR_BULLETS: Set [b, b, ..], ...}, {...}, ...]
 
      */
   }
@@ -965,46 +1052,46 @@ class DeepSpaceGame {
     this.clearCollisionDivisions(physics_body)
 
     let d = physics_body.divisions = new Set(),
-        r = physics_body.radius,
+      r = physics_body.radius,
       [x, y] = [physics_body.position.x, physics_body.position.y];
 
     [[1, 0], [0, -1], [-1, 0], [0, 1]].forEach(unit_offset_array => {
       let check_x = x + (r * unit_offset_array[0]),
-          check_y = y + (r * unit_offset_array[1]);
+        check_y = y + (r * unit_offset_array[1]);
 
       let division_x = Math.floor(check_x / this.physics.block_size),
-          division_y = Math.floor(check_y / this.physics.block_size),
-          division_index = this.physics.division_index(division_x, division_y);
+        division_y = Math.floor(check_y / this.physics.block_size),
+        division_index = this.physics.division_index(division_x, division_y);
 
-      if(this.physics.divisions[division_index]) d.add(division_index);
+      if (this.physics.divisions[division_index]) d.add(division_index);
     });
 
-    for(let division_index of d)
-      for(let group of physics_body.collision_groups)
+    for (let division_index of d)
+      for (let group of physics_body.collision_groups)
         this.physics.divisions[division_index][group].add(physics_body);
   }
 
   clearCollisionDivisions(physics_body) {
-    if(physics_body.divisions) {
-      for(let i of physics_body.divisions)
-        for(let group of physics_body.collision_groups)
+    if (physics_body.divisions) {
+      for (let i of physics_body.divisions)
+        for (let group of physics_body.collision_groups)
           this.physics.divisions[i][group].delete(physics_body);
     }
   }
 
   assignCollisionPatterns() {
     let checks = this.physics.collision_checks,
-        groups = this.physics.collision_groups;
+      groups = this.physics.collision_groups;
 
 
-    if(!this.spectate) {
+    if (!this.spectate) {
 
       // MY BULLET <-> ENEMY SHIPS
       checks.push([
         groups.MY_BULLETS,
         groups.ENEMY_SHIPS,
         (bullet, ship) => {
-          if(!bullet.disabled && !ship.disabled) {
+          if (!bullet.disabled && !ship.disabled) {
             NetworkHelper.out_ship_damage(ship.owner.id, bullet.hp);
             NetworkHelper.bullet_destroy(bullet.id);
           }
@@ -1016,9 +1103,9 @@ class DeepSpaceGame {
         groups.MY_BULLETS,
         groups.ENEMY_BLOCKS,
         (bullet, block) => {
-          if(!bullet.disabled && !block.disabled) {
+          if (!bullet.disabled && !block.disabled) {
             NetworkHelper.block_damage(block.id, bullet.hp);
-            if(bullet.hp < block.hp) NetworkHelper.bullet_destroy(bullet.id);
+            if (bullet.hp < block.hp) NetworkHelper.bullet_destroy(bullet.id);
           }
         }]
       );
@@ -1028,7 +1115,7 @@ class DeepSpaceGame {
         groups.MY_BULLETS,
         groups.ENEMY_SPAWN_CAMPS,
         (bullet, spawn_camp) => {
-          if(!bullet.disabled) {
+          if (!bullet.disabled) {
             NetworkHelper.bullet_destroy(bullet.id);
           }
         }]
@@ -1059,7 +1146,7 @@ class DeepSpaceGame {
         groups.OUR_SHIP,
         groups.FLAG,
         (ship, flag) => {
-          if(!ship.disabled && flag.idle) ship.pickup(flag);
+          if (!ship.disabled && flag.idle) ship.pickup(flag);
         }]
       );
 
@@ -1068,8 +1155,8 @@ class DeepSpaceGame {
         groups.OUR_PROJ_SUBS,
         groups.ENEMY_BLOCKS,
         (sub, block) => {
-          if(!sub.disabled && !block.disabled) {
-            switch(sub.type) {
+          if (!sub.disabled && !block.disabled) {
+            switch (sub.type) {
               case 'attractor':
               case 'repulsor':
                 // NetworkHelper.sub_destroy(sub.id);
@@ -1089,8 +1176,8 @@ class DeepSpaceGame {
         groups.OUR_PROJ_SUBS,
         groups.ENEMY_SHIPS,
         (sub, ship) => {
-          if(!sub.disabled && !ship.disabled) {
-            if(sub.type == 'missile') {
+          if (!sub.disabled && !ship.disabled) {
+            if (sub.type == 'missile') {
               NetworkHelper.out_ship_damage(ship.owner.id, sub.hp);
               NetworkHelper.sub_destroy(sub.id);
             }
@@ -1103,7 +1190,7 @@ class DeepSpaceGame {
         groups.OUR_PROJ_SUBS,
         groups.ENEMY_SPAWN_CAMPS,
         (sub, spawn_camp) => {
-          if(!sub.disabled) NetworkHelper.sub_destroy(sub.id);
+          if (!sub.disabled) NetworkHelper.sub_destroy(sub.id);
         }]
       );
 
@@ -1112,8 +1199,8 @@ class DeepSpaceGame {
         groups.OUR_BLOCKS,
         groups.OUR_BLOCKS,
         (block_a, block_b) => {
-          if(block_a != block_b && !block_a.disabled && !block_b.disabled)
-            if(Physics.overlap(block_a, block_b) > 0.8)
+          if (block_a != block_b && !block_a.disabled && !block_b.disabled)
+            if (Physics.overlap(block_a, block_b) > 0.8)
               NetworkHelper.block_destroy(block_a.id);
         }]
       );
@@ -1125,8 +1212,8 @@ class DeepSpaceGame {
       groups.SHIPS,
       groups.REFUGE,
       (ship, refuge) => {
-        if(!ship.disabled) {
-          if(ship.owner.team.number != refuge.team) {
+        if (!ship.disabled) {
+          if (ship.owner.team.number != refuge.team) {
             Physics.bounce(ship, refuge);
           } else {
             ship.charging = true;
@@ -1140,7 +1227,7 @@ class DeepSpaceGame {
       groups.SHIPS,
       groups.IMPERMEABLES,
       (ship, imp) => {
-        if(!ship.disabled) {
+        if (!ship.disabled) {
           Physics.bounce(ship, imp);
         }
       }]
@@ -1151,8 +1238,8 @@ class DeepSpaceGame {
       groups.BULLETS,
       groups.IMPERMEABLES,
       (bullet, imp) => {
-        if(!bullet.disabled) {
-          if(Physics.overlap(bullet, imp) < 0.1) {
+        if (!bullet.disabled) {
+          if (Physics.overlap(bullet, imp) < 0.1) {
             Physics.bounce(bullet, imp, 0.8);
           } else {
             NetworkHelper.bullet_destroy(bullet.id);
@@ -1178,12 +1265,14 @@ class DeepSpaceGame {
   setupLoop() {
     var FPS = n => 1000 / n;
     window.getAnimationFrame =
-    window.requestAnimationFrame ||
-    window.webkitRequestAnimationFrame ||
-    window.mozRequestAnimationFrame ||
-    window.oRequestAnimationFrame ||
-    window.msRequestAnimationFrame ||
-    function(callback) { window.setTimeout(callback, FPS(60)) };
+      window.requestAnimationFrame ||
+      window.webkitRequestAnimationFrame ||
+      window.mozRequestAnimationFrame ||
+      window.oRequestAnimationFrame ||
+      window.msRequestAnimationFrame ||
+      function (callback) {
+        window.setTimeout(callback, FPS(60))
+      };
 
     this.setupDT();
   }
@@ -1209,7 +1298,7 @@ class DeepSpaceGame {
   }
 
   setupShortcutsToCommonCalls() {
-    if(!this.spectate) {
+    if (!this.spectate) {
       // model references
       this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
       this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
@@ -1221,16 +1310,16 @@ class DeepSpaceGame {
 
   setupFinishCollisionAssignment() {
     /*
-      this method is run near end of the setup since things like ships and players
-      and teams and everything else is assigned and references can be made to the
-      local players team and such..
+     this method is run near end of the setup since things like ships and players
+     and teams and everything else is assigned and references can be made to the
+     local players team and such..
      */
 
     // spawn camps
     this.teams.forEach(team => {
       let spawn_c = team.spawn_camp;
       spawn_c.collision_groups = [this.physics.collision_groups.SPAWN_CAMPS, this.physics.collision_groups.REFUGE] // TODO COLLISION OR PHYSICS CLASS PROTOCOLS
-      if(team == this.team) {
+      if (team == this.team) {
         spawn_c.collision_groups.push(this.physics.collision_groups.OUR_SPAWN_CAMP);
         spawn_c.collision_groups.push(this.physics.collision_groups.OUR_REFUGE);
       } else {
@@ -1242,7 +1331,7 @@ class DeepSpaceGame {
     // ships
     this.ships.forEach(ship => {
       ship.collision_groups = [this.physics.collision_groups.SHIPS];
-      if(ship == this.ships.main) ship.collision_groups.push(this.physics.collision_groups.OUR_SHIP);
+      if (ship == this.ships.main) ship.collision_groups.push(this.physics.collision_groups.OUR_SHIP);
       ship.collision_groups.push((ship.owner.team == this.team) ? this.physics.collision_groups.OUR_SHIPS : this.physics.collision_groups.ENEMY_SHIPS)
     });
   }
@@ -1273,7 +1362,7 @@ class DeepSpaceGame {
       );
 
       var s = radius * 1.2;
-      v.cache(-s, -s, s*2, s*2);
+      v.cache(-s, -s, s * 2, s * 2);
 
       gc.bullets[team.number] = v.cacheCanvas;
     });
@@ -1291,40 +1380,41 @@ class DeepSpaceGame {
 
 
       let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius)),
-          border =  new createjs.Shape(DeepSpaceGame.graphics.block_border(this.teams[team.number].color, radius));
+        border = new createjs.Shape(DeepSpaceGame.graphics.block_border(this.teams[team.number].color, radius));
 
       var s = radius * 1.2;
 
       // enemy
-      fill.cache(-s, -s, s*2, s*2);
+      fill.cache(-s, -s, s * 2, s * 2);
       gc.blocks.enemy[team.number] = fill.cacheCanvas;
 
       // unlocked
       fill.alpha = 0.16;
       let c = new createjs.Container();
       c.addChild(fill);
-      c.cache(-s, -s, s*2, s*2);
+      c.cache(-s, -s, s * 2, s * 2);
       gc.blocks.unlocked[team.number] = c.cacheCanvas;
 
       // locked
       c = new createjs.Container();
-      c.addChild(fill); c.addChild(border);
-      c.cache(-s, -s, s*2, s*2);
+      c.addChild(fill);
+      c.addChild(border);
+      c.cache(-s, -s, s * 2, s * 2);
       gc.blocks.locked[team.number] = c.cacheCanvas;
     });
 
     // minimap
-    if(this.spectate) return; // TODO make minimap accesible to all even spectators
-    gc.minimap = { blocks: [] };
+    if (this.spectate) return; // TODO make minimap accesible to all even spectators
+    gc.minimap = {blocks: []};
     this.teams.forEach(team => {
-      '#37474F'
+      // '#37474F'
       let radius = Block.stats.MAX_RADIUS * this.view.overlay.minimap.scale;
 
-      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 30), radius));
+      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius));
 
       var s = radius * 1.2;
       // fill.alpha = 0.16;
-      fill.cache(-s, -s, s*2, s*2);
+      fill.cache(-s, -s, s * 2, s * 2);
       gc.minimap.blocks[team.number] = fill.cacheCanvas;
     });
     // (()=>{
@@ -1345,11 +1435,15 @@ class DeepSpaceGame {
     // bring an outside game up to speed
 
     // scores
-    this.setupData.state.scores.forEach((entry)=>{ this.game.scores[entry.t] = entry.s });
+    this.setupData.state.scores.forEach((entry) => {
+      this.game.scores[entry.t] = entry.s
+    });
 
     // flag
     var holder;
-    setTimeout(()=>{if(holder = this.setupData.state.flagHolder) this.pickupFlag(holder);}, 100);
+    setTimeout(() => {
+      if (holder = this.setupData.state.flagHolder) this.pickupFlag(holder);
+    }, 100);
 
     // disconnects
     this.setupData.disconnects.forEach(id => this.disconnectPlayer(id))
@@ -1366,7 +1460,7 @@ class DeepSpaceGame {
 
     // NetworkHelper.release();
 
-    getAnimationFrame(()=> this.game.ended ? true : this.loop())
+    getAnimationFrame(() => this.game.ended ? true : this.loop())
   }
 
   update() {
@@ -1374,19 +1468,19 @@ class DeepSpaceGame {
     // to update all the moving parts pertaining to the current/local user.
     // any collisions should be sent back to the server to sync the changes.
     var over = this.game.disabled;
-    if(!over) this.updateInput();
+    if (!over) this.updateInput();
     this.updateModel(); // TODO: improve performance
-    if(!over) this.checkForCollisions();
+    if (!over) this.checkForCollisions();
     // if(this.isHost) this.generateMapEntities();
 
-    if(!over) this.updateGame();
+    if (!over) this.updateGame();
 
     this.updateView();
   }
 
   updateInput() {
     // if(!this.spectate) this.updateGamepadInput();
-    if(!this.spectate) if(this.player.input.updateMotion) this.player.input.updateMotion();
+    if (!this.spectate) if (this.player.input.updateMotion) this.player.input.updateMotion();
   }
 
   // updateGamepadInput() {}
@@ -1401,18 +1495,18 @@ class DeepSpaceGame {
   }
 
   updateShips() {
-    for(var ship of this.ships) {
+    for (var ship of this.ships) {
 
       ship.update(this.dt);
 
-      if(ship == this.ships.main && !ship.disabled) {
+      if (ship == this.ships.main && !ship.disabled) {
 
         var input = ship.owner.input,
-            x = 0, y = 0, x2 = 0, y2 = 0,
-              s = false;
+          x = 0, y = 0, x2 = 0, y2 = 0,
+          s = false;
 
-        for(var prop of input) {
-          switch(prop) {
+        for (var prop of input) {
+          switch (prop) {
             case 'up':
               y = -1;
               break;
@@ -1451,25 +1545,37 @@ class DeepSpaceGame {
         }
 
         ship.acceleration.set({x, y})
-        if(ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
+        if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
 
         // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
-        if(ship.velocity.length) ship.angle = ship.velocity.angle;
+        if (ship.velocity.length) ship.angle = ship.velocity.angle;
 
         var direction_v = new V2D(x2, y2)
         ship.shoot_angle = direction_v.length ? direction_v.angle : ship.angle;
 
         // if(direction_v.length) ship.shoot();
 
-        if(s || direction_v.length) ship.shoot();
+        if (s || direction_v.length) ship.shoot();
       }
 
       // validate new position TODO (revise)
       let r = ship.radius + 8;
-      if(ship.position.x-r < 0) { ship.position.x = r; ship.velocity.x = 0 }
-      if(ship.position.y-r < 0) { ship.position.y = r; ship.velocity.y = 0 }
-      if(ship.position.x+r > this.mapInfo.width) { ship.position.x = this.mapInfo.width-r; ship.velocity.x = 0; }
-      if(ship.position.y+r > this.mapInfo.height) { ship.position.y = this.mapInfo.height-r; ship.velocity.y = 0; }
+      if (ship.position.x - r < 0) {
+        ship.position.x = r;
+        ship.velocity.x = 0
+      }
+      if (ship.position.y - r < 0) {
+        ship.position.y = r;
+        ship.velocity.y = 0
+      }
+      if (ship.position.x + r > this.mapInfo.width) {
+        ship.position.x = this.mapInfo.width - r;
+        ship.velocity.x = 0;
+      }
+      if (ship.position.y + r > this.mapInfo.height) {
+        ship.position.y = this.mapInfo.height - r;
+        ship.velocity.y = 0;
+      }
 
       this.setCollisionDivisions(ship);
 
@@ -1487,8 +1593,8 @@ class DeepSpaceGame {
 
   broadcastShip() {
     var ship, input;
-    if((ship = this.ships.main) && (input = ship.owner.input)) {
-      if(input.changed) {
+    if ((ship = this.ships.main) && (input = ship.owner.input)) {
+      if (input.changed) {
         // log(Array.from(input));
         // NetworkHelper.out_input_stack(Array.from(input));
         input.changed = false;
@@ -1496,23 +1602,27 @@ class DeepSpaceGame {
 
       NetworkHelper.out_ship_update(ship.export_update());
 
-      if((new Date()).getTime()%60 < 6) NetworkHelper.out_ship_override(ship.export_override());
-      if(ship.flag && ship.disabled) NetworkHelper.out_flag_drop();
+      if ((new Date()).getTime() % 60 < 2) NetworkHelper.out_ship_override(ship.export_override());
+      if (ship.flag && ship.disabled) NetworkHelper.out_flag_drop();
       // if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
     }
   }
 
   updateBullets() {
-    this.model.bullets.forEach(b => { b.update(this.dt); this.setCollisionDivisions(b) });
+    this.model.bullets.forEach(b => {
+      b.update(this.dt);
+      this.setCollisionDivisions(b)
+    });
     // this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
   }
 
   updateBlocks() { // needs needs work
-    this.model.blocks.forEach(b => { if(b.locked) return;
-      if(b.qualified) {
+    this.model.blocks.forEach(b => {
+      if (b.locked) return;
+      if (b.qualified) {
         this.setCollisionDivisions(b);
-        if(!this.spectate) this.createOverlayMinimapBlockViewFor(b);
-        if(!this.spectate) if(b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
+        if (!this.spectate) this.createOverlayMinimapBlockViewFor(b);
+        if (!this.spectate) if (b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
         b.locked = true;
         b.qualified = false;
       }
@@ -1524,21 +1634,23 @@ class DeepSpaceGame {
   updateSubs() {
     this.model.subs.forEach(p => {
       p.update(this.dt);
-      if(p.collision_groups) this.setCollisionDivisions(p);
+      if (p.collision_groups) this.setCollisionDivisions(p);
 
-      switch(p.type) {
+      switch (p.type) {
         case 'attractor':
         case 'repulsor':
 
           // field effects TODO is games responsibility..? dt is passed to subs themseves..
           var distance, direction;
-          this.model.bullets.forEach((b)=>{
-            if(!b.disabled && p.team != b.team) {
-              if((distance = Physics.distance(b.position, p.position)) < p.RANGE) {
-                var force = new V2D(); direction = p.position.copy(); direction.sub(b.position);
+          this.model.bullets.forEach((b) => {
+            if (!b.disabled && p.team != b.team) {
+              if ((distance = Physics.distance(b.position, p.position)) < p.RANGE) {
+                var force = new V2D();
+                direction = p.position.copy();
+                direction.sub(b.position);
                 force.length = p.INTENSITY_FUNCTION(distance);
                 force.angle = direction.angle;
-                if(p.type == 'repulsor') force.angle = force.angle - Math.PI;
+                if (p.type == 'repulsor') force.angle = force.angle - Math.PI;
                 b.velocity.add(force);
                 b.velocity.length *= 0.94; // friction TODO
               }
@@ -1549,15 +1661,15 @@ class DeepSpaceGame {
         case 'block_bomb':
 
 
-          if(p.exploding) {
+          if (p.exploding) {
 
             // only the player who created it hands out damage to the blocks so it is done once
             var ship;
-            if((ship = this.ships.main) && (ship.subs.has(p.id))) {
+            if ((ship = this.ships.main) && (ship.subs.has(p.id))) {
               var distance;
               this.refGroups.enemyBlocks.forEach(block => {
-                if(block && !block.disabled) {
-                  if((distance = Physics.distance(block.position, p.position)) < p.EXPLOSION_RANGE) {
+                if (block && !block.disabled) {
+                  if ((distance = Physics.distance(block.position, p.position)) < p.EXPLOSION_RANGE) {
                     NetworkHelper.block_damage(block.id, p.EXPLOSION_DAMAGE_FUNCTION(distance));
                   }
                 }
@@ -1574,25 +1686,25 @@ class DeepSpaceGame {
         case 'missile':
 
           // targeting
-          if(p.target && (Physics.distance(p.target.position, p.position) > p.VISION_RANGE || p.target.stealth)) p.target = null;
+          if (p.target && (Physics.distance(p.target.position, p.position) > p.VISION_RANGE || p.target.stealth)) p.target = null;
           this.ships.forEach(ship => {
-            if(ship && !ship.disabled && !ship.stealth && ship.owner.team.number != p.team) {
-              if(!p.target && ((distance = Physics.distance(ship.position, p.position)) < p.VISION_RANGE)) {
+            if (ship && !ship.disabled && !ship.stealth && ship.owner.team.number != p.team) {
+              if (!p.target && ((distance = Physics.distance(ship.position, p.position)) < p.VISION_RANGE)) {
                 p.target = ship;
               }
             }
           });
 
           // exploding
-          if(p.exploding) {
+          if (p.exploding) {
 
             // only the player who created it hands out damage to the blocks so it is done once
             var ship;
-            if((ship = this.ships.main) && (ship.subs.has(p.id))) {
+            if ((ship = this.ships.main) && (ship.subs.has(p.id))) {
               var distance;
               this.refGroups.enemyBlocks.forEach(block => {
-                if(block && !block.disabled) {
-                  if((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {
+                if (block && !block.disabled) {
+                  if ((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {
                     NetworkHelper.block_change(block.id)
                   }
                 }
@@ -1619,11 +1731,11 @@ class DeepSpaceGame {
     // created. though in practice, perhaps
     // just it's attack moves. e.g. bullets
 
-    for(let div of this.physics.divisions) {
-      for(var [a_type, b_type, check] of this.physics.collision_checks)
-        for(let body_a of div[a_type])
-          for(let body_b of div[b_type])
-            if(Physics.doTouch(body_a, body_b))
+    for (let div of this.physics.divisions) {
+      for (var [a_type, b_type, check] of this.physics.collision_checks)
+        for (let body_a of div[a_type])
+          for (let body_b of div[b_type])
+            if (Physics.doTouch(body_a, body_b))
               check(body_a, body_b);
     }
 
@@ -1631,10 +1743,10 @@ class DeepSpaceGame {
 
   updateGame() {
     var flag = this.game.flag;
-    if(!flag.idle) {
+    if (!flag.idle) {
       var player = this.players.get(flag.holderID),
-          p = player.ship.last_known_position,
-          camp = player.team.spawn_camp;
+        p = player.ship.last_known_position,
+        camp = player.team.spawn_camp;
       flag.position.x = p.x;
       flag.position.y = p.y;
 
@@ -1642,32 +1754,33 @@ class DeepSpaceGame {
 
       // real game stuff
       var distance = Physics.distance(p, camp.position) - camp.radius,
-          percent = distance / this.game.max,
-          low_score = this.game.scores[player.team.number],
-          current_score = Math.round(percent * 100);
+        percent = distance / this.game.max,
+        low_score = this.game.scores[player.team.number],
+        current_score = Math.round(percent * 100);
 
-      if(current_score < low_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
+      if (current_score < low_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
 
-      if((percent < 0) && player == this.player) NetworkHelper.out_game_over(player.team.number);
+      if ((percent < 0) && player == this.player) NetworkHelper.out_game_over(player.team.number);
 
 
       // LEAD COMPARISON
       // replace lead if none exists
-      if(!this.game.lead) this.game.lead = player.team;
+      if (!this.game.lead) this.game.lead = player.team;
 
       // replace lead if record shows
-      if(current_score < this.game.scores[this.game.lead.number]) {
+      if (current_score < this.game.scores[this.game.lead.number]) {
 
-        if(!this.spectate) {
+        if (!this.spectate) {
           // if you are replacing
-          if(player.team == this.team) {
+          if (player.team == this.team) {
             let c = this.team.color;
             this.alert(
               DeepSpaceGame.localizationStrings.alerts['teamTakesLead'][this.language]()
               , c);
+            if (this.game.overtime) NetworkHelper.out_game_over(this.team.number);
           }
           // if you are being replaced
-          else if(this.game.lead == this.team) {
+          else if (this.game.lead == this.team) {
             let c = player.team.color;
             this.alert(
               DeepSpaceGame.localizationStrings.alerts['teamLosesLead'][this.language]()
@@ -1680,8 +1793,6 @@ class DeepSpaceGame {
 
 
     }
-
-
 
 
   }
@@ -1699,21 +1810,21 @@ class DeepSpaceGame {
 
     this.updateGameViews();
 
-    if(!this.spectate) this.updateMinimapView()
+    if (!this.spectate) this.updateMinimapView()
 
     this.stage.update(); // render changes!!
   }
 
   updateShipViews() {
-    this.ships.forEach((ship)=>{
+    this.ships.forEach((ship) => {
 
-      if(ship.view.visible = this.camera.showing(ship) || ship == this.ships.main) {
+      if (ship.view.visible = this.camera.showing(ship) || ship.view == this.camera.focus) {
 
         var visibility = 1;
-        if(ship.disabled) {
+        if (ship.disabled) {
           visibility = 0;
-        } else if(ship.stealth) {
-          if(ship.owner.team == this.team) {
+        } else if (ship.stealth) {
+          if (ship.owner.team == this.team) {
             visibility = Math.flipCoin(0.2) ? 0 : 0.4;
           } else {
             visibility = 0;
@@ -1739,12 +1850,12 @@ class DeepSpaceGame {
   }
 
   updateEnergyMeterView() {
-    if(this.spectate) return;
+    if (this.spectate) return;
 
     let ship = this.player.ship,
-        meterView = ship.view.meter,
-        shadowView = meterView.shadow,
-        percent = ship.energy/100;
+      meterView = ship.view.meter,
+      shadowView = meterView.shadow,
+      percent = ship.energy / 100;
     meterView.graphics = DeepSpaceGame.graphics.energyMeter(this.team.color, percent);
     meterView.alpha = shadowView.alpha = ship.disabled ? 0 : 1;
   }
@@ -1753,7 +1864,7 @@ class DeepSpaceGame {
     var views = this.view.bullets;
     this.model.bullets.forEach(b => {
       var v = views.get(b.id);
-      if(v.visible = this.camera.showing(b)) {
+      if (v.visible = this.camera.showing(b)) {
         v.x = b.position.x;
         v.y = b.position.y;
       }
@@ -1764,16 +1875,16 @@ class DeepSpaceGame {
     var views = this.view.blocks;
     this.model.blocks.forEach(b => {
       var v = views.get(b.id);
-      if(!b.locked || (v.visible = this.camera.showing(b))) {
-        v.alpha = (b.health*0.9 + 0.1);
-        if(!b.locked) {
+      if (!b.locked || (v.visible = this.camera.showing(b))) {
+        v.alpha = (b.health * 0.9 + 0.1);
+        if (!b.locked) {
           v.x = b.position.x;
           v.y = b.position.y;
           // v.graphics.command.radius = b.radius;
           v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
         }
       }
-      if(b.qualified) {
+      if (b.qualified) {
         let type = b.isForeign ? 'enemy' : 'locked';
         v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
       }
@@ -1784,7 +1895,7 @@ class DeepSpaceGame {
     var views = this.view.subs;
     this.model.subs.forEach(p => {
       var v = views.get(p.id);
-      if(v) {
+      if (v) {
         v.x = p.position.x;
         v.y = p.position.y;
         v.rotation = Math.degrees(p.rotation);
@@ -1825,12 +1936,12 @@ class DeepSpaceGame {
 
   updateGrid() {
     var focus = this.camera.focus;
-    if(focus) GRID.offset(-focus.x, -focus.y)
+    if (focus) GRID.offset(-focus.x, -focus.y)
   }
 
   updateGameViews() {
 
-    this.view.overlay.score.team.forEach((text, i)=>{
+    this.view.overlay.score.team.forEach((text, i) => {
       text.text = this.game.scores[i];
       // text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);
       text.scaleX = text.scaleY = (this.teams[i].players.indexOf(this.players.get(this.game.flag.holderID)) != -1 ? 1 : 0.86);
@@ -1847,12 +1958,24 @@ class DeepSpaceGame {
     v.x = flag.position.x + this.camera.plane.x;
     v.y = flag.position.y + this.camera.plane.y;
     var padding = (flag.radius * 2)
-    if(v.x < padding) { v.x = padding; not_visible = true; }
-    if(v.x > this.window.width - padding) { v.x = this.window.width - padding; not_visible = true; }
-    if(v.y < padding) { v.y = padding; not_visible = true; }
-    if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
+    if (v.x < padding) {
+      v.x = padding;
+      not_visible = true;
+    }
+    if (v.x > this.window.width - padding) {
+      v.x = this.window.width - padding;
+      not_visible = true;
+    }
+    if (v.y < padding) {
+      v.y = padding;
+      not_visible = true;
+    }
+    if (v.y > this.window.height - padding) {
+      v.y = this.window.height - padding;
+      not_visible = true;
+    }
 
-    v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);
+    v.alpha = not_visible ? 0.3 : (flag.idle ? 1 : 0);
 
 
     // var v = this.view.flag, flag = this.game.flag;
@@ -1873,7 +1996,7 @@ class DeepSpaceGame {
     let mini = this.view.overlay.minimap;
 
     // ships
-    this.team.players.forEach( (player, i) => {
+    this.team.players.forEach((player, i) => {
       mini.players[i].x = player.ship.position.x * mini.scale;
       mini.players[i].y = player.ship.position.y * mini.scale;
     })
@@ -1912,7 +2035,7 @@ class DeepSpaceGame {
 
   disableInteraction() {
     this.game.disabled = true;
-    if(this.player) this.resetInput();
+    if (this.player) this.resetInput();
     this.deinitListeners();
     this.timer.cancel();
   }
@@ -1923,12 +2046,21 @@ class DeepSpaceGame {
   }
 
   timerExpire() {
-    LOBBY.endGame();
+    // LOBBY.disableGame();
 
     // disconnect if no server response after 6s
     setTimeout(() => {
-      if(!this.game.ended) LOBBY.disconnect();
+      if (!(this.game.ended || this.game.overtime)) LOBBY.disconnect();
     }, 6000);
+  }
+
+  takeOvertime() {
+    this.game.overtime = true;
+
+    // disconnect if no server response after 40s
+    setTimeout(() => {
+      if (!(this.game.ended)) LOBBY.disconnect();
+    }, TIME.sec(40)); // OVERTIME DURATION.. todo
   }
 
   // maybe..
@@ -1940,7 +2072,7 @@ class DeepSpaceGame {
     let cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
     var bv = new createjs.Bitmap(cache);
     bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
-    bv.regX = bv.regY = (cache.width/2);
+    bv.regX = bv.regY = (cache.width / 2);
     this.view.layer.action.back.addChild(bv);
 
     this.model.bullets.set(b.id, b);
@@ -1948,7 +2080,7 @@ class DeepSpaceGame {
 
     b.collision_groups = [this.physics.collision_groups.BULLETS];
     b.collision_groups.push(this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS);
-    if(!this.spectate && b.creator == this.player.id) b.collision_groups.push(this.physics.collision_groups.MY_BULLETS);
+    if (!this.spectate && b.creator == this.player.id) b.collision_groups.push(this.physics.collision_groups.MY_BULLETS);
 
     // sound
     // if(this.camera.showing(b)) SoundHelper.fireShot();
@@ -1958,16 +2090,16 @@ class DeepSpaceGame {
 
   endBullet(id) {
     var b = this.model.bullets.get(id);
-    if(!b) return;
+    if (!b) return;
 
     this.clearCollisionDivisions(b);
 
     this.model.bullets.delete(id);
-    if(!this.spectate) this.ships.main.bullets.delete(id);
+    if (!this.spectate) this.ships.main.bullets.delete(id);
 
     // erase the view for it.
     var v = this.view.bullets.get(id);
-    if(v) {
+    if (v) {
       this.view.bullets.delete(id);
       this.view.layer.action.back.removeChild(v);
     }
@@ -1983,14 +2115,14 @@ class DeepSpaceGame {
     let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
     var blv = new createjs.Bitmap(cache);
     blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
-    blv.regX = blv.regY = (cache.width/2);
+    blv.regX = blv.regY = (cache.width / 2);
     this.view.layer.action.back.addChild(blv);
 
     this.model.blocks.set(bl.id, bl);
     this.view.blocks.set(bl.id, blv);
 
     bl.collision_groups = [this.physics.collision_groups.REFUGE]
-    if(this.teams[bl.team] != this.team) {
+    if (this.teams[bl.team] != this.team) {
       bl.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)
     } else {
       bl.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)
@@ -2004,20 +2136,20 @@ class DeepSpaceGame {
   changeBlock(id, team) {
     // retrieve and store block
     var b = this.model.blocks.get(id);
-    if(!b) return false;
+    if (!b) return false;
 
     // begin change if locked
-    if(b.locked) {
+    if (b.locked) {
 
       // skip if change is unnecessary
-      if(b.team != team) {
+      if (b.team != team) {
 
         // assign new team
         b.team = team;
 
         // if not spectating add or remove from ref group
-        if(!this.spectate) {
-          if(b.team != this.team.number) {
+        if (!this.spectate) {
+          if (b.team != this.team.number) {
             this.refGroups.enemyBlocks.add(b);
           } else {
             this.refGroups.enemyBlocks.delete(b);
@@ -2026,7 +2158,7 @@ class DeepSpaceGame {
 
         // replace and delete old view
         var v = this.view.blocks.get(id);
-        if(v) {
+        if (v) {
           let type = this.refGroups.enemyBlocks.has(b) ? 'enemy' : (b.locked ? 'locked' : 'unlocked');
           v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
           // v.updateCache();
@@ -2037,7 +2169,7 @@ class DeepSpaceGame {
 
     this.clearCollisionDivisions(b);
     b.collision_groups = [this.physics.collision_groups.REFUGE]
-    if(this.teams[b.team] != this.team) {
+    if (this.teams[b.team] != this.team) {
       b.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)
     } else {
       b.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)
@@ -2048,24 +2180,24 @@ class DeepSpaceGame {
 
   endBlock(id) {
     var b = this.model.blocks.get(id);
-    if(!b) return false;
+    if (!b) return false;
 
     this.clearCollisionDivisions(b);
 
     this.model.blocks.delete(id);
-    if(!this.spectate) this.ships.main.blocks.delete(id);
+    if (!this.spectate) this.ships.main.blocks.delete(id);
 
-    if(b.locked) this.refGroups.enemyBlocks.delete(b);
+    if (b.locked) this.refGroups.enemyBlocks.delete(b);
 
     // erase the view for it.
     var v = this.view.blocks.get(id);
-    if(v) {
+    if (v) {
       this.view.blocks.delete(id);
       this.view.layer.action.back.removeChild(v);
     }
-    if(!this.spectate) {
+    if (!this.spectate) {
       var v = this.view.overlay.minimap.blocks.get(id);
-      if(v) {
+      if (v) {
         this.view.overlay.minimap.blocks.delete(id);
         this.view.overlay.minimap.removeChild(v);
       }
@@ -2075,7 +2207,7 @@ class DeepSpaceGame {
 
   startSub(data) {
     var p;
-    switch(data.type) {
+    switch (data.type) {
       case 'attractor':
         p = new Attractor(data)
         break;
@@ -2096,23 +2228,23 @@ class DeepSpaceGame {
     }
 
     // create a view for it.
-    if(data.type != 'stealth_cloak') {
+    if (data.type != 'stealth_cloak') {
       var graphics;
-      switch(data.type) {
+      switch (data.type) {
         case 'attractor':
-        graphics = DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
-        break;
+          graphics = DeepSpaceGame.graphics.attractor(this.teams[p.team].color)
+          break;
         case 'repulsor':
-        graphics = DeepSpaceGame.graphics.repulsor(this.teams[p.team].color)
-        break;
+          graphics = DeepSpaceGame.graphics.repulsor(this.teams[p.team].color)
+          break;
         case 'block_bomb':
-        graphics = DeepSpaceGame.graphics.block_bomb(this.teams[p.team].color)
-        break;
+          graphics = DeepSpaceGame.graphics.block_bomb(this.teams[p.team].color)
+          break;
         case 'missile':
-        graphics = DeepSpaceGame.graphics.missile(this.teams[p.team].color)
-        break;
+          graphics = DeepSpaceGame.graphics.missile(this.teams[p.team].color)
+          break;
         default:
-        break;
+          break;
       }
       var pv = new createjs.Shape(graphics);
       pv.cache(-12, -12, 24, 24);
@@ -2127,26 +2259,26 @@ class DeepSpaceGame {
 
     this.model.subs.set(p.id, p);
 
-    if(!this.spectate) if(p.team != this.ships.main.owner.team.number) this.refGroups.enemySubs.add(p.id);
+    if (!this.spectate) if (p.team != this.ships.main.owner.team.number) this.refGroups.enemySubs.add(p.id);
 
     return p;
   }
 
   endSub(id) {
     var p = this.model.subs.get(id);
-    if(!p) return false;
+    if (!p) return false;
 
     this.clearCollisionDivisions(p);
 
     this.model.subs.delete(id);
-    if(!this.spectate) this.ships.main.subs.delete(id);
+    if (!this.spectate) this.ships.main.subs.delete(id);
 
     this.refGroups.enemySubs.delete(p.id);
 
     // erase the view for it.
-    if(p.type != 'stealth_cloak') {
+    if (p.type != 'stealth_cloak') {
       var v = this.view.subs.get(id);
-      if(v) {
+      if (v) {
         this.view.subs.delete(id);
         this.view.layer.action.back.removeChild(v);
       }
@@ -2160,15 +2292,24 @@ class DeepSpaceGame {
     flag.holderID = playerID;
 
     var player = this.players.get(flag.holderID);
-    if(ship = player.ship)
+
+
+    if (ship = player.ship) {
       ship.setFlag(flag);
+      if(this.game.overtime)
+        if(ship.owner.team == this.game.lead)
+          if(ship.owner.team == this.team)
+            NetworkHelper.out_game_over(this.team.number);
+    }
+
+
 
     var c = player.team.color, us = player.team == this.team;
     this.alert(
       DeepSpaceGame.localizationStrings.alerts[us ? 'teamTakesFlag' : 'enemyTakesFlag'][this.language](
         DeepSpaceGame.localizationStrings.colors[c][this.language]
       )
-    , c);
+      , c);
 
     // sound
     us ? SoundHelper.teamYay() : SoundHelper.teamNay();
@@ -2178,9 +2319,9 @@ class DeepSpaceGame {
 
   dropFlag() {
     var id, flag = this.game.flag, ship = null;
-    if(id = flag.holderID) {
+    if (id = flag.holderID) {
       var player = this.players.get(flag.holderID)
-      if(ship = player.ship)
+      if (ship = player.ship)
         ship.clearFlag();
 
       flag.reset();
@@ -2190,7 +2331,7 @@ class DeepSpaceGame {
         DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](
           DeepSpaceGame.localizationStrings.colors[c][this.language]
         )
-      , us || this.spectate ? undefined : this.team.color);
+        , us || this.spectate ? undefined : this.team.color);
 
       // this.updateFlagView();
     }
@@ -2200,25 +2341,33 @@ class DeepSpaceGame {
   alert(msg, color = "#ECEFF1") {
     clearTimeout(this.alertTimeout)
     var v = this.view.overlay.message;
-    v.text = msg; v.color = color;
-    if(msg.trim() !== '') this.alertTimeout = setTimeout(()=>{this.alert("")}, 4000)
+    v.text = msg;
+    v.color = color;
+    if (msg.trim() !== '') this.alertTimeout = setTimeout(() => {
+      this.alert("")
+    }, 4000)
   }
 
   alert_kill(msg, color = "#ECEFF1") {
     clearTimeout(this.alertKillTimeout)
     var v = this.view.overlay.kill_message;
-    v.text = msg; v.color = color;
-    v.text = msg; v.color = color;
-    if(msg.trim() !== '') this.alertKillTimeout = setTimeout(()=>{this.alert_kill("")}, 4000)
+    v.text = msg;
+    v.color = color;
+    v.text = msg;
+    v.color = color;
+    if (msg.trim() !== '') this.alertKillTimeout = setTimeout(() => {
+      this.alert_kill("")
+    }, 4000)
   }
 
 
   msgShipKill(takerID, giverID) {//alert(`takerID ${takerID}, giverID ${giverID},`)
     var t = this.players.get(takerID), g = this.players.get(giverID);
-    if(t) t.score.deaths++; if(g) g.score.kills++;
+    if (t) t.score.deaths++;
+    if (g) g.score.kills++;
 
-    if(this.spectate) return;
-    if(takerID == this.player.id) {
+    if (this.spectate) return;
+    if (takerID == this.player.id) {
       const player = this.players.get(giverID);
       this.alert_kill(
         DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](
@@ -2227,8 +2376,7 @@ class DeepSpaceGame {
       );
       this.camera.animateFocus(player.ship.view, [this.player.ship, 'disabled']);
       // this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);
-    } else
-    if(giverID == this.player.id) {
+    } else if (giverID == this.player.id) {
       this.alert_kill(
         DeepSpaceGame.localizationStrings.alerts['yourKill'][this.language](
           this.players.get(takerID).name
@@ -2242,8 +2390,8 @@ class DeepSpaceGame {
 
   deinit() {
     // it must go in reverse order
-      // as children of root objects will
-      // need to know what to get removed from
+    // as children of root objects will
+    // need to know what to get removed from
     this.deinitCaches();
     this.deinitPhysics();
     this.deinitInput();
@@ -2255,6 +2403,7 @@ class DeepSpaceGame {
 
     delete DeepSpaceGame.runningInstance;
   }
+
   deinitCaches() {
     delete this.enemyTeams;
     delete this.enemyPlayers;
@@ -2263,22 +2412,27 @@ class DeepSpaceGame {
 
     delete DeepSpaceGame.graphicsCaches;
   }
+
   deinitPhysics() {
     delete this.refGroups;
   }
+
   deinitInput() {
     var main = this.ships.main;
-    if(main) delete main.owner.input;
+    if (main) delete main.owner.input;
   }
+
   deinitListeners() {
-    for(let [,handler] of this.inputHandlers) {
+    for (let [, handler] of this.inputHandlers) {
       window.removeEventListener('keydown', handler); // onkeydown
       window.removeEventListener('keyup', handler); // onkeyup
     }
   }
+
   deinitCamera() {
     delete this.camera;
   }
+
   deinitView() {
     delete this.view;
     delete this.window;
@@ -2286,9 +2440,11 @@ class DeepSpaceGame {
     delete this.stage;
     delete this.colors;
   }
+
   deinitGame() {
     delete this.game;
   }
+
   deinitModel() {
     delete this.ships;
     delete this.players;
@@ -2301,16 +2457,18 @@ class DeepSpaceGame {
 
   resetInput() {
     var input;
-    if(this.player) if(input = this.player.input) input.clear();
+    if (this.player) if (input = this.player.input) input.clear();
   }
 
   disconnectPlayer(id) {
     var player = this.players.get(id);
-    if(player) {
+    if (player) {
       player.disconnected = true;
       player.ship.disabled = true;
-      if(this.spectate) this.activePlayers.delete(player)
-    } else { log(`not found`) }
+      if (this.spectate) this.activePlayers.delete(player)
+    } else {
+      log(`not found`)
+    }
   }
 
 }
@@ -2322,20 +2480,20 @@ DeepSpaceGame.graphics = {
   spawn_camp_fill: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 64),
   // spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
   ship: {
-    "damage":   [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8)],
+    "damage": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8),
+      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8)],
 
-    "speed":    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
+    "speed": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
+      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
 
     "standard": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
+      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
 
-    "rate":     [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8)],
+    "rate": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8),
+      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8)],
 
-    "defense":  [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4),
-                 (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4)]
+    "defense": [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4),
+      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4)]
   },
   particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),
   // bullet: (color) => DeepSpaceGame.graphics.particle(color)
@@ -2354,13 +2512,13 @@ DeepSpaceGame.graphics = {
   flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r),
   flag_shadow: () => new createjs.Shadow("#ECEFF1", 0, 0, 10),
 
-  energyMeter: (color, percent, radius = 5) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius, (-Math.PI/2), (2*Math.PI*percent)-(Math.PI/2)),
-  energyMeterShadow: (color) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 7, 0, 2*Math.PI)
+  energyMeter: (color, percent, radius = 5) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius, (-Math.PI / 2), (2 * Math.PI * percent) - (Math.PI / 2)),
+  energyMeterShadow: (color) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, 7, 0, 2 * Math.PI)
 };
 
 DeepSpaceGame.renderingParameters = {
-  'bulletCount' : 100,
-  'shipThrustParticleCount' : 80
+  'bulletCount': 100,
+  'shipThrustParticleCount': 80
 }
 
 DeepSpaceGame.localizationStrings = {
