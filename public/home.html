@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>DEEP SPACE</title>
+    <link rel="stylesheet" href="/styles/normalization.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/application.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/user.css" charset="utf-8">
+    <link rel="stylesheet" href="/styles/home.css" charset="utf-8">
+
+    <script src="https://unpkg.com/react@15/dist/react.js"></script>
+    <script src="https://unpkg.com/react-dom@15/dist/react-dom.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="/js2/ext/swearjar/swearjar.js"></script>
+
+    <script src="/js2/lib.js"></script>
+    <script src="/js2/env.js"></script>
+    <script src="/js2/user.js"></script>
+
+    <!--<script src="https://code.createjs.com/soundjs-0.6.2.min.js"></script>-->
+    <!--<script src="/sound.js"></script>-->
+    <script src="/js2/lobby.js"></script>
+    <script src="/js2/home.js"></script>
+    <!--<script src="/ui.js"></script>-->
+
+    <!--<script src="https://d3js.org/d3-timer.v1.min.js"></script>-->
+    <!--<script src="/js2/particles.js"></script>-->
+</head>
+<body>
+
+<div id="user_info_layer" class="layer">
+
+    <div id="user_info_background"></div>
+    <div id="user_info_content" class="v-center">
+        <div id="user_info_content_background"></div>
+
+        <div id="user_info_content_scroll">
+
+
+            <div id="uic_header">
+                <!--<span id="uic_title"></span>-->
+                <input id="uic_title" disabled="true" value="- name - " placeholder="Your Name">
+                <span id="uic_title_edit">set</span>
+            </div>
+            <hr>
+            <div id="uic_info1">
+                <div class="cell">
+                    <span class="cell_title">money</span>
+                    <span id="uic_money_cell" class="cell_value">-</span>
+                </div>
+                <div class="cell">
+                    <span class="cell_title">rank</span>
+                    <span id="uic_rank_cell" class="cell_value">-</span>
+                </div>
+                <div class="cell">
+                    <span class="cell_title">win rate</span>
+                    <span id="uic_win_cell" class="cell_value">-</span>
+                </div>
+                <div class="cell">
+                    <span class="cell_title">friends</span>
+                    <span id="uic_friends_cell" class="cell_value">-</span>
+                </div>
+            </div>
+            <hr id="hr_1">
+            <div id="uic_info2">
+                <div class="row"><span class="row_title">wins</span><span id="uic_wins_row" class="row_value">-</span></div>
+                <div class="row"><span class="row_title">losses</span><span id="uic_losses_row" class="row_value">-</span></div>
+                <div class="row"><span class="row_title">kills</span><span id="uic_kills_row" class="row_value">-</span></div>
+                <div class="row"><span class="row_title">deaths</span><span id="uic_deaths_row" class="row_value">-</span></div>
+            </div>
+            <hr>
+            <div id="uic_footer">
+                <button id="uic_reset_button" disabled>reset stats</button>
+                <button id="uic_close_button">close</button>
+            </div>
+
+
+            <!--<div id="uic_header">-->
+                <!--<span id="uic_title" contenteditable="true">Alpha 21</span>-->
+                <!--<span id="uic_title_edit">edit</span>-->
+            <!--</div>-->
+            <!--<hr>-->
+            <!--<div id="uic_info1">-->
+                <!--<div class="cell">-->
+                    <!--<span class="cell_title">money</span>-->
+                    <!--<span id="uic_money_cell" class="cell_value">3202</span>-->
+                <!--</div>-->
+                <!--<div class="cell">-->
+                    <!--<span class="cell_title">rank</span>-->
+                    <!--<span id="uic_rank_cell" class="cell_value">E - 32</span>-->
+                <!--</div>-->
+                <!--<div class="cell">-->
+                    <!--<span class="cell_title">win rate</span>-->
+                    <!--<span id="uic_win_cell" class="cell_value">3.1</span>-->
+                <!--</div>-->
+                <!--<div class="cell">-->
+                    <!--<span class="cell_title">friends</span>-->
+                    <!--<span id="uic_friends_cell" class="cell_value">4</span>-->
+                <!--</div>-->
+            <!--</div>-->
+            <!--<hr id="hr_1">-->
+            <!--<div id="uic_info2">-->
+                <!--<div class="row"><span class="row_title">wins</span><span id="uic_wins_row" class="row_value">32</span></div>-->
+                <!--<div class="row"><span class="row_title">losses</span><span id="uic_losses_row" class="row_value">41</span></div>-->
+                <!--<div class="row"><span class="row_title">kills</span><span id="uic_kills_row" class="row_value">92</span></div>-->
+                <!--<div class="row"><span class="row_title">deaths</span><span id="uic_deaths_row" class="row_value">71</span></div>-->
+            <!--</div>-->
+            <!--<hr>-->
+            <!--<div id="uic_footer">-->
+                <!--<button id="uic_reset_button">reset stats</button>-->
+                <!--<button id="uic_close_button">close</button>-->
+            <!--</div>-->
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div id="menu_layer" class="layer">
+    <!--<div id="space" class="layer">-->
+    <!--<canvas id="particles"></canvas>-->
+    <!--</div>-->
+    <!--<div id="viginette" class="layer"></div>-->
+
+    <div id="user_mini_info">
+        <span id="umi_name_letter" class="umi_name"></span>
+        <span id="umi_name_full" class="umi_name"></span>
+        <i id="umi_icon1" class="material-icons">launch</i>
+        <!--<img id="umi_icon1" src="/images/launch.svg" alt="">-->
+
+        <div id="umi_extra">
+            <div id="umi_stats">
+                <span id="umi_stats_title_rank" class="umi_stats_title">RANK</span>
+                <span id="umi_stats_rank" class="umi_stats_value"></span>
+                <span id="umi_stats_title_currency" class="umi_stats_title">$</span>
+                <span id="umi_stats_currency" class="umi_stats_value"></span>
+            </div>
+            <i id="umi_icon2" class="material-icons">launch</i>
+            <!--<img id="umi_icon2" src="/images/launch.svg" alt="">-->
+        </div>
+    </div>
+
+    <div class="content">
+
+        <span id="home-title">DEEP SPACE</span>
+
+
+        <div id="home_menu_cover"></div>
+        <ul id="home-menu">
+            <!--<li>PUBLIC</li>-->
+            <!--<li>FRIENDS</li>-->
+            <!--<li>TUTORIAL</li>-->
+            <!--<li>PRACTICE</li>-->
+            <!--<li>OPTIONS</li>-->
+
+            <span>
+            <form action="/pool" method="POST"><input type="submit" value="PUBLIC"></form>
+            </span>
+            <span>
+            <a href="/friends"><input type="submit" value="FRIENDS"></a>
+            <!-- <form action="/history" method="POST"></form> -->
+            </span>
+            <li>TUTORIAL</li>
+            <span class="selected">
+            <form action="/practice" method="POST"><input type="submit" value="PRACTICE"></form>
+            </span>
+            <li>OPTIONS</li>
+
+            <!-- <span class="mi"><a href="/options">options</a></span>
+            <span class="mi"><a href="/about">about</a></span> -->
+        </ul>
+
+
+
+        <!--<div class="left">-->
+        <!--<div class="title">DEEP SPACE</div>-->
+        <!--</div>-->
+
+        <!--<div class="right">-->
+        <!--<div class="menu">-->
+        <!--<span class="mi">-->
+        <!--<form action="/pool" method="POST"><input type="submit" value="with anyone"></form>-->
+        <!--</span>-->
+        <!--<span class="mi">-->
+        <!--<a href="/friends"><input type="submit" value="with friends"></a>-->
+        <!--&lt;!&ndash; <form action="/history" method="POST"></form> &ndash;&gt;-->
+        <!--</span>-->
+        <!--<span class="mi selected">-->
+        <!--<form action="/practice" method="POST"><input type="submit" value="solo practice"></form>-->
+        <!--</span>-->
+        <!--&lt;!&ndash; <span class="mi"><a href="/options">options</a></span>-->
+        <!--<span class="mi"><a href="/about">about</a></span> &ndash;&gt;-->
+        <!--</div>-->
+        <!--</div>-->
+
+    </div>
+
+    <div id="home_version">
+        <span>v0.6</span>
+    </div>
+</div>
+<div id="sound_layer" class="layer">
+    <div id="volume">
+        <button id="muted"><i class="material-icons">volume_mute</i></button>
+        <button id="not_muted"><i class="material-icons">volume_up</i></button>
+    </div>
+</div>
+
+</body>
+</html>

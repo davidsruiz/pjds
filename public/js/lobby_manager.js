@@ -51,7 +51,9 @@ class LobbyManager {
     console.log(`===============================`);
   }
 
-  new_ID() {return shortid.generate()}
+  new_ID() {
+    return shortid.generate().slice(0, 6);
+  }
 
   new_public() {
     var lobby = this.new_lobby('public', {players: 4, teams: 2});

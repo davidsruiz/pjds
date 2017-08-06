@@ -10,7 +10,7 @@ class Attractor {
     this.team = data.team;
     this.type = data.type;
 
-    this.assignAttrFrom(Attractor.stats);
+    Object.assign(this, Attractor.stats);
 
     // needs work
     this.position = new V2D(data.position.x, data.position.y);
@@ -69,7 +69,7 @@ class Repulsor {
     this.team = data.team;
     this.type = data.type;
 
-    this.assignAttrFrom(Repulsor.stats);
+    Object.assign(this, Repulsor.stats);
 
     // needs work
     this.position = new V2D(data.position.x, data.position.y);
@@ -125,7 +125,7 @@ class BlockBomb {
     this.team = data.team;
     this.type = data.type;
 
-    this.assignAttrFrom(BlockBomb.stats);
+    Object.assign(this, BlockBomb.stats);
 
     // needs work
     this.position = new V2D(data.position.x, data.position.y);
@@ -181,7 +181,7 @@ class StealthCloak {
 
     this.target = ENV.game.players.get(data.player);
 
-    this.assignAttrFrom(StealthCloak.stats);
+    Object.assign(this, StealthCloak.stats);
 
     this.life_counter = 0;
     this.disabled = false;
@@ -214,7 +214,7 @@ class Missile {
 
     this.target = null; // ship
 
-    this.assignAttrFrom(Missile.stats);
+    Object.assign(this, Missile.stats);
 
     this.position = new V2D(data.position.x, data.position.y);
 

@@ -1,4 +1,4 @@
-RESULTS = {
+let RESULTS = {
   layer_node: null,
   getLayerNode: function() {
     return this.layer_node ? this.layer_node : this.layer_node = document.querySelector('#results_layer');

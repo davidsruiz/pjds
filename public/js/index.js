@@ -1,15 +1,15 @@
 
 // EXTENTION //
-Array.new = function(length, filler){let a = []; for(let i = 0; i < length; i++) a.push(filler); return a;};
+// Array.new = function(length, filler){let a = []; for(let i = 0; i < length; i++) a.push(filler); return a;};
 // let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 ///////////////
 
-let LobbyManager = require('./lobby_manager.js');
-let LM = new LobbyManager();
+const LobbyManager = require('./lobby_manager.js');
+const LM = new LobbyManager();
 let clients = new Map();
 
-TEA = require('./TEA.js');
-let RANK = {
+const TEA = require('./TEA.js');
+const RANK = {
   MIN: 0, MAX: 599,
   win(current_rank) {
     let new_rank = current_rank + this.f1(current_rank);
@@ -48,11 +48,12 @@ let
 
 // let shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-let colors = require('colors');
-let bodyParser = require('body-parser');
+const colors = require('colors');
+const bodyParser = require('body-parser');
 app.use(bodyParser.json());
+const path = require('path');
 
-app.use(express.static('public'));
+app.use(express.static(path.resolve('public')));
 
     //Tell the server to listen for incoming connections
     server.listen(80);
@@ -61,9 +62,9 @@ server.listen(gameport);
 console.log('\t :: Express :: Listening on port ' + gameport );
 
 
-app.get( '/', function( req, res ){
+app.get( '/', function( req, res ) {
 
-  res.sendfile("home2.html");
+  res.sendfile(path.resolve('public/server_m.html'));
 
 });
 
@@ -153,7 +154,7 @@ app.post( '/:type', function( req, res ){
 
 app.get( '/friends' , function( req, res, next ) {
 
-  res.sendfile("friends.html")
+  res.sendfile(path.resolve('public/friends.html'));
 
 }); //app.get /friends
 
@@ -162,7 +163,7 @@ app.get( '/*' , function( req, res, next ) {
 
     let lobbyID = req.params[0];
     if(LM.exists(lobbyID)) {
-      res.sendfile("game.html");
+      res.sendfile(path.resolve('public/game.html'));
     } else {
       res.redirect(`/`);
     }
@@ -186,7 +187,7 @@ sio.configure(function (){
     //client connections looking for a game, creating games,
     //leaving games, joining games and ending games when they leave.
 // game_server = require('./game.server.js');
-// Lobby = require('./lobby.js');
+// Lobby = require('./old_lobby.js');
 // LobbyManager.
 
     //Socket.io will call this function when a client connects,
@@ -267,6 +268,24 @@ sio.sockets.on('connection', function (client) {
     }
 
   });
+
+  client.on('connect', data => {
+
+    // verify participant to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      // return if client has already joined
+      if(lobby.players.has(client)) return;
+
+      // actual joining
+      lobby.join(client, data);
+
+    }
+
+  });
+
+
 
 
 

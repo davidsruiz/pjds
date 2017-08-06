@@ -1,5 +1,5 @@
 
-var LOBBY = {
+let LOBBY = {
 
   coundownTime: 3,
 
@@ -113,7 +113,7 @@ var LOBBY = {
   },
 
   animateRankChange(old_rank = 0, new_rank) {console.log(`OLD ${old_rank}`, `NEW ${new_rank}`)
-    $('#countdown').text(`RANK  -  ${ENV.user.calculateRankString(old_rank)}`);
+    $('#countdown').text(`RANK  -  ${User.calculateRankString(old_rank)}`);
     this.showLayer('#countdown_layer');
 
     (()=>{
@@ -126,7 +126,7 @@ var LOBBY = {
         var progress = (++i) / frame_count,
             current_rank = Math.round(parseInt(old_rank) + (rank_delta*progress)),
             wait_time = ms_delay*i;
-        (()=>{$('#countdown').text(`RANK  -  ${ENV.user.calculateRankString(current_rank)}`);}).wait(wait_time);
+        (()=>{$('#countdown').text(`RANK  -  ${User.calculateRankString(current_rank)}`);}).wait(wait_time);
       })
     }).wait(1000);
 

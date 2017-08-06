@@ -4,7 +4,7 @@ class Block {
       this.id = data.id;
       this.team = data.team;
 
-      this.assignAttrFrom(Block.stats);
+      Object.assign(this, Block.stats);
 
       // needs work
       this.position = new V2D(data.position.x, data.position.y);

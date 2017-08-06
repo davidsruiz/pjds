@@ -54,9 +54,9 @@ if (!Object.prototype.unwatch) {
 }
 
 
-Object.prototype.assignAttrFrom = function (obj) {for (var attrname in obj) { this[attrname] = obj[attrname] }};
-Object.prototype.size = function () {return Object.keys(this).length};
-Object.prototype.forEach = function(block) { if(typeof block == "function") Object.keys(this).forEach((key) => block(key, this[key], this)) };
+// Object.prototype.assignAttrFrom = function (obj) {for (var attrname in obj) { this[attrname] = obj[attrname] }};
+// Object.prototype.size = function () {return Object.keys(this).length};
+// Object.prototype.forEach = function(block) { if(typeof block == "function") Object.keys(this).forEach((key) => block(key, this[key], this)) };
 
 Number.prototype.times = function(block) { for(var i = 0; i < this; i++) block(i); };
 
@@ -165,10 +165,10 @@ Math.uuid = () => Math.random().toString(36).substring(2, 15);
 
 window.location.reset = () => { window.location = window.location.origin }
 
-FRAMES = {secs: s => s*60, mins: m => FRAMES.secs(m*60), hrs: h => FRAMES.mins(h*60)}
+const FRAMES = {secs: s => s*60, mins: m => FRAMES.secs(m*60), hrs: h => FRAMES.mins(h*60)}
 
 // http://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
-var COLOR = {
+const COLOR = {
   componentToHex(c) {
       var hex = c.toString(16);
       return hex.length == 1 ? "0" + hex : hex;

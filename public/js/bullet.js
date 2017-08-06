@@ -5,7 +5,7 @@ class Bullet {
     this.team = data.team;
     this.creator = data.creator;
 
-    this.assignAttrFrom(Bullet.stats);
+    Object.assign(this, Bullet.stats);
 
     // needs work
     this.position = new V2D(data.position.x, data.position.y);

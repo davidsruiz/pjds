@@ -51,5 +51,8 @@ class Timer {
   get timeLeft() { return this.endTime - Date.now() }
 }
 
-var module;
-if(module) module.exports = Timer;
+// var module;
+// if(module)
+  try {
+  module.exports = Timer;
+  } catch(e) {console.warn(e)}

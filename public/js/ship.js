@@ -15,8 +15,8 @@ class BasicShip {
     this.radius = 10;
     this.stealth = false;
 
-    this.assignAttrFrom(Ship.baseStats);           // write base stats
-    this.assignAttrFrom(Ship.type[player.type]);   // then overwrite with type specific changes
+    Object.assign(this, Ship.baseStats);           // write base stats
+    Object.assign(this, Ship.type[player.type]);   // then overwrite with type specific changes
 
     this.spawn =
       V2D.new(this.owner.team.game.mapInfo.spawn[this.owner.team.game.teams.length-1][this.owner.team.number])
@@ -110,7 +110,7 @@ class Ship extends BasicShip {
     this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
     this.flag_recoil_counter = this.FLAG_RECOIL_DELAY;
 
-    // this.assignAttrFrom(Ship.type[player.type]); >> moved to super!
+    // Object.assign(this, Ship.type[player.type]); >> moved to super!
     this.hp = this.HP_CAPACITY;
 
     // this.spawn =
@@ -278,6 +278,24 @@ Ship.type = {
     SUB_ENERGY_COST: 45 // ep
   },
 
+  "rate" : {
+    type: 'rate',
+
+    RESPAWN_DELAY: 3, // 4
+
+    ATTACK_HP: 6, // 8
+    ATTACK_RECOIL_DELAY: (1/6), // (1/4)
+    ATTACK_RADIUS: 6, // 8
+
+    // BLOCK_HP_CAPACITY: 6, // 8
+    BLOCK_RECOIL_DELAY: (1/5), // (1/6)
+
+    SUB_TYPE: 'missile',
+    SUB_RECOIL_DELAY: 1, //s 2
+    SUB_CAPACITY: 1,
+    SUB_ENERGY_COST: 70
+  },
+
   "speed" : {
     type: 'speed',
 
@@ -318,24 +336,6 @@ Ship.type = {
     SUB_RECOIL_DELAY: 1, //s
     SUB_CAPACITY: 1,
     SUB_ENERGY_COST: 90 // 70 when no charge upon stealth
-  },
-
-  "rate" : {
-    type: 'rate',
-
-    RESPAWN_DELAY: 3, // 4
-
-    ATTACK_HP: 6, // 8
-    ATTACK_RECOIL_DELAY: (1/6), // (1/4)
-    ATTACK_RADIUS: 6, // 8
-
-    // BLOCK_HP_CAPACITY: 6, // 8
-    BLOCK_RECOIL_DELAY: (1/5), // (1/6)
-
-    SUB_TYPE: 'missile',
-    SUB_RECOIL_DELAY: 1, //s 2
-    SUB_CAPACITY: 1,
-    SUB_ENERGY_COST: 70
   },
 
   "damage" : {

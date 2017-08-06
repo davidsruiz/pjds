@@ -4,7 +4,7 @@ class Pulse {
     this.id = data.id;
     this.team = data.team;
 
-    this.assignAttrFrom(Pulse.stats);
+    Object.assign(this, Pulse.stats);
 
     // needs work
     this.position = new V2D(data.position.x, data.position.y);

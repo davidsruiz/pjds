@@ -1,7 +1,7 @@
 
 "use strict";
 
-let Timer = require('./public/js/timer.js');
+let Timer = require('./timer.js');
 
 let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 

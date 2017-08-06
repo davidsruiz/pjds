@@ -1,7 +1,7 @@
 
 "use strict";
 
-let Timer = require('./public/js/timer.js');
+let Timer = require('./timer.js');
 
 let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 
@@ -317,8 +317,10 @@ class Lobby {
     // spectator -> name
     const spec_arr = Array.from(this.connected).map(c => c.id_).filter(str => str);
 
+    const type = REF.lobby.type.indexOf(this.type);
+
     return {
-      type: this.type,
+      type,
       code: this.id,
       password: this._password,
       game_settings: {
@@ -327,10 +329,12 @@ class Lobby {
         mode: null,
         stock: null
       },
-      players: [
-        // {name, rank, team, ready, ship, slots []}
-      ],
-      spectators: spec_arr
+      users: {
+        players: [
+          // {name, rank, team, ready, ship, slots []}
+        ],
+        spectators: spec_arr
+      }
     };
   }
 
@@ -413,6 +417,35 @@ var TINT = {
 
 };
 
+const REF = {
+  lobby: {
+    type: ['public', 'private', 'practice'],
+    typeDesc: [
+      'This is a private lobby. Players present have complete control over game settings',
+      'This is a private lobby. Players present have complete control over game settings',
+    ]
+  },
+
+  ship: {
+    type: ['standard', 'rate', 'speed', 'defense', 'damage'],
+    typeDesc: [
+      'a tune with the world and itself, this is the balanced ship',
+      'this ship produces a stream of light bullets to trap and confuse',
+      'run your way out of any situation with the speed ship',
+      'take more than just a hit with the defense ship',
+      'this ship is feared across the reach of space, use it wisely'
+    ],
+    sub: ['attractor', 'heat seeker', 'repulsors', 'stealth', 'block bomb'],
+    stats: [
+      ['HEALTH', '0.6', '0.6', '0.2', '1.0', '0.7'],
+      ['SPEED', '0.6', '0.6', '0.9', '0.4', '0.4'],
+      ['ATTACK', '0.5', '0.4', '0.3', '0.5', '1.0'],
+      ['RANGE', '0.5', '0.5', '0.3', '0.7', '0.4'],
+    ]
+
+  }
+
+};
 
 
 

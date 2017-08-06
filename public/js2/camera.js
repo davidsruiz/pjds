@@ -1,0 +1,109 @@
+"use strict";
+
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Camera = function () {
+  function Camera(window, plane, focus) {
+    _classCallCheck(this, Camera);
+
+    this.window = window;this.plane = plane;this.focus = focus;
+    this.edge_x = -this.plane.width + this.window.width;
+    this.edge_y = -this.plane.height + this.window.height;
+  }
+
+  _createClass(Camera, [{
+    key: "update",
+    value: function update() {
+      var offsetX = this.window.width / 2,
+          offsetY = this.window.height / 2;
+
+      var new_x = -this.focus.x + offsetX;
+      var new_y = -this.focus.y + offsetY;
+
+      if (new_x > 0) new_x = 0;
+      if (new_y > 0) new_y = 0;
+      if (new_x < this.edge_x) new_x = this.edge_x;
+      if (new_y < this.edge_y) new_y = this.edge_y;
+
+      this.plane.x = new_x;
+      this.plane.y = new_y;
+    }
+  }, {
+    key: "showing",
+    value: function showing(obj) {
+      var r = obj.radius;
+      return obj.position.x - r + this.plane.x < this.width && obj.position.x + r + this.plane.x > 0 && obj.position.y - r + this.plane.y < this.height && obj.position.y + r + this.plane.y > 0;
+    }
+  }, {
+    key: "closest_match",
+    value: function closest_match(obj) {
+      var padding = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 10;
+
+      var v = new V2D(),
+          not_visible = false;
+
+      v.x = obj.position.x + this.camera.plane.x;
+      v.y = obj.position.y + this.camera.plane.y;
+      if (v.x < padding) {
+        v.x = padding;not_visible = true;
+      }
+      if (v.x > this.window.width - padding) {
+        v.x = this.window.width - padding;not_visible = true;
+      }
+      if (v.y < padding) {
+        v.y = padding;not_visible = true;
+      }
+      if (v.y > this.window.height - padding) {
+        v.y = this.window.height - padding;not_visible = true;
+      }
+
+      return { is_visible: !not_visible, position: v };
+    }
+
+    /*
+     * this.animateFocus: eases the focus coordinate from one target to another while a condition is true after an amount
+     * of time.
+     */
+
+  }, {
+    key: "animateFocus",
+    value: function animateFocus(new_focus, whileCondition) {
+      var _this = this;
+
+      // log(this.focus); log(new_focus);
+      var timingFunction = BezierEasing(0.4, 0.0, 0.2, 1),
+          old_focus = this.focus;
+      setAnimationTimeout(function (dt, elapsed, timeout) {
+        var percentage = elapsed / timeout;
+        var p1 = new V2D(old_focus.x, old_focus.y);
+        var p2 = new V2D(new_focus.x, new_focus.y);
+        var delta_v = p2.sub(p1);
+        delta_v.length = delta_v.length * timingFunction(percentage);
+        p1.add(delta_v);
+        _this.focus = { x: p1.x, y: p1.y };
+      }, 1, function () {
+        _this.focus = new_focus;
+        check();
+      });
+
+      // a continuous post check is required for slower machines that run at < 60 fps
+
+      var _whileCondition = _slicedToArray(whileCondition, 2),
+          obj = _whileCondition[0],
+          prop = _whileCondition[1];
+
+      var check = function check() {
+        obj[prop] ? setTimeout(function () {
+          check();
+        }, 16) : _this.focus = old_focus;
+      };
+      // (()=>{ check() }).wait(1000);
+    }
+  }]);
+
+  return Camera;
+}();

@@ -102,20 +102,19 @@ class Lobby {
     this.info = data[1];
 
     // ENV.UI.init();
+    ENV.lobby_ui.initReact();
   }
 
-  join() {
+  join(shipType) {
 
     // the prerequisits for joining are:
     // {name, rank, team, ready, ship, slots []}
-
-
 
     // connect to specific lobby presenting id and name
     let lobbyID = window.location.pathname.slice(1),
       // [lobby_id, user_id, user_name];
 
-      data = [lobbyID, ENV.user.id, ENV.user.name];
+      data = [lobbyID, ENV.user.id, ENV.user.name, false, ];
 
     this.socket.emit('connect', data);
 
@@ -176,7 +175,7 @@ $(()=>{
 
 
 
-
+// handles lobby code about ui
 class LobbyUI {
 
   constructor() {}
@@ -208,6 +207,14 @@ class LobbyUI {
   }
 
   get_team(max_team_count, solo_option) {}
+
+
+  initReact() {
+    ReactDOM.render(
+      <DSGameLobby data={ENV.lobby.info} />,
+      document.getElementById('container')
+    );
+  }
 
 }
 

@@ -1,8 +1,9 @@
 
 /* FONTS */
 /*@import 'https://fonts.googleapis.com/css?family=Roboto:400,500|Roboto+Condensed:700|Roboto+Mono';*/
-@import url('https://fonts.googleapis.com/css?family=Montserrat|Roboto+Condensed:400,700|Unica+One');
+@import url('https://fonts.googleapis.com/css?family=Roboto:900|Montserrat|Roboto+Condensed:400,700|Unica+One');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('colors.var.css');
 
 /* STRUCTURE */
 html, body {
@@ -16,40 +17,7 @@ a, input {font-size: inherit; letter-spacing: inherit;}
 *[hidden] {display: none}
 
 /* layers */
-body { position: relative; }
-.ui-layer {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-}
-
-/* standard layers */
-/* -- background */
-.ui-layer#ui-wrapper {
-    z-index: 0;
-}
-.ui-layer#ui-layer-background {
-    background-color: #37474F;
-    z-index: 10;
-}
-.ui-layer#ui-layer-content {
-    z-index: 20;
-}
-.ui-layer#ui-layer-overlays {
-    display: none;
-    z-index: 90;
-}
-
-/* -- content-popover */
-#ui-content-main {
-    z-index: 30;
-}
-#ui-content-popover {
-    left: 90%;
-    background: #90A4AE;
-    z-index: 80;
-}
-
+body { position: relative; user-select: none; }
 
 .layer {
     width: 100%;
@@ -63,8 +31,8 @@ body { position: relative; }
 }
 
 .layer > .content {
-    width: 1024px;
-    height: 768px;
+    width: 100%;
+    height: 100%;
 
     box-sizing: border-box;
 }
@@ -144,13 +112,13 @@ body { position: relative; }
 }
 
 #menu_layer .mi {
-    display: block;
-    margin-bottom: 12px;
-    font-size: 40px;
-    color: #546E7A; /* Blue Grey 600 */
-    letter-spacing: 4px;
-    transition: 0.4s;
-    cursor: default;
+    /*display: block;*/
+    /*margin-bottom: 12px;*/
+    /*font-size: 40px;*/
+    /*color: #546E7A; !* Blue Grey 600 *!*/
+    /*letter-spacing: 4px;*/
+    /*transition: 0.4s;*/
+    /*cursor: default;*/
 }
 
 #menu_layer .selected {
@@ -168,6 +136,7 @@ body { position: relative; }
 
     background-color: #455A64; /* Blue Grey 700 */
 }
+html { background-color: #37474F; }
 
 ::-webkit-input-placeholder {
     color: #546E7A; /* Blue Grey 600 */
@@ -450,3 +419,10 @@ span.mi.player {
     height:100%;
     width:100%;
 }
+
+
+
+/* NEW */
+
+
+.active {color: white}
