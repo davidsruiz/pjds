@@ -2,7 +2,7 @@
 
 var ENV = ENV || {};
 
-ENV.storage = sessionStorage;
+ENV.storage = localStorage;
 ENV.help = {};
 ENV.view = {};
 
