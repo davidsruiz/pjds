@@ -7,64 +7,241 @@ var RESULTS = {
   getLayerNode: function getLayerNode() {
     return this.layer_node ? this.layer_node : this.layer_node = document.querySelector('#results_layer');
   },
-  load: function load(game_data) {
+  load: function load(server_data) {
+
+    // DOM
     this.clear_DOM();
+    var layer = this.getLayerNode();
 
-    var summary = this.structure(game_data),
-        layer = this.getLayerNode();
+    // data
+    var summary = this.interpret(server_data);
 
-    summary.forEach(function (team, i) {
-      var results_team = document.createElement('div'),
-          results_team_win_state = document.createElement('span'),
-          results_team_score = document.createElement('span'),
-          results_players = document.createElement('div');
+    // HEADER //
 
-      var _COLOR$hexToRgb = COLOR.hexToRgb(team.color),
-          r = _COLOR$hexToRgb.r,
-          g = _COLOR$hexToRgb.g,
-          b = _COLOR$hexToRgb.b;
+    // setup
+    var mainTeam = summary.teams.shift(); //team in question
 
-      var RGBAcolor = 'rgba(' + r + ', ' + g + ', ' + b + ', 0.3)';
+    // header background
+    var resultsHead = layer.querySelector('#results_head');
+    resultsHead.style.background = mainTeam.color;
 
-      results_team.className = 'results_team';
-      results_team_win_state.className = 'results_team_win_state';
-      results_team_win_state.textContent = i == 0 ? 'WIN' : 'LOSE';
-      results_team_win_state.style.color = team.color;
-      results_team_score.className = 'results_team_score';
-      results_team_score.textContent = team.score;
-      results_players.className = 'results_players';
+    // win outcome
+    var outcomeResultNode = layer.querySelector('#results_win_outcome');
+    outcomeResultNode.textContent = mainTeam.won ? 'WIN' : 'LOSE';
 
-      team.players.forEach(function (player) {
-        var results_player = document.createElement('span'),
-            results_player_name = document.createElement('span'),
-            results_player_score = document.createElement('span');
+    // scoring unit
+    var labelText = REF.results.modeMeasure[summary.mode];
+    var scoreUnitLabelNode = layer.querySelector('#results_timeline_label');
+    scoreUnitLabelNode.textContent = labelText.toUpperCase();
 
-        results_player.className = 'results_player';
-        results_player.style.backgroundColor = RGBAcolor;
-        results_player_name.className = 'results_player_name';
-        results_player_name.textContent = player[0];
-        results_player_score.className = 'results_player_score';
-        results_player_score.textContent = player[1] + '+ ' + player[2] + '-';
+    // add bubbles
+    var bubblesContainer = layer.querySelector('#results_timeline_bubbles');
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
 
-        results_player.appendChild(results_player_name);
-        results_player.appendChild(results_player_score);
+    try {
+      for (var _iterator = summary.teams[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var team = _step.value;
 
-        results_players.appendChild(results_player);
-      });
+        bubblesContainer.appendChild(this.createBubble(team));
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
 
-      results_team_win_state.appendChild(results_team_score);
-      results_team.appendChild(results_team_win_state);
-      results_team.appendChild(results_players);
+    bubblesContainer.appendChild(this.createBubble(mainTeam));
 
-      layer.appendChild(results_team);
-    });
-  },
-  clear_DOM: function clear_DOM() {
-    var myNode = this.getLayerNode();
-    while (myNode.children[1]) {
-      myNode.removeChild(myNode.children[1]);
+    // add main team player's table
+    var header = document.querySelector('#results_head_content');
+    var mainPlayersTable = this.createPlayerTable(mainTeam);
+    header.appendChild(mainPlayersTable);
+
+    // BODY //
+
+    var resultsBodyNode = layer.querySelector('#results_body');
+    var _iteratorNormalCompletion2 = true;
+    var _didIteratorError2 = false;
+    var _iteratorError2 = undefined;
+
+    try {
+      for (var _iterator2 = summary.teams[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+        var _team = _step2.value;
+
+        var teamNode = document.createElement('div');
+        teamNode.className = 'results_team';
+        teamNode.style.color = _team.color;
+
+        teamNode.appendChild(this.createBubble(_team));
+        teamNode.appendChild(this.createPlayerTable(_team));
+
+        resultsBodyNode.appendChild(teamNode);
+      }
+
+      // summary.forEach((team, i)=>{
+      //   var results_team = document.createElement('div'),
+      //       results_team_win_state = document.createElement('span'),
+      //       results_team_score = document.createElement('span'),
+      //       results_players = document.createElement('div');
+      //   var {r, g, b} = COLOR.hexToRgb(team.color);
+      //   var RGBAcolor = `rgba(${r}, ${g}, ${b}, 0.3)`;
+      //
+      //   results_team.className = 'results_team';
+      //   results_team_win_state.className = 'results_team_win_state';
+      //   results_team_win_state.textContent = i == 0 ? 'WIN' : 'LOSE';
+      //   results_team_win_state.style.color = team.color;
+      //   results_team_score.className = 'results_team_score';
+      //   results_team_score.textContent = team.score;
+      //   results_players.className = 'results_players';
+      //
+      //   team.players.forEach((player)=>{
+      //     var results_player = document.createElement('span'),
+      //         results_player_name = document.createElement('span'),
+      //         results_player_score = document.createElement('span');
+      //
+      //     results_player.className = 'results_player';
+      //     results_player.style.backgroundColor = RGBAcolor;
+      //     results_player_name.className = 'results_player_name';
+      //     results_player_name.textContent = player[0];
+      //     results_player_score.className = 'results_player_score';
+      //     results_player_score.textContent = `${player[1]}+ ${player[2]}-`;
+      //
+      //     results_player.appendChild(results_player_name);
+      //     results_player.appendChild(results_player_score);
+      //
+      //     results_players.appendChild(results_player);
+      //   });
+      //
+      //   results_team_win_state.appendChild(results_team_score);
+      //   results_team.appendChild(results_team_win_state);
+      //   results_team.appendChild(results_players);
+      //
+      //   layer.appendChild(results_team);
+      // })
+    } catch (err) {
+      _didIteratorError2 = true;
+      _iteratorError2 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion2 && _iterator2.return) {
+          _iterator2.return();
+        }
+      } finally {
+        if (_didIteratorError2) {
+          throw _iteratorError2;
+        }
+      }
     }
   },
+  clear_DOM: function clear_DOM() {
+    var layerNode = this.getLayerNode();
+
+    var bubblesGroup = layerNode.querySelector('#results_timeline_bubbles');
+    while (bubblesGroup.children[0]) {
+      bubblesGroup.removeChild(bubblesGroup.children[0]);
+    }var playerTable = bubblesGroup.parentNode.parentNode.parentNode.querySelector('.results_players');
+    if (playerTable) playerTable.parentNode.removeChild(playerTable);
+
+    var resultsBody = layerNode.querySelector('#results_body');
+    while (resultsBody.children[0]) {
+      resultsBody.removeChild(resultsBody.children[0]);
+    }
+  },
+
+  createPlayerTable: function createPlayerTable(team) {
+
+    var ce = function ce(tagName) {
+      return document.createElement(tagName);
+    };
+
+    // root and table elements
+    var results_players = ce('div');
+    var table = ce('table');
+    var thead = ce('thead');
+    var tbody = ce('tbody');
+    results_players.className = 'results_players';
+
+    // header
+    var headerRow = ce('tr');
+    var headerRowContents = ['', 'KILLS', 'DEATHS', 'HITS'];
+    headerRowContents.length.times(function (i) {
+      var headerCell = ce('th');
+      headerCell.textContent = headerRowContents[i];
+      headerRow.appendChild(headerCell);
+    });
+    thead.appendChild(headerRow);
+
+    // player rows
+
+    var _loop = function _loop(player) {
+      var row = ce('tr');
+      player.length.times(function (i) {
+        var cell = ce('th');
+        cell.textContent = player[i];
+        row.appendChild(cell);
+      });
+      tbody.appendChild(row);
+    };
+
+    var _iteratorNormalCompletion3 = true;
+    var _didIteratorError3 = false;
+    var _iteratorError3 = undefined;
+
+    try {
+      for (var _iterator3 = team.players[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+        var player = _step3.value;
+
+        _loop(player);
+      }
+
+      // hookup and connect
+    } catch (err) {
+      _didIteratorError3 = true;
+      _iteratorError3 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion3 && _iterator3.return) {
+          _iterator3.return();
+        }
+      } finally {
+        if (_didIteratorError3) {
+          throw _iteratorError3;
+        }
+      }
+    }
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    results_players.appendChild(table);
+
+    return results_players;
+    // var {r, g, b} = COLOR.hexToRgb(team.color);
+    // var RGBAcolor = `rgba(${r}, ${g}, ${b}, 0.3)`;
+
+  },
+  createBubble: function createBubble(team) {
+    var bubble = document.createElement('span');
+
+    bubble.className = 'results_timeline_bubble';
+    bubble.textContent = team.score;
+    bubble.style.backgroundColor = team.color;
+    bubble.style.left = team.progress + '%';
+
+    return bubble;
+  },
+
 
   // returns this format [{color: '#333233', score: 90, players: [['joan', 4, 5], ['billy', 4, 5]]}, [['acp', 1, 3], ['cake', 3, 4]]]
   structure: function structure(game_data) {
@@ -90,6 +267,185 @@ var RESULTS = {
       return b.score - a.score;
     });
     return summary;
+  },
+  interpret: function interpret(_ref) {
+    var _ref2 = _slicedToArray(_ref, 2),
+        scores = _ref2[0],
+        records = _ref2[1];
+
+    // reference materials
+    var colors = ENV.game.teams.map(function (team) {
+      return team.color;
+    });
+    var mode = ENV.game.gameMode;
+
+    // score to progress and win conversion
+    var progresses = [];
+    var respectiveWins = [];
+    switch (mode) {
+
+      // ctf
+      case 0:
+
+        // progresses
+        var limit = 100;
+        scores.forEach(function (score) {
+          return progresses.push(limit - score);
+        });
+
+        // win bool
+        var bestScore = _(scores).min();
+        scores.forEach(function (score) {
+          return respectiveWins.push(bestScore == score);
+        });
+
+        break;
+
+      // territorial
+      case 1:
+
+        // progresses
+        var bestScore = _(scores).max();
+        scores.forEach(function (score) {
+          return progresses.push(100 * score / bestScore);
+        });
+
+        // win bool
+        scores.forEach(function (score) {
+          return respectiveWins.push(bestScore == score);
+        });
+
+        break;
+
+    }
+
+    var indexOfWinner = _(respectiveWins).indexOf(true);
+    var ourTeamIndex = ENV.spectate ? indexOfWinner : ENV.game.team.number;
+
+    // creation of summary
+    var summary = {};
+    summary.mode = mode;
+    summary.teams = [];
+    scores.forEach(function (teamScore, index) {
+
+      // root
+      var team = {};
+
+      team.color = colors[index]; // color
+      team.score = scores[index]; // score
+      team.progress = progresses[index]; // progress
+      team.won = respectiveWins[index]; // wins
+
+      team.players = [];
+
+      // stack onto summary
+      summary.teams.push(team);
+    });
+
+    // add player records to respective teams
+    var _iteratorNormalCompletion4 = true;
+    var _didIteratorError4 = false;
+    var _iteratorError4 = undefined;
+
+    try {
+      for (var _iterator4 = records[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+        var playerRecord = _step4.value;
+
+        var _teamIndexAndNameFrom = this.teamIndexAndNameFromPlayerID(playerRecord[0]),
+            _teamIndexAndNameFrom2 = _slicedToArray(_teamIndexAndNameFrom, 2),
+            teamIndex = _teamIndexAndNameFrom2[0],
+            name = _teamIndexAndNameFrom2[1];
+
+        playerRecord[0] = name;
+        summary.teams[teamIndex].players.push(playerRecord);
+      }
+
+      // rearrange primary team on top
+    } catch (err) {
+      _didIteratorError4 = true;
+      _iteratorError4 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion4 && _iterator4.return) {
+          _iterator4.return();
+        }
+      } finally {
+        if (_didIteratorError4) {
+          throw _iteratorError4;
+        }
+      }
+    }
+
+    var primaryTeam = summary.teams.splice(ourTeamIndex, 1).first();
+    summary.teams.unshift(primaryTeam);
+
+    return summary;
+  },
+  teamIndexAndNameFromPlayerID: function teamIndexAndNameFromPlayerID(id) {
+
+    var player = ENV.game.players.get(id);
+
+    if (player) {
+
+      var teamIndex = player.team.number;
+      var name = player.name;
+
+      return [teamIndex, name];
+    } else {
+      console.warn('RESULTS:: player ID not found (' + id + ')');
+    }
   }
 };
+
+var fake_data = [{
+  color: '#00B0FF',
+  score: '∞',
+  progress: 100,
+  won: true,
+  players: [['david', 12, 15, 123], ['isabel', 10, 3, 152], ['john', 12, 15, 123], ['grill', 10, 3, 152]]
+},
+// {
+//   color: '#00FFE2',
+//   score: 178,
+//   progress: 100,
+//   won: true,
+//   players: [
+//     ['john', 12, 15, 123],
+//     ['grill', 10, 3, 152],
+//   ],
+// },
+// {
+//   color: '#FFEA00',
+//   score: 120,
+//   progress: 67,
+//   won: false,
+//   players: [
+//     ['sam', 12, 15, 123],
+//     ['nancy', 10, 3, 152],
+//   ],
+// },
+// {
+//   color: '#00B0FF',
+//   score: 78,
+//   progress: 44,
+//   won: false,
+//   players: [
+//     ['shakespear', 12, 15, 123],
+//     ['underface', 10, 3, 152],
+//   ],
+// },
+{
+  color: '#82E600',
+  score: 4.3,
+  progress: 90,
+  won: false,
+  players: [['shakespear', 12, 15, 123], ['underface', 10, 3, 152], ['sam', 12, 15, 123], ['nancy', 10, 3, 152]]
+}, {
+  color: '#FFEA00',
+  score: 1.7,
+  progress: 32,
+  won: false,
+  players: [['shakespear', 12, 15, 123]]
+}];
+// RESULTS.load(fake_data);
 //# sourceMappingURL=results.js.map

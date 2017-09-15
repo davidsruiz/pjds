@@ -1,5 +1,9 @@
 'use strict';
 
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
 // EXTENTION //
 // Array.new = function(length, filler){let a = []; for(let i = 0; i < length; i++) a.push(filler); return a;};
 // let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
@@ -49,17 +53,28 @@ var RANK = {
   }
 };
 
+// Math.flipCoin = (p = 0.5) => Math.random() < p;
+// Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
+// const UUID = () => (Date.now().toString(36)).split('').shuffle().join();
+
+
 var gameport = process.env.PORT || 4004,
     io = require('socket.io'),
     express = require('express'),
-    UUID = require('node-uuid'),
-    verbose = false,
+
+// UUID            = require('node-uuid'),
+
+verbose = false,
     http = require('http'),
     app = express(),
     server = http.createServer(app);
 
-// let shortid = require('shortid');
-// shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+var shortid = require('shortid');
+// shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+var UUID = function UUID() {
+  return shortid.generate();
+};
+
 var colors = require('colors');
 var bodyParser = require('body-parser');
 app.use(bodyParser.json());
@@ -75,7 +90,7 @@ console.log('\t :: Express :: Listening on port ' + gameport);
 
 app.get('/', function (req, res) {
 
-  res.sendfile(path.resolve('public/server_m.html'));
+  res.sendfile(path.resolve('public/home.html'));
 });
 
 // app.get( '/play', function( req, res ){ res.sendfile("play.html")
@@ -96,20 +111,28 @@ app.post('/:type', function (req, res) {
       break;
 
     case "online_status":
-      var list = req.body.history;
-      var online = [];var c = 0;
+      var IDs = req.body.list;
+
+      // lobbies/unavailable
+      var lobbiesMap = new Map();
+      var unavailable = [];
       var _iteratorNormalCompletion = true;
       var _didIteratorError = false;
       var _iteratorError = undefined;
 
       try {
-        for (var _iterator = list[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var _id = _step.value;
+        for (var _iterator = IDs[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var _id2 = _step.value;
 
-          var _client = clients.get(_id);
+          var _client = clients.get(_id2);
           if (_client && _client.lobby && LM.existsInPrivate(_client.lobby.id)) {
-            var entry = [_client.name, _client.lobby.id];
-            online.push(entry);
+            // lobbies
+            var lobby = lobbiesMap.get(_client.lobby.id) || [];
+            lobby.push(_id2);
+            lobbiesMap.set(_client.lobby.id, lobby);
+          } else {
+            // unavailable
+            unavailable.push(_id2);
           }
         }
       } catch (err) {
@@ -127,38 +150,116 @@ app.post('/:type', function (req, res) {
         }
       }
 
-      res.json(online);
+      var lobbies = Array.from(lobbiesMap).map(function (pair) {
+        return [pair[0]].concat(_toConsumableArray(pair[1]));
+      }); // transform lobbies map
+
+      // names
+      var names = [];
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = IDs[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var _id3 = _step2.value;
+
+          var _client2 = clients.get(_id3);
+          if (_client2) names.push([_id3, _client2.name]);
+        }
+
+        // response
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+
+      res.json({ lobbies: lobbies, unavailable: unavailable, names: names });
+
       break;
     case "rank":
-      var id = req.body.id,
+      var _id = req.body.id,
           encoded_rank,
-          simple_rank = 0;
+          _simple_rank = 0;
 
-      if (!id) {
-        res.status(400).send('Bad Request');
+      if (!_id) {
+        res.status(400).send('No ID');
       } else {
-        encoded_rank = TEA.encrypt(simple_rank, id);
-        res.json({ simple: simple_rank, encoded: encoded_rank });
+        encoded_rank = TEA.encrypt(_simple_rank, _id);
+        res.json({ simple: _simple_rank, encoded: encoded_rank });
       }
       break;
     case "update_rank":
-      var id = req.body.id || UUID(),
+      var _id = req.body.id || UUID(),
           encoded_rank = req.body.rank || '',
-          simple_rank = parseInt(TEA.decrypt(encoded_rank, id));
+          _simple_rank = parseInt(TEA.decrypt(encoded_rank, _id));
 
-      if (isNaN(simple_rank)) simple_rank = 0;
+      if (isNaN(_simple_rank)) _simple_rank = 0;
 
-      var client = clients.get(id);
+      var client = clients.get(_id);
       if (client && client.won) {
         // if connected and needs winning
-        simple_rank = RANK.win(simple_rank);
+        // if(client && client.lobby && client.lobby.removeWinner(id)) { // if connected and needs winning
         client.won = false;
+        _simple_rank = RANK.win(_simple_rank);
       } else {
-        simple_rank = RANK.lose(simple_rank);
+        _simple_rank = RANK.lose(_simple_rank);
       }
 
-      encoded_rank = TEA.encrypt(simple_rank, id);
-      res.json({ simple: simple_rank, encoded: encoded_rank });
+      encoded_rank = TEA.encrypt(_simple_rank, _id);
+      res.json({ simple: _simple_rank, encoded: encoded_rank });
+      break;
+    case 'update_stats':
+
+      var _id = req.body[0] || UUID();
+      var rank = req.body[1] || '';
+      var money = req.body[2] || '';
+      var _simple_rank = parseInt(TEA.decrypt(rank, _id));
+      var simple_money = parseInt(TEA.decrypt(money, _id));
+
+      // if either is invalid, reset.
+      if (isNaN(_simple_rank) || isNaN(simple_money)) {
+        _simple_rank = 0;
+        simple_money = 0;
+      }
+
+      var onlineClient = clients.get(_id);
+      if (onlineClient && onlineClient.lobby && onlineClient.lobby.lastGameResults.has(_id)) {
+        var _onlineClient$lobby$l = onlineClient.lobby.lastGameResults.get(_id),
+            _onlineClient$lobby$l2 = _slicedToArray(_onlineClient$lobby$l, 2),
+            won = _onlineClient$lobby$l2[0],
+            hits = _onlineClient$lobby$l2[1];
+
+        onlineClient.lobby.lastGameResults.delete(_id);
+
+        // rank
+        if (won) {
+          _simple_rank = RANK.win(_simple_rank);
+        } else {
+          _simple_rank = RANK.lose(_simple_rank);
+        }
+
+        // money
+        simple_money += hits;
+      } else {
+        _simple_rank = RANK.lose(_simple_rank);
+      }
+
+      rank = TEA.encrypt(_simple_rank, _id);
+      money = TEA.encrypt(simple_money, _id);
+      res.json([rank, money, _simple_rank, simple_money]);
+
+      break;
     case "id":
       res.json(UUID());
       break;
@@ -174,6 +275,7 @@ app.post('/:type', function (req, res) {
   //   lobbyID = LM.new_private();
   // }
   //
+  // if(req.params.type == "practice") {
   // if(req.params.type == "practice") {
   //   lobbyID = LM.new_private({players: 1});
   // }
@@ -246,6 +348,7 @@ sio.sockets.on('connection', function (client) {
         lobby.connect(client);
         // send client it's ID copy of lobby as now stands
         client.emit('connected', [client.id_, lobby.map()]);
+        lobby.broadcast('usersUpdate', lobby.mapUsers(), client);
       }
     } else {
       client.emit('error', 'lobby ' + data[0] + ' not found');
@@ -268,13 +371,15 @@ sio.sockets.on('connection', function (client) {
         // test against password
         if (lobby.testPassword(data[1])) {
           lobby.connect(client);
-          client.emit('connected', [client.id, lobby.map()]);
+          client.emit('connected', [client.id_, lobby.map()]);
+          lobby.broadcast('usersUpdate', lobby.mapUsers(), client);
         } else {
           client.emit('auth');
         }
       } else {
         console.warn('no auth needed! for lobby ' + data[0]);
-        client.emit('connected', [client.id, lobby.map()]);
+        client.emit('connected', [client.id_, lobby.map()]);
+        lobby.broadcast('usersUpdate', lobby.mapUsers(), client);
       }
     } else {
       client.emit('error', 'lobby ' + data[0] + ' not found');
@@ -288,25 +393,74 @@ sio.sockets.on('connection', function (client) {
     if (lobby) {
 
       // return if client has already joined
-      if (lobby.players.has(client)) return;
+      if (lobby.playersMap.has(client)) return;
 
       // actual joining
-      lobby.join(client, data);
+      lobby.join(client, data).then(function () {
+        client.emit('joined');
+        lobby.emit('usersUpdate', lobby.mapUsers());
+
+        // show up on server's radar
+        // rank change and more
+        clients.set(client.id_, client);
+      }).catch(function (reason) {
+        console.log(reason.message.yellow);
+        // client.emit('error', reason);
+      });
     }
   });
 
-  client.on('connect', function (data) {
+  client.on('start', function (data) {
 
     // verify participant to lobby
     var lobby = client.lobby;
     if (lobby) {
 
-      // return if client has already joined
-      if (lobby.players.has(client)) return;
+      // return if client has already opted to start
+      if (lobby.playersMap.get(client)[3]) return;
 
-      // actual joining
-      lobby.join(client, data);
+      // actual opt to start
+      lobby.startFrom(client, data).then(function (everyoneIsReady) {
+        client.emit('starting');
+        lobby.emit('playersUpdate', lobby.mapPlayers());
+
+        // start if everyone is ready
+        if (everyoneIsReady) lobby.startGame(), lobby.emit('gameStarted', lobby.getSetupData());
+      }).catch(function (reason) {
+        console.log(reason.message.yellow);
+        // client.emit('error', reason.message);
+      });
     }
+  });
+
+  client.on('updateOptions', function (data) {
+
+    // remove connection to lobby
+    var lobby = client.lobby;
+    if (lobby) {
+
+      lobby.updateOptions(data);
+    } else {}
+  });
+
+  client.on('setPassword', function (data) {
+
+    // remove connection to lobby
+    var lobby = client.lobby;
+    if (lobby) {
+
+      lobby.setPasswordFrom(client, data);
+    } else {}
+  });
+
+  client.on('clearPassword', function (data) {
+
+    // remove connection to lobby
+    var lobby = client.lobby;
+    if (lobby) {
+
+      lobby.clearPasswordFrom(client, data);
+    } else {}
   });
 
   client.on('disconnect', function (data) {
@@ -316,7 +470,16 @@ sio.sockets.on('connection', function (client) {
     if (lobby) {
 
       lobby.disconnect(client);
+      lobby.emit('usersUpdate', lobby.mapUsers());
+
+      // delete empty lobby after 5 seconds
+      setTimeout(function () {
+        if (lobby.empty) LM.delete(lobby.id);
+      }, 5000);
     } else {}
+
+    // remove from server's radar
+    clients.delete(client.id_);
   });
 
   //
@@ -442,135 +605,69 @@ sio.sockets.on('connection', function (client) {
   // during game
   // client.on('input stack', data => client.lobby ? client.lobby.broadcast('input stack', data, client) : client.emit('stop'));
 
-  client.on('ship update', function (data) {
-    return client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop');
-  });
-  client.on('ship override', function (data) {
-    return client.lobby ? client.lobby.broadcast('ship override', data, client) : client.emit('stop');
-  });
-  client.on('bullet create', function (data) {
-    return client.lobby ? client.lobby.broadcast('bullet create', data, client) : client.emit('stop');
-  });
-  client.on('bullet destroy', function (data) {
-    return client.lobby ? client.lobby.broadcast('bullet destroy', data, client) : client.emit('stop');
-  });
+  var addListenerList = function addListenerList(list) {
+    var _iteratorNormalCompletion3 = true;
+    var _didIteratorError3 = false;
+    var _iteratorError3 = undefined;
 
-  client.on('ship damage', function (data) {
-    return client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop');
-  });
+    try {
+      for (var _iterator3 = list[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+        var msg = _step3.value;
+        addListener(msg);
+      }
+    } catch (err) {
+      _didIteratorError3 = true;
+      _iteratorError3 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion3 && _iterator3.return) {
+          _iterator3.return();
+        }
+      } finally {
+        if (_didIteratorError3) {
+          throw _iteratorError3;
+        }
+      }
+    }
+  };
 
-  client.on('block create', function (data) {
-    return client.lobby ? client.lobby.broadcast('block create', data, client) : client.emit('stop');
-  });
-  client.on('block destroy', function (data) {
-    return client.lobby ? client.lobby.broadcast('block destroy', data, client) : client.emit('stop');
-  });
-  client.on('block damage', function (data) {
-    return client.lobby ? client.lobby.broadcast('block damage', data, client) : client.emit('stop');
-  });
-  client.on('block change', function (data) {
-    return client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop');
-  });
+  var addListener = function addListener(msg) {
+    client.on(msg, function (a) {
+      return client.lobby ? client.lobby.exec(msg, a, client) : 0;
+    });
+  };
 
-  client.on('sub create', function (data) {
-    return client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop');
-  });
-  client.on('sub destroy', function (data) {
-    return client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop');
-  });
+  var incomingMessages = ['shipUpdated', 'shipOverridden', 'shipHPAdjusted', 'bulletCreated', 'bulletDestroyed', 'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed', 'subCreated', 'subDestroyed', 'deathOccurrence', 'flagCaptured', 'flagDropped', 'flagProgress'];
+
+  addListenerList(incomingMessages);
+
+  // client.on('ship update', data => client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop'));
+  // client.on('ship override', data => client.lobby ? client.lobby.broadcast('ship override', data, client) : client.emit('stop'));
+  // client.on('bullet create', data => client.lobby ? client.lobby.broadcast('bullet create', data, client) : client.emit('stop'));
+  // client.on('bullet destroy', data => client.lobby ? client.lobby.broadcast('bullet destroy', data, client) : client.emit('stop'));
+  //
+  // client.on('ship damage', data => client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop'));
+  //
+  // client.on('block create', data => client.lobby ? client.lobby.broadcast('block create', data, client) : client.emit('stop'));
+  // client.on('block destroy', data => client.lobby ? client.lobby.broadcast('block destroy', data, client) : client.emit('stop'));
+  // client.on('block damage', data => client.lobby ? client.lobby.broadcast('block damage', data, client) : client.emit('stop'));
+  // client.on('block change', data => client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop'));
+  //
+  // client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));
+  // client.on('sub destroy', data => client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop'));
 
   /*client.on('combined', messages => {
-     if(!client.lobby) { client.emit('stop'); return; }
-      for(var [key, data] of messages) {
-       switch(key) {
-         case 'ship update':
-           client.lobby.broadcast('ship update', data, client); break;
-         case 'ship override':
-           client.lobby.broadcast('ship override', data, client); break;
-       }
-     }
+   if(!client.lobby) { client.emit('stop'); return; }
+    for(var [key, data] of messages) {
+   switch(key) {
+   case 'ship update':
+   client.lobby.broadcast('ship update', data, client); break;
+   case 'ship override':
+   client.lobby.broadcast('ship override', data, client); break;
+   }
+   }
    });*/
 
-  // TODO: figure out what happens when a flag holder disconnects..
-  client.on('flag pickup', function (data) {
-    if (client.lobby) {
-      if (!client.lobby.state.flagHolder) {
-        client.lobby.emit('flag pickup', data);
-        // client.lobby.first.emit('begin create asteroids')
-        client.lobby.state.flagHolder = data.playerID;
-        if (typeof client.lobby.state.leadTeam == 'undefined') client.lobby.state.leadTeam = client.lobby.getTeam(client.userid);
-      } else {
-        client.lobby.emit('flag drop', data);
-      }
-    } else {
-      client.emit('stop');
-    }
-  });
-  client.on('flag drop', function (data) {
-    if (client.lobby) {
-      client.lobby.emit('flag drop', data);
-      // client.lobby.emit('stop create asteroids')
-    } else {
-      client.emit('stop');
-    }
-  });
-  client.on('flag progress confirm', function (data) {
-    if (client.lobby) {
-      console.log('client ' + client.name + ' sent ' + data.score);
-      if (client.userid == client.lobby.state.flagHolder) {
-        client.lobby.state.scores[data.team] = { t: data.team, s: data.score };
-        client.lobby.state.flagHolder = undefined;
-        client.lobby.state.leadTeam = client.lobby.game_lead_team;
-        console.log('client.on(\'flag progress confirm\' >> current team lead: ' + client.lobby.game_lead_team);
-
-        // if(client.lobby.ongoing) this.finish();
-        // console.log(`data.team ${data.team}, data.score: ${data.score}`);
-      }
-    } else {
-      client.emit('stop');
-    }
-  });
-
-  client.on('flag progress', function (data) {
-    if (client.lobby) {
-      console.log('client ' + client.name + ' sent ' + data.score);
-      if (data.score >= 0 && data.score <= 100) {
-        client.lobby.state.scores[data.team] = { t: data.team, s: data.score };
-        client.lobby.state.leadTeam = client.lobby.game_lead_team;
-        console.log('client.on(\'flag progress\' >> current team lead: ' + client.lobby.game_lead_team);
-      }
-    } else {
-      client.emit('stop');
-    }
-  });
-
-  client.on('msg ship kill', function (data) {
-    return client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop');
-  });
-
-  client.on('game over', function (data) {
-    var lobby = void 0;
-    if ((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
-      console.log('from \'game over\'. winningTeam: ' + data.winningTeam);
-      if (lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
-
-      lobby.emit('game over');
-      // lobby.emit('end with winner', {winner: data.winningTeam});
-      lobby.endCurrentGame();
-      lobby.emit('lobby state', lobby.simplify());
-    }
-  });
-
-  // let client_game_over = (data) => {
-  //   let lobby;
-  //   if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
-  //     console.log(`from 'game over'. winningTeam: ${data.winningTeam}`);
-  //     if(lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
-  //     lobby.emit('game over', data);
-  //     lobby.endCurrentGame();
-  //     lobby.emit('lobby state', lobby.simplify());
-  //   }
-  // };
-
+  this.onFinish = function () {};
 }); //sio.sockets.on connection
 //# sourceMappingURL=index.js.map

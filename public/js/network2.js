@@ -1,3 +1,272 @@
+
+/* New */
+
+
+class GameNetworkAdapter {
+
+
+  constructor(game, socket) {
+
+    // Adapter works off own socket
+    this.game = game;
+    this.socket = socket;
+    this.activated = false;
+    this.sendSenderID = false;
+
+    this.incomingMessages = [
+      'shipUpdated', 'shipOverridden', 'shipHPAdjusted',
+      'bulletCreated', 'bulletDestroyed',
+      'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed',
+      'subCreated', 'subDestroyed',
+      'deathOccurrence',
+      'flagCaptured', 'flagDropped', 'flagProgress',
+      'playerDisconnected'
+    ];
+    this.listenersMap = new Map();
+
+    this.activate();
+    // this.listen();
+  }
+
+  activate() { this.activated = true }
+  deactivate() { this.activated = false }
+
+  listen() {
+    this.addListenerList(this.incomingMessages);
+  }
+
+  addListenerList(list) {
+    for(let msg of list) this.addListener(msg);
+  }
+
+  addListener(msg) {
+    const listener = (a) => this.activated ? this.exec(msg, a) : 0;
+
+    this.listenersMap.set(msg, listener);
+    this.socket.on(msg, listener);
+  }
+
+  exec(msg, a) {
+    this[msg](a)
+  }
+
+  stopListening() {
+    this.removeListenerList(this.incomingMessages);
+  }
+
+  removeListenerList(list) {
+    for(let msg of list) this.removeListener(msg);
+  }
+
+  removeListener(msg) {
+    const listener = this.listenersMap.get(msg);
+    if(listener) this.socket.removeListener(msg, listener);
+  }
+
+  emit(msg, data, sendSender = this.sendSenderID) {
+    if(sendSender) data.senderID = ENV.user.id;
+    this.socket.emit(msg, data)
+    // this.socket.emit(msg, [data, ENV.user.id])
+  }
+
+  // game functions
+  // ships
+  sendShipUpdate(data) {
+    this.emit('shipUpdated', { shipData: data }, true);
+  }
+
+  shipUpdated(data) {
+    this.game.players.get(data.senderID).ship.apply(data.shipData);
+  }
+
+  sendShipOverride(data) {
+    this.emit('shipOverridden', { shipData: data }, true);
+  }
+
+  shipOverridden(data) {
+    this.game.players.get(data.senderID).ship.override(data.shipData);
+  }
+
+  sendAdjustShipHP(data) {
+    this.emit('shipHPAdjusted', data);
+  }
+
+  shipHPAdjusted(data) {
+    this.game.adjustShipHP(data)
+  }
+
+  // bullets
+  sendCreateBullet(data) {
+    this.emit('bulletCreated', data);
+  }
+
+  bulletCreated(data) {
+    this.game.createBullet(data);
+  }
+
+  sendDestroyBullet(id) {
+    this.emit('bulletDestroyed', id);
+  }
+
+  bulletDestroyed(id) {
+    this.game.destroyBullet(id);
+  }
+
+  // blocks
+  sendCreateBlock(data) {
+    this.emit('blockCreated', data);
+  }
+
+  blockCreated(data) {
+    this.game.createBlock(data);
+  }
+
+  sendAdjustBlockHP(data) {
+    this.emit('blockHPAdjusted', data);
+  }
+
+  blockHPAdjusted(data) {
+    this.game.adjustBlockHP(data);
+  }
+
+  sendSetBlockTeam(data) {
+    this.emit('blockTeamSet', data);
+  }
+
+  blockTeamSet(data) {
+    this.game.setBlockTeam(data);
+  }
+
+  sendDestroyBlock(id) {
+    this.emit('blockDestroyed', id)
+  }
+
+  blockDestroyed(id) {
+    this.game.destroyBlock(id);
+  }
+
+  // subs
+  sendCreateSub(data) {
+    this.emit('subCreated', data)
+  }
+
+  subCreated(data) {
+    this.game.createSub(data);
+  }
+
+  sendDestroySub(id) {
+    this.emit('subDestroyed', id)
+  }
+
+  subDestroyed(data) {
+    this.game.destroySub(data);
+  }
+
+  playerDisconnected(id) {
+    this.game.disconnectPlayer(id)
+  }
+
+  // announcements
+  // TODO rethink stats update
+  sendDeathOccurrence(data) {
+    this.emit('deathOccurrence', data)
+  }
+
+  deathOccurrence(data) {
+    this.game.deathOccurrence(data);
+  }
+
+
+
+  // mode (ctf)
+
+  sendCaptureFlag(id) {
+    this.emit('flagCaptured', id)
+  }
+
+  flagCaptured(id) {
+    this.game.captureFlag(id)
+  }
+
+  sendDropFlag() {
+    this.emit('flagDropped')
+  }
+
+  flagDropped() {
+    this.game.dropFlag()
+  }
+
+  sendFlagProgress(data) {
+    this.emit('flagProgress', data)
+  }
+
+  flagProgress(data) {
+    this.game.flagProgress(data)
+  }
+
+
+
+
+
+
+  // WorkInProgress
+
+  end_with_winner(data) {
+    let {winningTeam, score} = data;
+    LOBBY.disableGame();
+    setTimeout(() => LOBBY.showResults(), 3000);
+  }
+
+  end_game() {
+    LOBBY.disableGame();
+    setTimeout(() => LOBBY.showResults(), 3000);
+  }
+
+  request_local_progress() {
+    this.send_local_progress();
+  }
+
+  send_local_progress() {
+    if(!ENV.spectate) {
+      let game = ENV.game, team_number = game.player.team.number, team_score = game.game.scores[team_number];
+      if(ENV.game.game.flag.holderID == ENV["id"]) ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
+    }
+  }
+
+  go_overtime() {
+    ENV.game.takeOvertime();
+  }
+
+
+  progress(team, score) { ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score }) }
+
+  out_game_over(winningTeam) { if(!DeepSpaceGame.runningInstance) return;
+    ENV.lobby.socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
+  }
+  in_game_over(data) { if(!DeepSpaceGame.runningInstance) return;
+    LOBBY.disableGame();
+    setTimeout(this.in_game_over_ready, 3000);
+  }
+  in_game_over_ready() { if(!DeepSpaceGame.runningInstance) return;
+    LOBBY.showResults();
+  }
+
+  in_game_overtime() { if(!DeepSpaceGame.runningInstance) return;
+    ENV.game.takeOvertime();
+    setTimeout(LOBBY.disableGame, TIME.sec(30));
+  }
+
+  // disconnect players
+  in_disconnect_player(userid) { if(!DeepSpaceGame.runningInstance) return;
+    ENV.game.disconnectPlayer(userid);
+  }
+
+}
+
+
+/* OLD */
+
+
 var g;
 class NetworkHelper {
 
@@ -35,18 +304,18 @@ class NetworkHelper {
     // let angle = options.shoot_simple ? ship.angle : ship.shoot_angle,
     //     shoot_position = options.shoot_simple ? ship.front_weapon_position : ship.shoot_position;
     let id = Math.uuid(),
-        data = {
-          id: id,
-          creator: ship.owner.id,
-          team: ship.owner.team.number,
-          position: ship.shoot_position,
-          angle: ship.shoot_angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),
-          radius: ship.ATTACK_RADIUS,
-          hp: ship.ATTACK_HP,
-          lifespan: ship.ATTACK_LIFESPAN,
-          velocity: ship.velocity,
-          speed: ship.ATTACK_SPEED
-        };
+      data = {
+        id: id,
+        creator: ship.owner.id,
+        team: ship.owner.team.number,
+        position: ship.shoot_position,
+        angle: ship.shoot_angle + (ship.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1),
+        radius: ship.ATTACK_RADIUS,
+        hp: ship.ATTACK_HP,
+        lifespan: ship.ATTACK_LIFESPAN,
+        velocity: ship.velocity,
+        speed: ship.ATTACK_SPEED
+      };
     socket.emit('bullet create', { senderID: ENV["id"], bulletData: data});
     ENV.game.startBullet(data);
     return id;
@@ -68,13 +337,13 @@ class NetworkHelper {
   }
   static bullet_destroy(bulletID) { if(!DeepSpaceGame.runningInstance) return;
     socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
-    ENV.game.endBullet(bulletID);
+    ENV.game.removeBullet(bulletID);
   }
   // static out_bullet_destroy(bulletID) { if(!DeepSpaceGame.runningInstance) return;
   //   socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
   // }
   static in_bullet_destroy(data) { if(!DeepSpaceGame.runningInstance) return;
-    ENV.game.endBullet(data.bulletID);
+    ENV.game.removeBullet(data.bulletID);
   }
 
   // ask server(other players) first for effect
@@ -190,14 +459,14 @@ class NetworkHelper {
 
   // ctf
   static out_flag_pickup(playerID) { if(!DeepSpaceGame.runningInstance) return;
-    socket.emit('flag pickup', { senderID: ENV["id"], playerID: playerID });
+    ENV.lobby.socket.emit('flag pickup', { senderID: ENV["id"], playerID: playerID });
   }
   static in_flag_pickup(data) { if(!DeepSpaceGame.runningInstance) return;
     ENV.game.pickupFlag(data.playerID);
   }
   static out_flag_drop() { if(!DeepSpaceGame.runningInstance) return;
     if(ENV.spectate) { console.warn(`illegal spectator command`); return; }
-    socket.emit('flag drop', { senderID: ENV["id"] });
+    ENV.lobby.socket.emit('flag drop', { senderID: ENV["id"] });
   }
   static in_flag_drop(data) { if(!DeepSpaceGame.runningInstance) return;
     if(!ENV.spectate) {
@@ -206,7 +475,7 @@ class NetworkHelper {
         if(false && ENV.game.game.overtime) { // always false
           NetworkHelper.out_game_over(team_number);
         } else {
-          socket.emit('flag progress confirm', { senderID: ENV["id"], team: team_number, score: team_score });
+          ENV.lobby.socket.emit('flag progress confirm', { senderID: ENV["id"], team: team_number, score: team_score });
         }
       }
     }
@@ -249,7 +518,7 @@ class NetworkHelper {
   static send_local_progress() {
     if(!ENV.spectate) {
       let game = ENV.game, team_number = game.player.team.number, team_score = game.game.scores[team_number];
-      if(ENV.game.game.flag.holderID == ENV["id"]) socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
+      if(ENV.game.game.flag.holderID == ENV["id"]) ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
     }
   }
 
@@ -258,10 +527,10 @@ class NetworkHelper {
   }
 
 
-  static progress(team, score) { socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score }) }
+  static progress(team, score) { ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score }) }
 
   static out_game_over(winningTeam) { if(!DeepSpaceGame.runningInstance) return;
-    socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
+    ENV.lobby.socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
   }
   static in_game_over(data) { if(!DeepSpaceGame.runningInstance) return;
     LOBBY.disableGame();
@@ -283,12 +552,12 @@ class NetworkHelper {
 
 
   /*static add() { // static no longer works as network helper now holds state
-    NetworkHelper.messages.push(new Array(...arguments));
-  }
+   NetworkHelper.messages.push(new Array(...arguments));
+   }
 
-  static release() { // static no longer works as network helper now holds state
-    socket.emit('combined', NetworkHelper.messages); NetworkHelper.messages = [];
-  }*/
+   static release() { // static no longer works as network helper now holds state
+   socket.emit('combined', NetworkHelper.messages); NetworkHelper.messages = [];
+   }*/
 
 }
 // NetworkHelper.messages = [];

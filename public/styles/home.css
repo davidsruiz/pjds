@@ -3,6 +3,7 @@
 .layer > .content {
     text-align: left;
     overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
 
 }
 
@@ -16,6 +17,8 @@
     display: inline-block;
     width: 400px;
     height: auto;
+    max-width: 100%;
+    overflow-x: hidden;
 
     color: #90A4AE; /* Blue Grey 300 */
     font-size: 98px;
@@ -35,6 +38,7 @@
     margin-top: 326px;
     margin-bottom: 24px;
     overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
 
     color: #90A4AE; /* Blue Grey 300 */
     font-size: 40px;

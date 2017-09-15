@@ -142,6 +142,7 @@ and (min-height: 700px) {
     max-width: 375px;
     max-height: 624px;
     overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
     z-index: 81;
 }
 
@@ -195,6 +196,7 @@ and (min-height: 700px) {
     font-family: 'Montserrat', sans-serif;
     font-size: 41px;
     text-align: left;
+    -webkit-text-fill-color: var(--md-grey-800); /* for safari */
 }
 
 

@@ -4,6 +4,395 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
+/* New */
+
+var GameNetworkAdapter = function () {
+  function GameNetworkAdapter(game, socket) {
+    _classCallCheck(this, GameNetworkAdapter);
+
+    // Adapter works off own socket
+    this.game = game;
+    this.socket = socket;
+    this.activated = false;
+    this.sendSenderID = false;
+
+    this.incomingMessages = ['shipUpdated', 'shipOverridden', 'shipHPAdjusted', 'bulletCreated', 'bulletDestroyed', 'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed', 'subCreated', 'subDestroyed', 'deathOccurrence', 'flagCaptured', 'flagDropped', 'flagProgress', 'playerDisconnected'];
+    this.listenersMap = new Map();
+
+    this.activate();
+    // this.listen();
+  }
+
+  _createClass(GameNetworkAdapter, [{
+    key: 'activate',
+    value: function activate() {
+      this.activated = true;
+    }
+  }, {
+    key: 'deactivate',
+    value: function deactivate() {
+      this.activated = false;
+    }
+  }, {
+    key: 'listen',
+    value: function listen() {
+      this.addListenerList(this.incomingMessages);
+    }
+  }, {
+    key: 'addListenerList',
+    value: function addListenerList(list) {
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = list[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var msg = _step.value;
+          this.addListener(msg);
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+    }
+  }, {
+    key: 'addListener',
+    value: function addListener(msg) {
+      var _this = this;
+
+      var listener = function listener(a) {
+        return _this.activated ? _this.exec(msg, a) : 0;
+      };
+
+      this.listenersMap.set(msg, listener);
+      this.socket.on(msg, listener);
+    }
+  }, {
+    key: 'exec',
+    value: function exec(msg, a) {
+      this[msg](a);
+    }
+  }, {
+    key: 'stopListening',
+    value: function stopListening() {
+      this.removeListenerList(this.incomingMessages);
+    }
+  }, {
+    key: 'removeListenerList',
+    value: function removeListenerList(list) {
+      var _iteratorNormalCompletion2 = true;
+      var _didIteratorError2 = false;
+      var _iteratorError2 = undefined;
+
+      try {
+        for (var _iterator2 = list[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var msg = _step2.value;
+          this.removeListener(msg);
+        }
+      } catch (err) {
+        _didIteratorError2 = true;
+        _iteratorError2 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion2 && _iterator2.return) {
+            _iterator2.return();
+          }
+        } finally {
+          if (_didIteratorError2) {
+            throw _iteratorError2;
+          }
+        }
+      }
+    }
+  }, {
+    key: 'removeListener',
+    value: function removeListener(msg) {
+      var listener = this.listenersMap.get(msg);
+      if (listener) this.socket.removeListener(msg, listener);
+    }
+  }, {
+    key: 'emit',
+    value: function emit(msg, data) {
+      var sendSender = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.sendSenderID;
+
+      if (sendSender) data.senderID = ENV.user.id;
+      this.socket.emit(msg, data);
+      // this.socket.emit(msg, [data, ENV.user.id])
+    }
+
+    // game functions
+    // ships
+
+  }, {
+    key: 'sendShipUpdate',
+    value: function sendShipUpdate(data) {
+      this.emit('shipUpdated', { shipData: data }, true);
+    }
+  }, {
+    key: 'shipUpdated',
+    value: function shipUpdated(data) {
+      this.game.players.get(data.senderID).ship.apply(data.shipData);
+    }
+  }, {
+    key: 'sendShipOverride',
+    value: function sendShipOverride(data) {
+      this.emit('shipOverridden', { shipData: data }, true);
+    }
+  }, {
+    key: 'shipOverridden',
+    value: function shipOverridden(data) {
+      this.game.players.get(data.senderID).ship.override(data.shipData);
+    }
+  }, {
+    key: 'sendAdjustShipHP',
+    value: function sendAdjustShipHP(data) {
+      this.emit('shipHPAdjusted', data);
+    }
+  }, {
+    key: 'shipHPAdjusted',
+    value: function shipHPAdjusted(data) {
+      this.game.adjustShipHP(data);
+    }
+
+    // bullets
+
+  }, {
+    key: 'sendCreateBullet',
+    value: function sendCreateBullet(data) {
+      this.emit('bulletCreated', data);
+    }
+  }, {
+    key: 'bulletCreated',
+    value: function bulletCreated(data) {
+      this.game.createBullet(data);
+    }
+  }, {
+    key: 'sendDestroyBullet',
+    value: function sendDestroyBullet(id) {
+      this.emit('bulletDestroyed', id);
+    }
+  }, {
+    key: 'bulletDestroyed',
+    value: function bulletDestroyed(id) {
+      this.game.destroyBullet(id);
+    }
+
+    // blocks
+
+  }, {
+    key: 'sendCreateBlock',
+    value: function sendCreateBlock(data) {
+      this.emit('blockCreated', data);
+    }
+  }, {
+    key: 'blockCreated',
+    value: function blockCreated(data) {
+      this.game.createBlock(data);
+    }
+  }, {
+    key: 'sendAdjustBlockHP',
+    value: function sendAdjustBlockHP(data) {
+      this.emit('blockHPAdjusted', data);
+    }
+  }, {
+    key: 'blockHPAdjusted',
+    value: function blockHPAdjusted(data) {
+      this.game.adjustBlockHP(data);
+    }
+  }, {
+    key: 'sendSetBlockTeam',
+    value: function sendSetBlockTeam(data) {
+      this.emit('blockTeamSet', data);
+    }
+  }, {
+    key: 'blockTeamSet',
+    value: function blockTeamSet(data) {
+      this.game.setBlockTeam(data);
+    }
+  }, {
+    key: 'sendDestroyBlock',
+    value: function sendDestroyBlock(id) {
+      this.emit('blockDestroyed', id);
+    }
+  }, {
+    key: 'blockDestroyed',
+    value: function blockDestroyed(id) {
+      this.game.destroyBlock(id);
+    }
+
+    // subs
+
+  }, {
+    key: 'sendCreateSub',
+    value: function sendCreateSub(data) {
+      this.emit('subCreated', data);
+    }
+  }, {
+    key: 'subCreated',
+    value: function subCreated(data) {
+      this.game.createSub(data);
+    }
+  }, {
+    key: 'sendDestroySub',
+    value: function sendDestroySub(id) {
+      this.emit('subDestroyed', id);
+    }
+  }, {
+    key: 'subDestroyed',
+    value: function subDestroyed(data) {
+      this.game.destroySub(data);
+    }
+  }, {
+    key: 'playerDisconnected',
+    value: function playerDisconnected(id) {
+      this.game.disconnectPlayer(id);
+    }
+
+    // announcements
+    // TODO rethink stats update
+
+  }, {
+    key: 'sendDeathOccurrence',
+    value: function sendDeathOccurrence(data) {
+      this.emit('deathOccurrence', data);
+    }
+  }, {
+    key: 'deathOccurrence',
+    value: function deathOccurrence(data) {
+      this.game.deathOccurrence(data);
+    }
+
+    // mode (ctf)
+
+  }, {
+    key: 'sendCaptureFlag',
+    value: function sendCaptureFlag(id) {
+      this.emit('flagCaptured', id);
+    }
+  }, {
+    key: 'flagCaptured',
+    value: function flagCaptured(id) {
+      this.game.captureFlag(id);
+    }
+  }, {
+    key: 'sendDropFlag',
+    value: function sendDropFlag() {
+      this.emit('flagDropped');
+    }
+  }, {
+    key: 'flagDropped',
+    value: function flagDropped() {
+      this.game.dropFlag();
+    }
+  }, {
+    key: 'sendFlagProgress',
+    value: function sendFlagProgress(data) {
+      this.emit('flagProgress', data);
+    }
+  }, {
+    key: 'flagProgress',
+    value: function flagProgress(data) {
+      this.game.flagProgress(data);
+    }
+
+    // WorkInProgress
+
+  }, {
+    key: 'end_with_winner',
+    value: function end_with_winner(data) {
+      var winningTeam = data.winningTeam,
+          score = data.score;
+
+      LOBBY.disableGame();
+      setTimeout(function () {
+        return LOBBY.showResults();
+      }, 3000);
+    }
+  }, {
+    key: 'end_game',
+    value: function end_game() {
+      LOBBY.disableGame();
+      setTimeout(function () {
+        return LOBBY.showResults();
+      }, 3000);
+    }
+  }, {
+    key: 'request_local_progress',
+    value: function request_local_progress() {
+      this.send_local_progress();
+    }
+  }, {
+    key: 'send_local_progress',
+    value: function send_local_progress() {
+      if (!ENV.spectate) {
+        var game = ENV.game,
+            team_number = game.player.team.number,
+            team_score = game.game.scores[team_number];
+        if (ENV.game.game.flag.holderID == ENV["id"]) ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
+      }
+    }
+  }, {
+    key: 'go_overtime',
+    value: function go_overtime() {
+      ENV.game.takeOvertime();
+    }
+  }, {
+    key: 'progress',
+    value: function progress(team, score) {
+      ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score });
+    }
+  }, {
+    key: 'out_game_over',
+    value: function out_game_over(winningTeam) {
+      if (!DeepSpaceGame.runningInstance) return;
+      ENV.lobby.socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
+    }
+  }, {
+    key: 'in_game_over',
+    value: function in_game_over(data) {
+      if (!DeepSpaceGame.runningInstance) return;
+      LOBBY.disableGame();
+      setTimeout(this.in_game_over_ready, 3000);
+    }
+  }, {
+    key: 'in_game_over_ready',
+    value: function in_game_over_ready() {
+      if (!DeepSpaceGame.runningInstance) return;
+      LOBBY.showResults();
+    }
+  }, {
+    key: 'in_game_overtime',
+    value: function in_game_overtime() {
+      if (!DeepSpaceGame.runningInstance) return;
+      ENV.game.takeOvertime();
+      setTimeout(LOBBY.disableGame, TIME.sec(30));
+    }
+
+    // disconnect players
+
+  }, {
+    key: 'in_disconnect_player',
+    value: function in_disconnect_player(userid) {
+      if (!DeepSpaceGame.runningInstance) return;
+      ENV.game.disconnectPlayer(userid);
+    }
+  }]);
+
+  return GameNetworkAdapter;
+}();
+
+/* OLD */
+
 var g;
 
 var NetworkHelper = function () {
@@ -107,7 +496,7 @@ var NetworkHelper = function () {
     value: function bullet_destroy(bulletID) {
       if (!DeepSpaceGame.runningInstance) return;
       socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
-      ENV.game.endBullet(bulletID);
+      ENV.game.removeBullet(bulletID);
     }
     // static out_bullet_destroy(bulletID) { if(!DeepSpaceGame.runningInstance) return;
     //   socket.emit('bullet destroy', { senderID: ENV["id"], bulletID: bulletID });
@@ -117,7 +506,7 @@ var NetworkHelper = function () {
     key: 'in_bullet_destroy',
     value: function in_bullet_destroy(data) {
       if (!DeepSpaceGame.runningInstance) return;
-      ENV.game.endBullet(data.bulletID);
+      ENV.game.removeBullet(data.bulletID);
     }
 
     // ask server(other players) first for effect
@@ -285,7 +674,7 @@ var NetworkHelper = function () {
     key: 'out_flag_pickup',
     value: function out_flag_pickup(playerID) {
       if (!DeepSpaceGame.runningInstance) return;
-      socket.emit('flag pickup', { senderID: ENV["id"], playerID: playerID });
+      ENV.lobby.socket.emit('flag pickup', { senderID: ENV["id"], playerID: playerID });
     }
   }, {
     key: 'in_flag_pickup',
@@ -300,7 +689,7 @@ var NetworkHelper = function () {
       if (ENV.spectate) {
         console.warn('illegal spectator command');return;
       }
-      socket.emit('flag drop', { senderID: ENV["id"] });
+      ENV.lobby.socket.emit('flag drop', { senderID: ENV["id"] });
     }
   }, {
     key: 'in_flag_drop',
@@ -315,7 +704,7 @@ var NetworkHelper = function () {
             // always false
             NetworkHelper.out_game_over(team_number);
           } else {
-            socket.emit('flag progress confirm', { senderID: ENV["id"], team: team_number, score: team_score });
+            ENV.lobby.socket.emit('flag progress confirm', { senderID: ENV["id"], team: team_number, score: team_score });
           }
         }
       }
@@ -370,7 +759,7 @@ var NetworkHelper = function () {
         var game = ENV.game,
             team_number = game.player.team.number,
             team_score = game.game.scores[team_number];
-        if (ENV.game.game.flag.holderID == ENV["id"]) socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
+        if (ENV.game.game.flag.holderID == ENV["id"]) ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team_number, score: team_score });
       }
     }
   }, {
@@ -381,13 +770,13 @@ var NetworkHelper = function () {
   }, {
     key: 'progress',
     value: function progress(team, score) {
-      socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score });
+      ENV.lobby.socket.emit('flag progress', { senderID: ENV["id"], team: team, score: score });
     }
   }, {
     key: 'out_game_over',
     value: function out_game_over(winningTeam) {
       if (!DeepSpaceGame.runningInstance) return;
-      socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
+      ENV.lobby.socket.emit('game over', { senderID: ENV["id"], winningTeam: winningTeam });
     }
   }, {
     key: 'in_game_over',
@@ -420,14 +809,15 @@ var NetworkHelper = function () {
     }
 
     /*static add() { // static no longer works as network helper now holds state
-      NetworkHelper.messages.push(new Array(...arguments));
-    }
-     static release() { // static no longer works as network helper now holds state
-      socket.emit('combined', NetworkHelper.messages); NetworkHelper.messages = [];
-    }*/
+     NetworkHelper.messages.push(new Array(...arguments));
+     }
+      static release() { // static no longer works as network helper now holds state
+     socket.emit('combined', NetworkHelper.messages); NetworkHelper.messages = [];
+     }*/
 
   }]);
 
   return NetworkHelper;
 }();
 // NetworkHelper.messages = [];
+//# sourceMappingURL=network2.js.map

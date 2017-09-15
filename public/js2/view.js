@@ -117,6 +117,11 @@ window.addEventListener('load', function () {
 var TINT = {
   assortment: [['#0000ff', '#ff0000'], ['#0000ff', '#aedc39'], ['#0048ff', '#cc00ff']],
 
+  colors: [null, null],
+  angle: 0,
+
+  angleOffset: 0,
+
   shuffle: function shuffle() {
     var _TINT$assortment$samp = TINT.assortment.sample(),
         _TINT$assortment$samp2 = _slicedToArray(_TINT$assortment$samp, 2),
@@ -127,8 +132,18 @@ var TINT = {
     TINT.load(deg, c1, c2);
   },
   load: function load(deg, c1, c2) {
+    this.angle = deg;
+    this.colors[0] = c1;
+    this.colors[1] = c2;
+    this.refresh();
+  },
+  setAngleOffset: function setAngleOffset(deg) {
+    this.angleOffset = deg;
+    this.refresh();
+  },
+  refresh: function refresh() {
     var elem = document.querySelector('#tint');
-    if (elem) $(elem).css('background', 'linear-gradient(' + deg + 'deg, ' + c1 + ', ' + c2 + ')');
+    if (elem) $(elem).css('background', 'linear-gradient(' + (this.angle + this.angleOffset) + 'deg, ' + this.colors[0] + ', ' + this.colors[1] + ')');
   }
 };
 
@@ -146,7 +161,7 @@ var DSGameLobby = function (_React$Component) {
       //           1 - joined
       //           2 - locked in
       //           3 - not available to join
-      userEngagementPhase: 0,
+      // userEngagementPhase:  0,
       lobbyOptionsShown: false
     };
     return _this;
@@ -164,7 +179,9 @@ var DSGameLobby = function (_React$Component) {
     value: function render() {
       var _this2 = this;
 
-      var data = this.props.data;
+      var data = this.props.lobbySummary;
+      var full = data.users.players.length >= data.game_settings.noneditableSettings.maxPlayers;
+      var ongoing = data.ongoing;
 
       return React.createElement(
         'div',
@@ -179,16 +196,16 @@ var DSGameLobby = function (_React$Component) {
             'DEEP SPACE'
           ),
           React.createElement(LobbyType, { type: data.type }),
-          React.createElement(LobbyActions, { code: data.code, prefs: data.game_settings, onClick: function onClick() {
+          React.createElement(LobbyActions, { code: data.code, password: data.password, onOptionsClick: function onOptionsClick() {
               return _this2.lobbyOptionsToggle();
             } }),
-          React.createElement(LobbyOptions, { prefs: data.game_settings, show: this.state.lobbyOptionsShown })
+          React.createElement(LobbyOptions, { prefs: data.game_settings.editableSettings, show: this.state.lobbyOptionsShown })
         ),
         React.createElement(
           'div',
           { id: 'part-2' },
-          React.createElement(PlayerConfig, { userEngagementPhase: this.state.userEngagementPhase }),
-          React.createElement(LobbyUsers, { users: data.users, playerLimit: data.game_settings.player_capacity })
+          React.createElement(PlayerConfig, { joined: this.props.joined, ready: this.props.ready, full: full, ongoing: ongoing }),
+          React.createElement(LobbyUsers, { users: data.users, playerLimit: data.game_settings.noneditableSettings.maxPlayers })
         )
       );
     }
@@ -209,10 +226,17 @@ var IconBar = function (_React$Component2) {
   _createClass(IconBar, [{
     key: 'render',
     value: function render() {
+
+      var homeAction = function homeAction() {
+        return window.location.reset();
+      };
+
       return React.createElement(
         'div',
         { id: 'icon-bar' },
-        React.createElement(IconButton, { iconName: 'home' }),
+        React.createElement(IconButton, { iconName: 'home', onClick: function onClick() {
+            return homeAction();
+          } }),
         React.createElement(IconButton, { iconName: 'volume_up' }),
         React.createElement(IconButton, { iconName: 'help' }),
         React.createElement(IconButton, { iconName: 'settings' })
@@ -235,9 +259,13 @@ var IconButton = function (_React$Component3) {
   _createClass(IconButton, [{
     key: 'render',
     value: function render() {
+      var _this5 = this;
+
       return React.createElement(
         'button',
-        { className: this.props.iconName + '_icon' },
+        { className: this.props.iconName + '_icon', onClick: function onClick() {
+            return _this5.props.onClick();
+          } },
         React.createElement(
           'i',
           { className: 'material-icons' },
@@ -296,11 +324,25 @@ var LobbyActions = function (_React$Component5) {
   }
 
   _createClass(LobbyActions, [{
+    key: 'handlePasswordClick',
+    value: function handlePasswordClick() {
+
+      this.props.password ? ENV.lobby.clearPassword() : ENV.lobby.setPassword();
+    }
+  }, {
+    key: 'handleShareClick',
+    value: function handleShareClick() {
+
+      window.prompt('copy to share this link:', window.location.href);
+    }
+  }, {
     key: 'render',
     value: function render() {
-      var _this7 = this;
+      var _this8 = this;
 
       var code = this.props.code;
+
+      var passwordMessage = this.props.password ? 'clear password' : 'add password';
 
       return React.createElement(
         'div',
@@ -315,18 +357,22 @@ var LobbyActions = function (_React$Component5) {
           { id: 'lobby-action-buttons' },
           React.createElement(
             'span',
-            { className: 'lobby-button' },
+            { className: 'lobby-button', onClick: function onClick() {
+                return _this8.handleShareClick();
+              } },
             'share'
           ),
           React.createElement(
             'span',
-            { className: 'lobby-button' },
-            'add password'
+            { className: 'lobby-button', onClick: function onClick() {
+                return _this8.handlePasswordClick();
+              } },
+            passwordMessage
           ),
           React.createElement(
             'span',
             { id: 'lobby-button-option', className: 'lobby-button', onClick: function onClick() {
-                return _this7.props.onClick();
+                return _this8.props.onOptionsClick();
               } },
             'options'
           )
@@ -344,12 +390,12 @@ var LobbyOptions = function (_React$Component6) {
   function LobbyOptions(props) {
     _classCallCheck(this, LobbyOptions);
 
-    var _this8 = _possibleConstructorReturn(this, (LobbyOptions.__proto__ || Object.getPrototypeOf(LobbyOptions)).call(this, props));
+    var _this9 = _possibleConstructorReturn(this, (LobbyOptions.__proto__ || Object.getPrototypeOf(LobbyOptions)).call(this, props));
 
-    _this8.state = {
+    _this9.state = {
       prefs: props.prefs
     };
-    return _this8;
+    return _this9;
   }
 
   _createClass(LobbyOptions, [{
@@ -361,19 +407,22 @@ var LobbyOptions = function (_React$Component6) {
       this.setState({
         prefs: copy
       });
+
+      // tell server
+      ENV.lobby.updateOptions(optionKey, choiceIndex);
     }
   }, {
     key: 'render',
     value: function render() {
-      var _this9 = this;
+      var _this10 = this;
 
       var options = [];
 
       // iterating over object
       Object.keys(this.state.prefs).forEach(function (optionKey) {
-        var optionValue = _this9.state.prefs[optionKey];
+        var optionValue = _this10.state.prefs[optionKey];
         options.push(React.createElement(ListSelect, { key: optionKey, optionKey: optionKey, optionValue: optionValue, onClick: function onClick(optionKey, choiceIndex) {
-            return _this9.handleOptionChange(optionKey, choiceIndex);
+            return _this10.handleOptionChange(optionKey, choiceIndex);
           } }));
       });
 
@@ -400,7 +449,7 @@ var ListSelect = function (_React$Component7) {
   _createClass(ListSelect, [{
     key: 'render',
     value: function render() {
-      var _this11 = this;
+      var _this12 = this;
 
       var optionKey = this.props.optionKey;
       var selectedChoice = this.props.optionValue;
@@ -415,7 +464,7 @@ var ListSelect = function (_React$Component7) {
           title: choice,
           selected: choiceIndex === selectedChoice,
           onClick: function onClick() {
-            return _this11.props.onClick(optionKey, choiceIndex);
+            return _this12.props.onClick(optionKey, choiceIndex);
           } }));
       });
 
@@ -451,7 +500,7 @@ var ListSelectOption = function (_React$Component8) {
   _createClass(ListSelectOption, [{
     key: 'render',
     value: function render() {
-      var _this13 = this;
+      var _this14 = this;
 
       var title = this.props.title;
       var selected = this.props.selected;
@@ -460,7 +509,7 @@ var ListSelectOption = function (_React$Component8) {
       return React.createElement(
         'span',
         { className: className, onClick: function onClick() {
-            return _this13.props.onClick();
+            return _this14.props.onClick();
           } },
         title
       );
@@ -476,18 +525,18 @@ var PlayerConfig = function (_React$Component9) {
   function PlayerConfig(props) {
     _classCallCheck(this, PlayerConfig);
 
-    var _this14 = _possibleConstructorReturn(this, (PlayerConfig.__proto__ || Object.getPrototypeOf(PlayerConfig)).call(this, props));
+    var _this15 = _possibleConstructorReturn(this, (PlayerConfig.__proto__ || Object.getPrototypeOf(PlayerConfig)).call(this, props));
 
-    _this14.shipCatalogue = [0, 1, 2, 3, 4];
-    _this14.catalogueIndex = 0;
+    _this15.shipCatalogue = [0, 1, 2, 3, 4];
+    _this15.catalogueIndex = 0;
 
-    _this14.state = {
-      ship: _this14.shipCatalogue[_this14.catalogueIndex],
+    _this15.state = {
+      ship: _this15.shipCatalogue[_this15.catalogueIndex],
       // abilities: [3x],
       expanded: false
     };
 
-    return _this14;
+    return _this15;
   }
 
   _createClass(PlayerConfig, [{
@@ -514,6 +563,7 @@ var PlayerConfig = function (_React$Component9) {
   }, {
     key: 'handleClick',
     value: function handleClick(isLeft) {
+      if (this.props.ready) return;
       isLeft ? this.prevShip() : this.nextShip();
     }
   }, {
@@ -524,15 +574,24 @@ var PlayerConfig = function (_React$Component9) {
       });
     }
   }, {
+    key: 'handleActionClick',
+    value: function handleActionClick() {
+      ENV.lobby.start(this.state.ship);
+    }
+  }, {
     key: 'render',
     value: function render() {
-      var _this15 = this;
+      var _this16 = this;
+
+      var playerConfigClass = this.props.joined ? this.props.ready ? 'disabled' : '' : 'hidden';
+      var shadeClass = this.props.joined ? this.props.ready ? 'opacity-5' : 'opacity-0' : 'opacity-10';
 
       return React.createElement(
         'div',
-        { id: 'player-config' },
+        { id: 'player-config', className: playerConfigClass },
+        React.createElement('div', { id: 'player-config-shade', className: shadeClass }),
         React.createElement(ShipPicker, { ship: this.state.ship, onClick: function onClick(isLeft) {
-            return _this15.handleClick(isLeft);
+            return _this16.handleClick(isLeft);
           } }),
         React.createElement(ShipDesc, { ship: this.state.ship }),
         React.createElement(ShipStats, { ship: this.state.ship, expanded: this.state.expanded }),
@@ -546,11 +605,18 @@ var PlayerConfig = function (_React$Component9) {
             React.createElement(
               'span',
               { onClick: function onClick() {
-                  return _this15.handleExpansionToggle();
+                  return _this16.handleExpansionToggle();
                 } },
               this.state.expanded ? 'less' : 'more'
             ),
-            React.createElement(ActionButton, { userEngagementPhase: this.props.userEngagementPhase })
+            React.createElement(ActionButton, {
+              joined: this.props.joined,
+              ready: this.props.ready,
+              full: this.props.full,
+              ongoing: this.props.ongoing,
+              onClick: function onClick() {
+                return _this16.handleActionClick();
+              } })
           )
         )
       );
@@ -572,7 +638,7 @@ var ShipPicker = function (_React$Component10) {
   _createClass(ShipPicker, [{
     key: 'render',
     value: function render() {
-      var _this17 = this;
+      var _this18 = this;
 
       var i = this.props.ship;
       var typeName = REF.ship.type[i];
@@ -586,7 +652,7 @@ var ShipPicker = function (_React$Component10) {
             id: 'ship-picker-left',
             className: 'ship-picker-arrow',
             onClick: function onClick() {
-              return _this17.props.onClick(true);
+              return _this18.props.onClick(true);
             } },
           '<'
         ),
@@ -594,7 +660,7 @@ var ShipPicker = function (_React$Component10) {
           'span',
           { id: 'ship-picker-text',
             onClick: function onClick() {
-              return _this17.props.onClick(false);
+              return _this18.props.onClick(false);
             } },
           typeName.toUpperCase()
         ),
@@ -604,7 +670,7 @@ var ShipPicker = function (_React$Component10) {
             id: 'ship-picker-right',
             className: 'ship-picker-arrow',
             onClick: function onClick() {
-              return _this17.props.onClick(false);
+              return _this18.props.onClick(false);
             } },
           '>'
         )
@@ -639,7 +705,7 @@ var ShipDesc = function (_React$Component11) {
           'div',
           { id: 'ship-desc-image' },
           React.createElement('div', { id: 'ship-desc-image-background' }),
-          React.createElement('img', { src: imagePath, alt: typeName + ' ship image', id: 'ship-desc-image-mask' })
+          React.createElement('img', { src: imagePath, alt: typeName + ' ship image', id: 'ship-desc-image-mask', draggable: 'false' })
         ),
         React.createElement(
           'span',
@@ -770,7 +836,7 @@ var ShipSub = function (_React$Component14) {
           'div',
           { id: 'ship-sub-image' },
           React.createElement('div', { id: 'ship-sub-image-background' }),
-          React.createElement('img', { src: imagePath, alt: subName + ' ship sub image', id: 'ship-sub-image-mask' })
+          React.createElement('img', { src: imagePath, alt: subName + ' ship sub image', id: 'ship-sub-image-mask', draggable: 'false' })
         ),
         React.createElement(
           'span',
@@ -796,11 +862,45 @@ var ActionButton = function (_React$Component15) {
   _createClass(ActionButton, [{
     key: 'render',
     value: function render() {
-      var buttonTitle = ['CONNECT', 'START', 'waiting...', 'LOBBY FULL'][this.props.userEngagementPhase];
-      var className = this.props.userEngagementPhase === 3 ? 'disabled' : '';
+      var _this24 = this;
+
+      var buttonTitle = void 0;
+      var className = '';
+      var actionBlock = function actionBlock() {};
+      if (this.props.joined) {
+        if (this.props.ready) {
+          buttonTitle = 'waiting...';
+          className = 'disabled';
+        } else {
+          buttonTitle = 'START';
+          actionBlock = function actionBlock() {
+            _this24.props.onClick();
+          };
+        }
+      } else {
+        if (this.props.ongoing) {
+          buttonTitle = 'IN PROGRESS';
+          className = 'hollow';
+        } else {
+          if (this.props.full) {
+            buttonTitle = 'LOBBY FULL';
+            className = 'hollow';
+          } else {
+            buttonTitle = 'CONNECT';
+            actionBlock = function actionBlock() {
+              ENV.lobby.join();
+            };
+          }
+        }
+      }
+
+      // const buttonTitle = ['CONNECT', 'START', 'waiting...', 'LOBBY FULL'][this.props.userEngagementPhase];
+      // const className = this.props.userEngagementPhase===3 ? 'disabled' : '';
       return React.createElement(
         'button',
-        { className: className },
+        { className: className, onClick: function onClick() {
+            return actionBlock();
+          } },
         buttonTitle
       );
     }
@@ -860,21 +960,23 @@ var PlayersTable = function (_React$Component17) {
         for (var _iterator2 = this.props.users[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
           var _ref = _step2.value;
 
-          var _ref2 = _slicedToArray(_ref, 4);
+          var _ref2 = _slicedToArray(_ref, 5);
 
-          var name = _ref2[0];
-          var rank = _ref2[1];
-          var team = _ref2[2];
-          var ready = _ref2[3];
+          var id = _ref2[0];
+          var name = _ref2[1];
+          var rank = _ref2[2];
+          var team = _ref2[3];
+          var ready = _ref2[4];
 
 
+          var highlight = ENV.user.id === id ? 'highlight' : '';
           ready = ready ? '✓' : '';
           var sign = rank % 100 <= 30 ? '-' : rank % 100 >= 70 ? '+' : '';
-          rank = '' + (User.calculateRankLetter(rank) + sign);
+          var rankSymbol = '' + (User.calculateRankLetter(rank) + sign);
           team = team || 'SOLO';
           rows.push(React.createElement(
             'tr',
-            { key: name + rank },
+            { key: name + rank, className: highlight },
             React.createElement(
               'td',
               null,
@@ -893,7 +995,7 @@ var PlayersTable = function (_React$Component17) {
             React.createElement(
               'td',
               null,
-              rank
+              rankSymbol
             ),
             React.createElement(
               'td',
@@ -917,7 +1019,10 @@ var PlayersTable = function (_React$Component17) {
         }
       }
 
-      for (var i = 0; i < this.props.limit - this.props.users.length; i++) {
+      var left = this.props.limit - this.props.users.length;
+      var over = left > 3;
+      if (over) left = 3;
+      for (var i = 0; i < left; i++) {
         rows.push(React.createElement(
           'tr',
           { key: ++index, className: 'empty-row' },
@@ -927,6 +1032,21 @@ var PlayersTable = function (_React$Component17) {
             'td',
             null,
             'empty'
+          ),
+          React.createElement('td', null),
+          React.createElement('td', null)
+        ));
+      }
+      if (over) {
+        rows.push(React.createElement(
+          'tr',
+          { key: ++index, className: 'empty-row' },
+          React.createElement('td', null),
+          React.createElement('td', null),
+          React.createElement(
+            'td',
+            null,
+            '...'
           ),
           React.createElement('td', null),
           React.createElement('td', null)
@@ -1154,8 +1274,8 @@ var INFO = {
 };
 
 var LOBBY_OPTIONS = {
-  map: ['MAP', 'alpha map', 'beta map', 'gamma map'],
-  mode: ['GAME MODE', 'Capture the Flag', 'Territorial', 'Survival'],
+  map: ['MAP', 'Wide Sky', 'Nautical'],
+  mode: ['GAME MODE', 'Capture the Flag', 'Territorial'], //, 'Survival'],
   player_capacity: ['MAX PLAYERS', '2', '3', '4', '5', '6', '7', '8'],
   stock: ['STOCK', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 };
@@ -1172,6 +1292,10 @@ var REF = {
     sub: ['attractor', 'heat seeker', 'repulsors', 'stealth', 'block bomb'],
     stats: [['HEALTH', '0.6', '0.6', '0.2', '1.0', '0.7'], ['SPEED', '0.6', '0.6', '0.9', '0.4', '0.4'], ['ATTACK', '0.5', '0.4', '0.3', '0.5', '1.0'], ['RANGE', '0.5', '0.5', '0.3', '0.7', '0.4']]
 
+  },
+
+  results: {
+    modeMeasure: ['distance', 'amount covered', 'time lasted']
   }
 
 };

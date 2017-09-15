@@ -94,7 +94,7 @@ var LobbyManager = function () {
   }, {
     key: 'new_public',
     value: function new_public() {
-      var lobby = this.new_lobby('public', { players: 4, teams: 2 });
+      var lobby = this.new_lobby(0, { players: 4, teams: 2 });
       this.public.set(lobby.id, lobby);
       this.joinable.set(lobby.id, lobby);
       return lobby.id;
@@ -102,22 +102,22 @@ var LobbyManager = function () {
   }, {
     key: 'new_private',
     value: function new_private(options) {
-      var lobby = this.new_lobby('private');
+      var lobby = this.new_lobby(1);
       this.private.set(lobby.id, lobby);
       return lobby.id;
     }
   }, {
     key: 'new_practice',
     value: function new_practice() {
-      var lobby = this.new_lobby('practice', { players: 1 });
+      var lobby = this.new_lobby(2, { players: 1 });
       this.practice.set(lobby.id, lobby);
       return lobby.id;
     }
   }, {
     key: 'new_lobby',
-    value: function new_lobby(type, options) {
+    value: function new_lobby(typeIndex, options) {
       var id = this.new_ID();
-      var lobby = new Lobby(id, type, options);
+      var lobby = new Lobby(id, typeIndex, options);
       this.lobbies.set(id, lobby);
       console.log('new lobby: ' + id);
       return lobby;

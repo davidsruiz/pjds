@@ -54,18 +54,18 @@ let LOBBY = {
    *  for any last server operations. Usually seceded by LOBBY.showResults
    *  part 1 of 2 in closing a match
    */
-  disableGame() {
+  hideGame() {
 
     // fades in the overlay
     $('#countdown').text('FINISH');
     this.showLayer('#countdown_layer');
-    $('#game_layer').css('filter', 'blur(4px)');
+    // $('#game_layer').css('filter', 'blur(4px)');
 
-    // hides unnecessary game UI
-    LOBBY.hideHelpButton();
-
-    // stops game interaction
-    ENV.game.disableInteraction();
+    // // hides unnecessary game UI
+    // LOBBY.hideHelpButton();
+    //
+    // // stops game interaction
+    // ENV.game.disableInteraction();
 
   },
 
@@ -74,12 +74,12 @@ let LOBBY = {
    *  displayed and eventually removed
    *  part 2 of 2 in closing a match
    */
-  showResults() {
+  showResults(results) {
 
 
     // load results into HTML
     var game = ENV.game;
-    RESULTS.load([g.game, g.teams]);
+    RESULTS.load(results);
 
 
     // unveil results
@@ -90,16 +90,21 @@ let LOBBY = {
       game.endSimulation();
       this.hideLayer('#countdown_layer');
     }, TIME.sec(1));
-    //  stage 3 - unblur the game layer (after, since it can be expensive)
-    setTimeout(()=>{$('#game_layer').css('filter', 'blur(0px)');}, TIME.sec(2));
+    //  stage 3 - unblur the game layer (after, since it can be expensive) -- cross that (currently disabled for performance)
+    // setTimeout(()=>{$('#game_layer').css('filter', 'blur(0px)');}, TIME.sec(2));
 
 
     // perform extra tasks for ranked lobbies
-    if(ENV.lobby.type == 'public' && !ENV.spectate) {
-      var old_rank = ENV.user.simple_rank;
-      ENV.user.updateRank();
+    if(ENV.lobby.info.type == 0 && !ENV.spectate) {
+
+      const old_rank = ENV.user.simple_rank || 0;
+      const old_money = ENV.user.simple_money || 0;
+      ENV.user.updateStatsAjax();
+
       ENV.storage.ongoing = false;
-      (()=>{this.animateRankChange(old_rank, ENV.user.simple_rank)}).wait(TIME.sec(5))
+
+      (()=>{this.updateStatsChanges(old_rank, ENV.user.simple_rank, old_money, ENV.user.simple_money)}).wait(TIME.sec(5))
+
     }
 
 
@@ -107,34 +112,53 @@ let LOBBY = {
   },
 
   revealLobby() {
-    PARTICLES.start();
+    // PARTICLES.start();
     this.showLayer('#menu_layer');
     setTimeout(()=>{this.hideLayer('#results_layer');}, TIME.sec(1));
   },
 
-  animateRankChange(old_rank = 0, new_rank) {console.log(`OLD ${old_rank}`, `NEW ${new_rank}`)
-    $('#countdown').text(`RANK  -  ${User.calculateRankString(old_rank)}`);
-    this.showLayer('#countdown_layer');
+  updateStatsChanges(old_rank, new_rank, old_money, new_money) {
+    console.log(`RANK OLD ${old_rank}`, `NEW ${new_rank}`);
+    console.log(`MONEY OLD ${old_money}`, `NEW ${new_money}`);
+    $('#re_rank_group_value').text(`${User.calculateRankLetter(old_rank)} - ${User.calculateRankNumber(old_rank)}`);
+    $('#re_money_group_value').text(`$ ${old_money}`);
+    this.showLayer('#results_effect_layer');
 
-    (()=>{
-      var ms_delay = 20,
-          animate_length = 1000,
-          frame_count = animate_length / ms_delay,
-          rank_delta = new_rank - old_rank;
+    const deltaRank = new_rank - old_rank;
+    const deltaMoney = new_money - old_money;
 
-      frame_count.times(i => {
-        var progress = (++i) / frame_count,
-            current_rank = Math.round(parseInt(old_rank) + (rank_delta*progress)),
-            wait_time = ms_delay*i;
-        (()=>{$('#countdown').text(`RANK  -  ${User.calculateRankString(current_rank)}`);}).wait(wait_time);
-      })
-    }).wait(1000);
+    setTimeout(() => {
+      setAnimationTimeout((dt, elapsed, timeout) => {
+
+        const percent = elapsed / timeout;
+        const rank = Math.round(parseInt(old_rank) + (deltaRank * percent));
+        const money = Math.round(parseInt(old_money) + (deltaMoney * percent));
+        $('#re_rank_group_value').text(`${User.calculateRankLetter(rank)} - ${User.calculateRankNumber(rank)}`);
+        $('#re_money_group_value').text(`$ ${money}`);
+
+      }, 1);
+    }, TIME.sec(1));
+
+
+    // (()=>{
+    //   var ms_delay = 20,
+    //       animate_length = 1000,
+    //       frame_count = animate_length / ms_delay,
+    //       rank_delta = new_rank - old_rank;
+    //
+    //   frame_count.times(i => {
+    //     var progress = (++i) / frame_count,
+    //         current_rank = Math.round(parseInt(old_rank) + (rank_delta*progress)),
+    //         wait_time = ms_delay*i;
+    //     (()=>{$('#re_rank_group_value').text(`${User.calculateRankLetter(old_rank)} - ${User.calculateRankNumber(current_rank)}`);}).wait(wait_time);
+    //   })
+    // }).wait(1000);
 
 
     // $('#countdown').text('FINISH');
     // this.showLayer('#countdown_layer');
     (()=>{
-      this.hideLayer('#countdown_layer');
+      this.hideLayer('#results_effect_layer');
       if(DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();
     }).wait(TIME.sec(3.5))
   },

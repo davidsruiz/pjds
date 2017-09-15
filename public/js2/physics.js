@@ -24,16 +24,14 @@ var Physics = function () {
 
   }, {
     key: "bounce",
-    value: function bounce(fluid, stationary) {
-      var bounce_multiplier = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 1.5;
-
+    value: function bounce(fluid, stationary, force) {
       var vel = fluid.velocity.length,
 
       // absorbed = 0.8,
       // distance = Physics.distance(fluid.position, stationary.position),
       // collision_distance = fluid.radius + stationary.radius,
       force_vector = fluid.position.copy().sub(stationary.position);
-      force_vector.length = 300; //px/s
+      force_vector.length = force || 300; //px/s
       // force_vector.length = vel * bounce_multiplier;
       fluid.velocity.add(force_vector);
     }
@@ -57,3 +55,4 @@ var Physics = function () {
 
   return Physics;
 }();
+//# sourceMappingURL=physics.js.map

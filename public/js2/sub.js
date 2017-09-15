@@ -43,7 +43,7 @@ var Attractor = function () {
       this.rotation += this.velocity.length / 21600 + 0.05;
       if ((this.life_counter += dt) > this.LIFESPAN) {
         this.disabled = true;
-        ENV.game.endSub(this.id);
+        ENV.game.removeSub(this.id);
       }
     }
   }]);
@@ -110,7 +110,7 @@ var Repulsor = function () {
       this.rotation += this.velocity.length / 21600 + 0.05;
       if ((this.life_counter += dt) > this.LIFESPAN) {
         this.disabled = true;
-        ENV.game.endSub(this.id);
+        ENV.game.removeSub(this.id);
       }
     }
   }]);
@@ -180,8 +180,9 @@ var BlockBomb = function () {
   }, {
     key: "explode",
     value: function explode() {
+      // TODO PLEASE FIX
       this.exploding = true;
-      NetworkHelper.out_only_sub_destroy(this.id);
+      // ENV.game.removeSub(this.id);
     }
   }]);
 
@@ -228,8 +229,9 @@ var StealthCloak = function () {
         this.target.ship.stealth = !dead;
       }
       if (dead) {
-        ENV.game.endSub(this.id);
+        // ENV.game.removeSub(this.id);
       }
+      this.disabled = dead;
     }
   }]);
 
@@ -299,7 +301,7 @@ var Missile = function () {
     key: "explode",
     value: function explode() {
       this.exploding = true;
-      NetworkHelper.out_only_sub_destroy(this.id);
+      // ENV.game.removeSub(this.id);
     }
   }]);
 

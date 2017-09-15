@@ -8,7 +8,7 @@ class Team {
   }
 
   get color() {
-    return this.game.colors[this.number]
+    return DeepSpaceGame.colors[this.game.colors[0][this.number]];
   }
 
   createPlayer(id, name, type) {

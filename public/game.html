@@ -21,14 +21,16 @@
         <script src="https://unpkg.com/react-dom@15/dist/react-dom.js"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
         <!--<script src="http://chancejs.com/chance.min.js"></script>-->
-        <!--<script src="https://code.createjs.com/createjs-2014.12.12.combined.js"></script>-->
-        <!--<script src="/js2/ext/bezier-easing.js"></script>-->
+        <script src="https://code.createjs.com/createjs-2014.12.12.combined.js"></script>
+        <script src="/js2/ext/bezier-easing.js"></script>
         <!--<script src="https://rawgit.com/mrdoob/stats.js/master/build/stats.min.js"></script>-->
         <!--<script type="text/javascript" src="/js2/ext/dat.gui.min.js"></script>-->
         <script src="/js2/ext/hammer.min.js"></script>
         <script src="/js2/ext/swearjar/swearjar.js"></script>
+        <script src="/js2/ext/underscore-min.js"></script>
 
         <script src="/js2/env.js"></script>
+        <script src="/js2/friends.js"></script>
         <script src="/js2/gui.js"></script>
 
         <!--<script src="https://code.createjs.com/soundjs-0.6.2.min.js"></script>-->
@@ -50,25 +52,39 @@
         <script src="/js2/physics.js"></script>
 
 
-        <!--<script src="/js2/v2d.js"></script>-->
-        <!--<script src="/js2/bullet.js"></script>-->
-        <!--<script src="/js2/block.js"></script>-->
-        <!--<script src="/js2/sub.js"></script>-->
-        <!--<script src="/js2/ship.js"></script>-->
-        <!--<script src="/js2/team.js"></script>-->
-        <!--<script src="/js2/player.js"></script>-->
-        <!--<script src="/js2/camera.js"></script>-->
-        <!--<script src="/js2/flag.js"></script>-->
-        <!--<script src="/js2/deepspace.js"></script>-->
+        <script src="/js2/v2d.js"></script>
+        <script src="/js2/bullet.js"></script>
+        <script src="/js2/block.js"></script>
+        <script src="/js2/sub.js"></script>
+        <script src="/js2/ship.js"></script>
+        <script src="/js2/team.js"></script>
+        <script src="/js2/player.js"></script>
+        <script src="/js2/camera.js"></script>
+        <script src="/js2/flag.js"></script>
+        <script src="/js2/deepspace.js"></script>
 
     </head>
     <body>
 
-      <div id="countdown_layer" class="layer">
-        <span id="countdown" class="v-center">3</span>
-      </div>
+        <div id="countdown_layer" class="layer">
+            <span id="countdown" class="v-center">3</span>
+        </div>
 
-      <div id="user_info_layer" class="layer">
+        <div id="results_effect_layer" class="layer">
+            <div id="re_center_group">
+                <span id="re_title">updates</span>
+                <div id="re_money_group" class="re_small_group">
+                    <span class="re_small_group_title">money</span>
+                    <span id="re_money_group_value" class="re_small_group_value"></span>
+                </div>
+                <div id="re_rank_group" class="re_small_group">
+                    <span class="re_small_group_title">rank</span>
+                    <span id="re_rank_group_value" class="re_small_group_value"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="user_info_layer" class="layer">
 
           <div id="user_info_background"></div>
           <div id="user_info_content" class="v-center">
@@ -79,7 +95,7 @@
 
                   <div id="uic_header">
                       <!--<span id="uic_title"></span>-->
-                      <input id="uic_title" disabled="true" value="- name - " placeholder="Your Name">
+                      <input id="uic_title" disabled="true" value="- name - " placeholder="Your Name"></input>
                       <span id="uic_title_edit">set</span>
                   </div>
                   <hr>
@@ -121,7 +137,7 @@
       </div>
 
 
-      <div id="menu_layer" class="layer">
+        <div id="menu_layer" class="layer">
 
           <div id="user_mini_info">
               <span id="umi_name_letter" class="umi_name"></span>
@@ -186,38 +202,186 @@
       </div>
 
 
-      <div id="results_layer" class="layer">
-        <span id="results_head">RESULTS</span>
-        <div class="results_team">
-          <span class="results_team_win_state">WIN</span>
-          <div class="results_players">
+        <div id="results_layer" class="layer">
+
+            <div id="results_head">
+
+                <div id="results_head_content">
+
+                    <span id="results_title">RESULTS</span>
+                    <span id="results_win_outcome">-</span>
+
+                    <div id="results_graphic">
+                        <span id="results_timeline_label">-</span>
+                        <div id="results_timeline">
+
+                            <div id="results_timeline_lines">
+                                <span id="results_timeline_line_left" class="results_timeline_line"></span>
+                                <span id="results_timeline_line_middle" class="results_timeline_line"></span>
+                                <span id="results_timeline_line_right" class="results_timeline_line"></span>
+                            </div>
+
+                            <div id="results_timeline_bubbles">
+                                <!--<span class="results_timeline_bubble">97</span>-->
+                                <!--<span class="results_timeline_bubble">42</span>-->
+                                <!--<span class="results_timeline_bubble">0</span>-->
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="results_players">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>KILLS</th>
+                                    <th>DEATHS</th>
+                                    <th>HITS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>DAVID</td>
+                                    <td>12</td>
+                                    <td>8</td>
+                                    <td>134</td>
+                                </tr>
+                                <tr>
+                                    <td>ISABEL</td>
+                                    <td>10</td>
+                                    <td>2</td>
+                                    <td>110</td>
+                                </tr>
+                                <tr>
+                                    <td>NATHALIE</td>
+                                    <td>8</td>
+                                    <td>10</td>
+                                    <td>59</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="results_body">
+
+                <div class="results_team">
+
+                    <span class="results_timeline_bubble">0</span>
+
+                    <div class="results_players">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th></th>
+                                <th>KILLS</th>
+                                <th>DEATHS</th>
+                                <th>HITS</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>DAVID</td>
+                                <td>12</td>
+                                <td>8</td>
+                                <td>134</td>
+                            </tr>
+                            <tr>
+                                <td>ISABEL</td>
+                                <td>10</td>
+                                <td>2</td>
+                                <td>110</td>
+                            </tr>
+                            <tr>
+                                <td>NATHALIE</td>
+                                <td>8</td>
+                                <td>10</td>
+                                <td>59</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                <div class="results_team">
+
+                    <span class="results_timeline_bubble">97</span>
+
+                    <div class="results_players">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th></th>
+                                <th>KILLS</th>
+                                <th>DEATHS</th>
+                                <th>HITS</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>DAVID</td>
+                                <td>12</td>
+                                <td>8</td>
+                                <td>134</td>
+                            </tr>
+                            <tr>
+                                <td>ISABEL</td>
+                                <td>10</td>
+                                <td>2</td>
+                                <td>110</td>
+                            </tr>
+                            <tr>
+                                <td>NATHALIE</td>
+                                <td>8</td>
+                                <td>10</td>
+                                <td>59</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+      <!--<div id="results_layer" class="layer">
+          <span id="results_head">RESULTS</span>
+          <div class="results_team">
+              <span class="results_team_win_state">WIN</span>
+              <div class="results_players">
             <span class="results_player">
               <span class="results_player_name">jaio</span>
               <span class="results_player_score">4+ 9-</span>
             </span>
-            <span class="results_player">
+                  <span class="results_player">
               <span class="results_player_name">iir</span>
               <span class="results_player_score">4+ 9-</span>
             </span>
+              </div>
           </div>
-        </div>
-        <div class="results_team">
-          <span class="results_team_win_state">LOSE</span>
-          <div class="results_players">
+          <div class="results_team">
+              <span class="results_team_win_state">LOSE</span>
+              <div class="results_players">
             <span class="results_player">
               <span class="results_player_name">plpp</span>
               <span class="results_player_score">4+ 9-</span>
             </span>
-            <span class="results_player">
+                  <span class="results_player">
               <span class="results_player_name">caage</span>
               <span class="results_player_score">4+ 9-</span>
             </span>
+              </div>
           </div>
-        </div>
-      </div>
+      </div>-->
 
 
-      <div id="game_layer" class="layer">
+        <div id="game_layer" class="layer">
          <!--<div id="lines" class="layer grid"></div>-->
          <!--<div id="dots" class="layer grid"></div>-->
 
@@ -246,7 +410,7 @@
             <img class="right" src="images/arrow.png" alt="" draggable="false" />
           </div>
         </div>
-      </div>
+        </div>
 
       <!--<div id="sound_layer" class="layer">-->
         <!--<div id="volume">-->

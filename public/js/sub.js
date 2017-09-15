@@ -35,7 +35,7 @@ class Attractor {
     this.rotation += ((this.velocity.length / 21600) + 0.05);
     if((this.life_counter+=dt) > this.LIFESPAN) {
       this.disabled = true;
-      ENV.game.endSub(this.id);
+      ENV.game.removeSub(this.id);
     }
   }
 }
@@ -94,7 +94,7 @@ class Repulsor {
     this.rotation += ((this.velocity.length / 21600) + 0.05);
     if((this.life_counter+=dt) > this.LIFESPAN) {
       this.disabled = true;
-      ENV.game.endSub(this.id);
+      ENV.game.removeSub(this.id);
     }
   }
 }
@@ -153,9 +153,9 @@ class BlockBomb {
     }
   }
 
-  explode() {
+  explode() { // TODO PLEASE FIX
     this.exploding = true;
-    NetworkHelper.out_only_sub_destroy(this.id);
+    // ENV.game.removeSub(this.id);
   }
 }
 
@@ -194,8 +194,9 @@ class StealthCloak {
       this.target.ship.stealth = !dead;
     }
     if(dead) {
-      ENV.game.endSub(this.id);
+      // ENV.game.removeSub(this.id);
     }
+    this.disabled = dead;
   }
 
 }
@@ -260,7 +261,7 @@ class Missile {
 
   explode() {
     this.exploding = true;
-    NetworkHelper.out_only_sub_destroy(this.id);
+    // ENV.game.removeSub(this.id);
   }
 }
 

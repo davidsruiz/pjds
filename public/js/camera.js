@@ -1,35 +1,73 @@
 class Camera {
 
-  constructor(window, plane, focus) {
-    this.window = window; this.plane = plane; this.focus = focus;
+  constructor(window, plane, scale, HDPScale) {
+    this.window = window; this.plane = plane; this.scale = scale; this.HDPScale = HDPScale;
     this.edge_x = -this.plane.width + this.window.width;
     this.edge_y = -this.plane.height + this.window.height;
+    this.offset = new V2D();
   }
 
   update() {
-    const offsetX = this.window.width / 2,
-          offsetY = this.window.height / 2;
+    // const offsetX = this.window.width / 2,
+    //       offsetY = this.window.height / 2;
+    //
+    // let new_x = -this.focus.x + offsetX;
+    // let new_y = -this.focus.y + offsetY;
+    //
+    // if(new_x > 0) new_x = 0;
+    // if(new_y > 0) new_y = 0;
+    // if(new_x < this.edge_x) new_x = this.edge_x;
+    // if(new_y < this.edge_y) new_y = this.edge_y;
+    //
+    // this.plane.x = new_x;
+    // this.plane.y = new_y;
 
-    let new_x = -this.focus.x + offsetX;
-    let new_y = -this.focus.y + offsetY;
 
-    if(new_x > 0) new_x = 0;
-    if(new_y > 0) new_y = 0;
-    if(new_x < this.edge_x) new_x = this.edge_x;
-    if(new_y < this.edge_y) new_y = this.edge_y;
+    const offsetX = this.window.width  /  ( 1 / ( 1 / 2 )),
+          offsetY = this.window.height /  ( 1 / ( 5 / 8 ));
 
-    this.plane.x = new_x;
-    this.plane.y = new_y;
+    // let new_x = -this.focus.x + offsetX;
+    // let new_y = -this.focus.y + offsetY;
+
+    let new_x = this.focus.x;
+    let new_y = this.focus.y;
+
+    // if(new_x > 0) new_x = 0;
+    // if(new_y > 0) new_y = 0;
+    // if(new_x < this.edge_x) new_x = this.edge_x;
+    // if(new_y < this.edge_y) new_y = this.edge_y;
+
+    this.offset.x = this.plane.x = offsetX * this.HDPScale;
+    this.offset.y = this.plane.y = offsetY * this.HDPScale;
+
+    this.plane.regX = new_x;
+    this.plane.regY = new_y;
+
+    this.plane.rotation = -this.focus.ship.rotation - 90;
   }
 
   showing(obj) {
-    const r = obj.radius;
-    return (
-      ((obj.position.x-r) + this.plane.x < this.width) &&
-      ((obj.position.x+r) + this.plane.x > 0) &&
-      ((obj.position.y-r) + this.plane.y < this.height) &&
-      ((obj.position.y+r) + this.plane.y > 0)
-    )
+    // box approach
+    // everything within the 4 corners of the view box were to be shown
+    //
+    // const r = obj.radius;
+    // return (
+    //   ((obj.position.x-r) + this.plane.x < this.width) &&
+    //   ((obj.position.x+r) + this.plane.x > 0) &&
+    //   ((obj.position.y-r) + this.plane.y < this.height) &&
+    //   ((obj.position.y+r) + this.plane.y > 0)
+    // )
+
+
+    // radius approach
+    // since box gets rotated.. everything within the longest distance is shown
+
+    const shortestPossibleRadius = this.offset.length / this.scale;
+
+    const distanceBetweenObjectAndFocus = Physics.distance(this.focus, obj.position);
+
+    return ( distanceBetweenObjectAndFocus - obj.radius ) < shortestPossibleRadius
+
   }
 
   closest_match(obj, padding = 10) {
@@ -61,15 +99,20 @@ class Camera {
       const delta_v = p2.sub(p1);
       delta_v.length = delta_v.length * timingFunction(percentage);
       p1.add(delta_v);
-      this.focus = {x:p1.x, y:p1.y};
+      let oldR = old_focus.ship.rotation % 360;
+      let newR = new_focus.ship.rotation % 360; let angleOffset = 0;
+      if(Math.abs(newR - oldR) > 180) angleOffset = (newR - oldR > 0) ? -360 : 360;
+      const deltaRotation = ((newR - oldR + angleOffset) * percentage) + oldR;
+      this.focus = {x:p1.x, y:p1.y, ship: {rotation: deltaRotation}};
     }, 1, ()=>{
       this.focus = new_focus;
+      this.checkCount = 0;
       check();
     });
 
     // a continuous post check is required for slower machines that run at < 60 fps
     let [obj, prop] = whileCondition;
-    let check = () => { (obj[prop]) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
+    let check = () => { (obj[prop] && this.checkCount++ > 2) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
     // (()=>{ check() }).wait(1000);
   }
 

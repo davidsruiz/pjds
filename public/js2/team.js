@@ -25,9 +25,10 @@ var Team = function () {
   }, {
     key: "color",
     get: function get() {
-      return this.game.colors[this.number];
+      return DeepSpaceGame.colors[this.game.colors[0][this.number]];
     }
   }]);
 
   return Team;
 }();
+//# sourceMappingURL=team.js.map

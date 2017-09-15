@@ -9,13 +9,13 @@ class Physics {
   }
 
   // circular bounce w/ one static
-  static bounce(fluid, stationary, bounce_multiplier = 1.5) {
+  static bounce(fluid, stationary, force) {
     let vel = fluid.velocity.length,
         // absorbed = 0.8,
         // distance = Physics.distance(fluid.position, stationary.position),
         // collision_distance = fluid.radius + stationary.radius,
         force_vector = fluid.position.copy().sub(stationary.position);
-    force_vector.length = 300; //px/s
+    force_vector.length = force || 300; //px/s
     // force_vector.length = vel * bounce_multiplier;
     fluid.velocity.add(force_vector);
   }

@@ -68,8 +68,27 @@ input[type="checkbox"]:active + label {
     background:url(https://cdn.tutsplus.com/webdesign/uploads/legacy/tuts/391_checkboxes/check_radio_sheet.png) -19px top no-repeat;
 }*/
 
+/* from friends.css */
+
+.lobby-button {
+    font: 24px "Roboto Condensed", sans-serif;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.lobby-button:not([disabled]):hover {
+    text-decoration: underline;
+    color: #CFD8DC;
+}
+.lobby-button[disabled] {
+    opacity: 0.4;
+    cursor: default;
+    text-decoration: none;
+}
+
 
 /* NEW */
+
+span, td, th { cursor: default; }
 
 #container {
     /* the place where React will produce.. the environment */
@@ -94,6 +113,10 @@ input[type="checkbox"]:active + label {
     color: var(--md-blue-grey-300);
     -webkit-font-smoothing: antialiased;
 
+    -webkit-user-select: none;  /* Chrome all / Safari all */
+    -moz-user-select: none;     /* Firefox all */
+    -ms-user-select: none;      /* IE 10+ */
+    user-select: none;          /* Likely future */
 }
 
 #ds-game-lobby > #part-1 {
@@ -181,6 +204,11 @@ input[type="checkbox"]:active + label {
 #lobby-options {
     padding: 16px 0px;
     text-align: left;
+
+    max-height: 400px;
+    transition: 0.6s;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .list-select {
@@ -231,13 +259,51 @@ input[type="checkbox"]:active + label {
 }
 
 #player-config {
+    position: relative;
     display: inline-block;
     width: 100%;
     padding: 8% 0 4% 0;
     border-bottom: 4px solid var(--md-blue-grey-300);
 
-    text-align: left;
+    text-align: center;
+    z-index: 30;
 }
+
+#player-config > * { position: relative; z-index: 30; }
+
+/* to avoid weird safari animation reset bug/feature.... */
+/* .. its animation prep */
+#ship-picker, #ship-desc, #ship-stats, #ship-sub {
+    float: left; /* the culprit */
+    max-height: 200px;
+    overflow: hidden;
+    opacity: 1;
+}
+
+#ship-picker, #ship-desc, #ship-stats, #ship-sub, #player-config-shade, #ability-action-box span  {
+    transition: all 1.2s ease, width 1ms, max-width 1ms;
+}
+
+
+#ship-desc {
+    -webkit-transition-delay: 0.1s;
+    -moz-transition-delay: 0.1s;
+    -ms-transition-delay: 0.1s;
+    -o-transition-delay: 0.1s;
+    transition-delay: 0.1s;
+}
+
+#player-config.hidden > #ship-picker,
+#player-config.hidden > #ship-desc,
+#player-config.hidden > #ship-stats,
+#player-config.hidden > #ship-sub { opacity: 0 }
+
+#player-config.disabled > #ship-picker,
+#player-config.disabled > #ship-desc,
+#player-config.disabled > #ship-stats,
+#player-config.disabled > #ship-sub { opacity: 0.4 }
+
+
 
 /* ship-picker */
 #ship-picker {
@@ -325,10 +391,13 @@ span#ship-desc-text {
 #ship-stats {
     width: 50%;
     max-width: calc(100% - 248px);
+    height: 132px;
     padding: 8px;
+    margin-top: 54px;
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     box-sizing: border-box;
+    text-align: left;
 }
 
 .ship-stats-row {
@@ -479,6 +548,7 @@ span.ship-stats-bar > *:after {
     -moz-box-sizing: border-box;
     box-sizing: border-box;
     vertical-align: top;
+    z-index: 31;
 }
 
 #ability-action-box-row {
@@ -488,9 +558,12 @@ span.ship-stats-bar > *:after {
 }
 
 #ability-action-box span {
-    display: none; /* inline block */
-    margin: 0 12px 10px 0;
+    display: inline-block; /* inline block */
+    max-width: 0;
+    margin: 0;
+    overflow: hidden;
     font-size: 24px;
+    vertical-align: middle;
 }
 #ability-action-box span:hover { text-decoration: underline; }
 
@@ -510,6 +583,7 @@ span.ship-stats-bar > *:after {
     color: var(--md-blue-grey-800);
     font-family: 'Roboto', sans-serif;
     font-size: 18px;
+    font-weight: 900;
     letter-spacing: 2.8px;
     text-align: center;
 
@@ -520,14 +594,44 @@ span.ship-stats-bar > *:after {
     transition-property: box-shadow;
     transition-duration: 0.4s;
 
+    z-index: 32;
+
     cursor: pointer;
 }
 
-#ability-action-box button:hover {
+#ability-action-box button:not(.disabled):not(.hollow):hover {
     -webkit-box-shadow:0 2px 22px rgba(0, 0, 0, .4);
     -moz-box-shadow: 0 2px 22px rgba(0, 0, 0, .4);
     box-shadow: 0 2px 22px rgba(0, 0, 0, .4);
 }
+
+#ability-action-box button.hollow {
+    color: var(--md-blue-grey-300);
+    background: var(--md-blue-grey-700);
+    animation: none;
+    cursor: default;
+}
+
+#ability-action-box button.disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+
+#player-config-shade {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /*background-color: var(--md-blue-grey-800);*/
+    z-index: 31;
+}
+
+#player-config-shade.opacity-0 { opacity: 0.0; z-index: 29; }
+#player-config-shade.opacity-5 { opacity: 0.5; }
+#player-config-shade.opacity-10 { opacity: 1.0 }
+
 
 
 /* lobby users */
@@ -587,6 +691,8 @@ span.ship-stats-bar > *:after {
 #players-table {
     width: 64%;
 }
+
+#players-table tr.highlight { color: var(--md-blue-grey-100) }
 
 #players-table thead > tr > *:not(:nth-child(1)) {
     padding-bottom: 4px;
@@ -658,6 +764,7 @@ and (max-width: 800px) {
     #ds-game-lobby {
         padding: 10%;
         overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
     }
 
     #ds-game-lobby > #part-1 {
@@ -724,7 +831,7 @@ and (min-width: 600px) {
 @media screen
 and (max-width: 1100px) {
     #lobby-button-option { display: inline-block }
-    #lobby-options.hidden { display: none }
+    #lobby-options.hidden { max-height: 0; padding: 0 }
 }
 
 /*lobby action and buttons*/
@@ -768,17 +875,38 @@ and (max-width: 600px)
 @media screen
 and (max-width: 800px) {
     #ship-picker { width: 100%; margin-right: unset; }
+
+    #player-config.hidden, #player-config.disabled { padding-top: 4% }
+    #player-config.hidden > #ship-picker, #player-config.disabled > #ship-picker,
+    #player-config.hidden > #ship-desc, #player-config.disabled > #ship-desc,
+    #player-config.hidden > #ship-stats, #player-config.disabled > #ship-stats,
+    #player-config.hidden > #ship-sub, #player-config.disabled > #ship-sub
+    { max-height: 0; padding: 0; float: left; }
+
+    #player-config.hidden > #ship-stats, #player-config.disabled > #ship-stats { margin-top: unset; }
+
+    #player-config.hidden > #ability-action-box,
+    #player-config.disabled > #ability-action-box { height: 65px; }
+
+    #player-config.disabled > #ability-action-box { width: 100%; }
+
 }
 
 @media screen
 and (max-width: 600px) {
-    #ship-desc { width: 100% }
-    #ship-stats { width: 50%; max-width: none; }
+
+    #ship-desc { width: 100%; }
+    #ship-stats { width: 50%; max-width: none; margin-top: unset; }
     #ship-sub { width: 50%; min-width: unset; }
-    #ability-action-box { width: 100%; max-width: none; }
+    #ability-action-box { width: 100%; max-width: none; height: 72px; }
 
     .ship-stats-row-label { width: 74px; }
     span.ship-stats-bar { width: calc(100% - 74px); }
+
+    #player-config:not(.hidden):not(.disabled) #ability-action-box-row > span { max-width: 100px; margin: 0 12px 10px 0; }
+    #ship-stats.collapsed { max-height: 0; padding: 0; float: left; }
+    #ship-sub.collapsed { max-height: 0; padding: 0; float: left; }
+
 }
 
 /* lobby users */
@@ -901,6 +1029,22 @@ and (min-width: 800px) {
     }
 }
 
+
+
+/* results effect layer */
+
+#results_effect_layer { background-color: rgba(55, 71, 79, 0.9); color: var(--md-blue-grey-300); z-index: 29; -webkit-font-smoothing: antialiased; display: none; opacity: 0;}
+#results_effect_layer span { display: inline-block }
+#re_center_group { position: relative; top: 50%; transform: translateY(-50%); width: 320px }
+#re_title { width: 100%; font: 39px 'Roboto Condensed', sans-serif; margin: 12px 0px }
+.re_small_group { width: 50%; float: left }
+.re_small_group_title { width: 100%; font: 20px 'Roboto Condensed', sans-serif; }
+.re_small_group_value { width: 100%; font: bold 29px 'Roboto Condensed', sans-serif; }
+
+/*#re_money_group { display: none;}*/
+
+
+/* end results effect layer */
 
 /* NOTES */
 

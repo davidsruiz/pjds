@@ -16,10 +16,13 @@ class User {
     this.stats.kills = ENV.storage.kills;
     this.stats.deaths = ENV.storage.deaths;
 
-    if(this.id && !(this.simple_rank >= 0)) { // if id and invalid rank, reset
+
+    const simpleRankIsInvalid = !(this.simple_rank >= 0);
+
+    if(this.id && simpleRankIsInvalid) { // if id and invalid rank, reset
       this.resetRank();
     } else {
-      this.refreshUserView();
+      this.refreshUserMiniView();
     }
 
 
@@ -74,13 +77,28 @@ class User {
     //     resolve(name);
     //   })
     // }
+
+    // this.get_rank =
   }
 
-  refreshUserView() {
-    this.refreshUserNameView();
-    this.refreshUserRankView();
+  get get_rank() {
+    return (new Promise((resolve, reject) => {
+      if(this.simple_rank >= 0) {
+        resolve(this.simple_rank);
+      } else {
+        this.resetRank(resolve, reject);
+      }
+    }));
   }
-  refreshUserNameView(name = this.name) {
+
+  refreshUserMiniView() {
+    this.refreshUserNameMiniView();
+    this.refreshUserRankMiniView();
+    this.refreshUserMoneyMiniView();
+  }
+  refreshUserNameMiniView(name = this.name) {
+    if(!userViewsAreAvailable()) return;
+
     const no_name_small = 'g';
     const no_name_large = 'guest';
     const node_small = document.querySelector('#umi_name_letter');
@@ -91,7 +109,9 @@ class User {
       node_large.textContent = name || no_name_large
     }
   }
-  refreshUserRankView() {
+  refreshUserRankMiniView() {
+    if(!userViewsAreAvailable()) return;
+
     const box_node = document.querySelector('#user_mini_info');
     const rank_node = box_node.querySelector('#umi_stats_rank');
     if(this.name && this.simple_rank >= 0) {
@@ -100,6 +120,28 @@ class User {
     } else {
       box_node.setAttribute('limited', '');
     }
+  }
+  refreshUserMoneyMiniView() {
+    if(!userViewsAreAvailable()) return;
+
+    const box_node = document.querySelector('#user_mini_info');
+    const money_node = box_node.querySelector('#umi_stats_currency');
+    if(this.name && this.simple_rank >= 0 && this.simple_money >= 0) {
+      money_node.textContent = this.simple_money;
+      box_node.removeAttribute('limited');
+    } else {
+      box_node.setAttribute('limited', '');
+    }
+  }
+
+  refreshUserViews() {
+    this.refreshUserMiniView();
+    this.refreshUserLayer();
+  }
+
+  refreshUserLayer() {
+    if(!userViewsAreAvailable()) return;
+    if(ENV.UA) ENV.UA.refreshUI();
   }
 
   get rank_letter() {
@@ -121,7 +163,7 @@ class User {
 
   nameChangeHandler(prop, old_value, new_value) {
     ENV.storage.user_name = new_value;
-    this.refreshUserNameView(new_value);
+    this.refreshUserNameMiniView(new_value);
     return new_value;
   }
 
@@ -130,7 +172,7 @@ class User {
     return new_value;
   }
 
-  resetRank() {
+  resetRank(resolveCallback = ()=>{}, rejectCallback = ()=>{}) {
     $.ajax({
       url: '/rank',
       type: 'POST',
@@ -143,7 +185,11 @@ class User {
       this.simple_rank = simple;
       this.rank = encoded;
 
-      this.refreshUserRankView();
+      resolveCallback(simple);
+      // this.refreshUserRankMiniView();
+    })
+    .fail(() => {
+      rejectCallback();
     });
   }
 
@@ -161,15 +207,41 @@ class User {
       this.simple_rank = simple;
       this.rank = encoded;
 
-      this.refreshUserRankView();
+      this.refreshUserRankMiniView();
     });
   }
 
+  updateStatsAjax() {
+    $.ajax({
+      url: '/update_stats',
+      type: 'POST',
+      data: JSON.stringify(
+        [
+          this.id,
+          this.rank,
+          this.money,
+        ]
+      ),
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json'
+    })
+      .done(([rank, money, simple_rank, simple_money]) => {
+
+        this.rank = rank;
+        this.money = money;
+        this.simple_rank = simple_rank;
+        this.simple_money = simple_money;
+
+        this.refreshUserViews();
+      });
+  }
+
+
   validateStats() {
-    if(!(this.stats.wins > 0)) this.stats.wins = 0;
-    if(!(this.stats.losses > 0)) this.stats.losses = 0;
-    if(!(this.stats.kills > 0)) this.stats.kills = 0;
-    if(!(this.stats.deaths > 0)) this.stats.deaths = 0;
+    if(!(this.stats.wins >= 0)) this.stats.wins = 0;
+    if(!(this.stats.losses >= 0)) this.stats.losses = 0;
+    if(!(this.stats.kills >= 0)) this.stats.kills = 0;
+    if(!(this.stats.deaths >= 0)) this.stats.deaths = 0;
   }
 
   resetStats() {
@@ -224,13 +296,13 @@ class UserAdapter {
     const user_set = name_set && !!ENV.user.rank;
 
     //name
-    $('#uic_title').val(ENV.user.name || '- name -');
+    $('#uic_title').val(ENV.user.name || '_name_');
     // edit button
     $('#uic_title_edit').text(name_set ? 'change' : 'set')
 
     if(user_set) {
-      $('#uic_money_cell').text('0');
-      $('#uic_rank_cell').text(User.calculateRankLetter() + ' - ' + User.calculateRankNumber());
+      $('#uic_money_cell').text(ENV.user.simple_money);
+      $('#uic_rank_cell').text(ENV.user.rank_letter + ' - ' + ENV.user.rank_number);
       $('#uic_win_cell').text('0');
       $('#uic_friends_cell').text('0');
 
@@ -258,15 +330,22 @@ class UserAdapter {
 
 }
 
+const userViewsAreAvailable = () => document.querySelector('#user_mini_info');
 
 $(()=>{
+
   ENV.user = new User();
-  if(ENV.storage.ongoing == 'true') { ENV.user.updateRank(); ENV.storage.ongoing = 'false' }
+  if(ENV.storage.ongoing == 'true') { ENV.user.updateStatsAjax(); ENV.storage.ongoing = 'false' }
 
-  $('#user_mini_info').click(jqEvent => { LOBBY.showLayer('#user_info_layer') });
-  $('#user_info_background, #uic_close_button').click(jqEvent => { LOBBY.hideLayer('#user_info_layer') })
+  if(userViewsAreAvailable()) { // revise ... make user always accessible with its view components optional
 
-  const UA = new UserAdapter(ENV.user);
-  $('#uic_title_edit').click(jqEvent => { UA.getName() })
-  UA.refreshUI();
-})
+    $('#user_mini_info').click(jqEvent => { LOBBY.showLayer('#user_info_layer') });
+    $('#user_info_background, #uic_close_button').click(jqEvent => { LOBBY.hideLayer('#user_info_layer') })
+
+    ENV.UA = new UserAdapter(ENV.user);
+    $('#uic_title_edit').click(jqEvent => { ENV.UA.getName() })
+    ENV.UA.refreshUI();
+
+  }
+
+});

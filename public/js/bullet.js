@@ -3,7 +3,7 @@ class Bullet {
   constructor(data) {
     this.id = data.id;
     this.team = data.team;
-    this.creator = data.creator;
+    this.creator = data.creator; // id
 
     Object.assign(this, Bullet.stats);
 
@@ -29,7 +29,7 @@ class Bullet {
     this.position.add(this.velocity.mul_(dt));
     if((this.life_counter+=dt) > this.LIFESPAN) {
       this.disabled = true;
-      ENV.game.endBullet(this.id);
+      ENV.game.removeBullet(this.id);
     }
   }
 

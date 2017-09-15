@@ -1,22 +1,8 @@
 
+// client.js
+// by David Ruiz
+// Copyright DEEP SPACE All Rights Reserved 2017
 
-
-
-
-
-class Network {
-
-  constructor() {
-
-  }
-
-  // connect to server using id and name
-
-  connect() {
-
-  }
-
-}
 
 class Lobby {
 
@@ -40,7 +26,17 @@ class Lobby {
       ]
     };
 
+    this.user = {
+      isJoined: false,
+      isReady: false,
+      team: null,
+    };
+    this.userIsJoined = false;
+
     this.socketSetup();
+    this.network = new GameNetworkAdapter(null, this.socket)
+
+    window.onbeforeunload = () => this.beforeExit();
 
   }
 
@@ -48,6 +44,7 @@ class Lobby {
     let socket = this.socket = io.connect();
 
     socket.on('pie', ()=>{alert('received')});
+    socket.on('error', (msg)=>{alert(`server error -- ${msg}`)});
 
     // setting up responses`
 
@@ -55,19 +52,21 @@ class Lobby {
     // connect -> connected
     socket.on('auth', (a)=>this.auth(a));
     socket.on('connected', (a)=>this.connected(a));
+    socket.on('passwordSet', (a)=>this.passwordSet(a));
+    socket.on('passwordCleared', (a)=>this.passwordCleared(a));
 
-    socket.on('playerAdded', (a)=>this.playerAdded(a));
-    socket.on('playerUpdated', (a)=>this.playerUpdated(a));
-    socket.on('playerRemoved', (a)=>this.playerRemoved(a));
+    socket.on('joined', (a)=>this.joined(a));
+    socket.on('lobbyFull', (a)=>this.lobbyFull(a));
+    socket.on('starting', (a)=>this.starting(a));
 
-    socket.on('spectatorAdded', (a)=>this.spectatorAdded(a));
-    socket.on('spectatorUpdated', (a)=>this.spectatorUpdated(a));
-    socket.on('spectatorRemoved', (a)=>this.spectatorRemoved(a));
+    socket.on('usersUpdate', (a)=>this.usersUpdate(a));
+    socket.on('playersUpdate', (a)=>this.playersUpdate(a));
+    socket.on('optionsUpdate', (a)=>this.optionsUpdate(a));
 
-    socket.on('updateMap', (a)=>this.updateMap(a));
+    socket.on('gameStarted', (a)=>this.gameStarted(a));
+    socket.on('gameEnded', (a)=>this.gameEnded(a));
 
     socket.on('disconnected', (a)=>this.disconnected(a));
-
   }
 
 
@@ -86,6 +85,12 @@ class Lobby {
 
     let password = window.prompt('This lobby requires a password. Enter it here:');
 
+    // if dialog was canceled, return home
+    if(password === null) {
+      history.back();
+      return;
+    }
+    
     // connect to specific lobby presenting id and name
     let lobbyID = window.location.pathname.slice(1),
       // [lobby_id, user_id, user_name];
@@ -102,36 +107,186 @@ class Lobby {
     this.info = data[1];
 
     // ENV.UI.init();
-    ENV.lobby_ui.initReact();
+    ENV.lobby_ui.render();
+
+    // NOTE NOTE NOTE: if the lobby is public or private automatically join as
+    // there was always room for you as intended.
+    const lobbyType = this.info.type;
+    if(lobbyType == 0 || lobbyType == 2) this.join();
   }
 
-  join(shipType) {
+  join() {
 
+    // OLD
     // the prerequisits for joining are:
     // {name, rank, team, ready, ship, slots []}
 
+    // NEW
+    // the prerequisits for joining are:
+    // {name, rank, team}
+
+    // :name
+    if(!ENV.user.name) ENV.UA.getName();
+
+    // :team
+    switch(this.info.type) {
+      case 0: // public
+        this.user.team = null;
+        break;
+      case 1: // private
+        if((this.user.team = ENV.lobby_ui.getTeam()) === null) return;
+        break;
+      case 2: // practice
+        this.user.team = 0;
+        break;
+    }
+
+    // :rank
+    ENV.user.get_rank.then(rank => {
+
+      let data = [ENV.user.name, rank, this.user.team];
+      this.socket.emit('join', data);
+
+    }).catch(()=>{
+      alert('An error occurred...')
+    });
+
+
     // connect to specific lobby presenting id and name
-    let lobbyID = window.location.pathname.slice(1),
-      // [lobby_id, user_id, user_name];
-
-      data = [lobbyID, ENV.user.id, ENV.user.name, false, ];
-
-    this.socket.emit('connect', data);
+    // let lobbyID = window.location.pathname.slice(1),
+    //   // [lobby_id, user_id, user_name];
+    //
+    //   data = [ENV.user.name, shipType];
+    //
+    // this.socket.emit('join', data);
 
   }
 
-  playerAdded() {}
+  joined() {
+    this.user.isJoined = true;
+    ENV.lobby_ui.render();
+  }
 
-  playerUpdated() {}
+  lobbyFull() {
+    ENV.lobby_ui.render();
+  }
 
-  playerRemoved() {}
+  start(shipType) {
 
-  updateMap() {}
+    // future prerequisits for starting are:
+    // {shipType, [slots]}
+
+    // the prerequisits for starting are:
+    // {shipType}
+
+    this.socket.emit('start', shipType);
+
+  }
+
+  starting() {
+    this.user.isReady = true;
+    ENV.lobby_ui.render();
+  }
+
+  usersUpdate(newUsersData) {
+    this.info.users = newUsersData;
+    ENV.lobby_ui.render();
+  }
+
+  playersUpdate(newUsersData) {
+    this.info.users.players = newUsersData;
+    ENV.lobby_ui.render();
+  }
+
+  updateOptions(key, value) {
+    const data = [key, value];
+    this.socket.emit('updateOptions', data);
+  }
+
+  optionsUpdate(data) {
+    const [key, value] = data;
+    this.info.game_settings.editableSettings[key] = value;
+    ENV.lobby_ui.render();
+  }
+
+  setPassword() {
+
+    const p = ENV.lobby_ui.getPassword();
+    if(p) {
+      this.socket.emit('setPassword', p);
+    }
+
+  }
+
+  passwordSet(password) {
+    this.info.password = password;
+    ENV.lobby_ui.render();
+  }
+
+  clearPassword() {
+    this.socket.emit('clearPassword');
+  }
+  
+  passwordCleared() {
+    this.info.password = null;
+    ENV.lobby_ui.render();
+  }
+
+
+
+  // on game start
+  gameStarted(setupData) {
+
+    this.info.ongoing = true;
+
+    ENV.spectate = !this.user.isJoined;
+    ENV.game = DeepSpaceGame.create(setupData, this.network);
+    ENV.friends.addHistory(_(setupData.players).reject(p => p[0] === ENV.user.id).map(p => [p[0], p[1]]));
+    this.network.listen();
+
+    LOBBY.startCountdown(()=>{
+      ENV.game.start();
+      LOBBY.refreshClock();
+    })
+  }
+
+  gameEnded(results) {
+
+    console.log(results);
+
+    this.user.isReady = false;
+    this.info.ongoing = false;
+
+    this.network.stopListening();
+
+    ENV.game.end();
+    LOBBY.hideGame();
+
+    setTimeout(() => {
+
+      LOBBY.showResults(results);
+
+    }, TIME.sec(2));
+
+    // this.game.end();
+  }
+
 
   disconnected() {}
 
-  setPassword() {}
-  passwordSet() {}
+
+
+  beforeExit() {
+
+    // as a user closes the window..
+    // - record if they leave a team alone
+    const isOngoing = this.info.ongoing;
+    const isPlaying = this.isJoined;
+    const isPublicLobby = this.info.type == 0;
+    if(isOngoing && isPlaying && isPublicLobby)
+      ENV.storage.ongoing = true; // save in local storage TODO revise
+
+  }
 
 }
 
@@ -143,6 +298,7 @@ $(()=>{
   // A client loads a lobby page..
 
   //-1. instantiate lobby (app)
+    ENV.friends = new Friends();
     ENV.lobby = new Lobby();
     ENV.lobby_ui = new LobbyUI();
 
@@ -206,18 +362,54 @@ class LobbyUI {
 
   }
 
-  get_team(max_team_count, solo_option) {}
+  getTeam(max_team_count = ENV.lobby.info.game_settings.noneditableSettings.maxTeams, solo_option = true) {
+    let result = window.prompt(`Type your team # between 1 and ${max_team_count} (blank for none)` );
+    if(result === '') result = 0; // shortcut for solo
+
+    const userCanceledDialog = result === null;
+    const isNotANumber = isNaN(new Number(result));
+    const isUnderBounds = result < 0;
+    const isOverBounds = result > max_team_count;
+
+    if(userCanceledDialog || isNotANumber || isUnderBounds || isOverBounds) return null;
+    return result;
+  }
+
+  getPassword() {
+
+    const password = window.prompt('Enter a 4 digit password', '0000');
+
+    if(/^\d{4}$/.test(password)) {
+
+      // success
+      return password
+
+    } else if(password === null) {
+
+      // cancel
+      return
+
+    } else {
+
+      // failure
+      window.alert('Not 4 numbers, please try again...');
+      return
+
+    }
+
+    
+
+  }
 
 
-  initReact() {
+  render() {
     ReactDOM.render(
-      <DSGameLobby data={ENV.lobby.info} />,
+      <DSGameLobby lobbySummary={ENV.lobby.info} joined={ENV.lobby.user.isJoined} ready={ENV.lobby.user.isReady} />,
       document.getElementById('container')
     );
   }
 
 }
-
 
 
 

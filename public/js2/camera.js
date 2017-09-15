@@ -7,36 +7,78 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var Camera = function () {
-  function Camera(window, plane, focus) {
+  function Camera(window, plane, scale, HDPScale) {
     _classCallCheck(this, Camera);
 
-    this.window = window;this.plane = plane;this.focus = focus;
+    this.window = window;this.plane = plane;this.scale = scale;this.HDPScale = HDPScale;
     this.edge_x = -this.plane.width + this.window.width;
     this.edge_y = -this.plane.height + this.window.height;
+    this.offset = new V2D();
   }
 
   _createClass(Camera, [{
     key: "update",
     value: function update() {
-      var offsetX = this.window.width / 2,
-          offsetY = this.window.height / 2;
+      // const offsetX = this.window.width / 2,
+      //       offsetY = this.window.height / 2;
+      //
+      // let new_x = -this.focus.x + offsetX;
+      // let new_y = -this.focus.y + offsetY;
+      //
+      // if(new_x > 0) new_x = 0;
+      // if(new_y > 0) new_y = 0;
+      // if(new_x < this.edge_x) new_x = this.edge_x;
+      // if(new_y < this.edge_y) new_y = this.edge_y;
+      //
+      // this.plane.x = new_x;
+      // this.plane.y = new_y;
 
-      var new_x = -this.focus.x + offsetX;
-      var new_y = -this.focus.y + offsetY;
 
-      if (new_x > 0) new_x = 0;
-      if (new_y > 0) new_y = 0;
-      if (new_x < this.edge_x) new_x = this.edge_x;
-      if (new_y < this.edge_y) new_y = this.edge_y;
+      var offsetX = this.window.width / (1 / (1 / 2)),
+          offsetY = this.window.height / (1 / (5 / 8));
 
-      this.plane.x = new_x;
-      this.plane.y = new_y;
+      // let new_x = -this.focus.x + offsetX;
+      // let new_y = -this.focus.y + offsetY;
+
+      var new_x = this.focus.x;
+      var new_y = this.focus.y;
+
+      // if(new_x > 0) new_x = 0;
+      // if(new_y > 0) new_y = 0;
+      // if(new_x < this.edge_x) new_x = this.edge_x;
+      // if(new_y < this.edge_y) new_y = this.edge_y;
+
+      this.offset.x = this.plane.x = offsetX * this.HDPScale;
+      this.offset.y = this.plane.y = offsetY * this.HDPScale;
+
+      this.plane.regX = new_x;
+      this.plane.regY = new_y;
+
+      this.plane.rotation = -this.focus.ship.rotation - 90;
     }
   }, {
     key: "showing",
     value: function showing(obj) {
-      var r = obj.radius;
-      return obj.position.x - r + this.plane.x < this.width && obj.position.x + r + this.plane.x > 0 && obj.position.y - r + this.plane.y < this.height && obj.position.y + r + this.plane.y > 0;
+      // box approach
+      // everything within the 4 corners of the view box were to be shown
+      //
+      // const r = obj.radius;
+      // return (
+      //   ((obj.position.x-r) + this.plane.x < this.width) &&
+      //   ((obj.position.x+r) + this.plane.x > 0) &&
+      //   ((obj.position.y-r) + this.plane.y < this.height) &&
+      //   ((obj.position.y+r) + this.plane.y > 0)
+      // )
+
+
+      // radius approach
+      // since box gets rotated.. everything within the longest distance is shown
+
+      var shortestPossibleRadius = this.offset.length / this.scale;
+
+      var distanceBetweenObjectAndFocus = Physics.distance(this.focus, obj.position);
+
+      return distanceBetweenObjectAndFocus - obj.radius < shortestPossibleRadius;
     }
   }, {
     key: "closest_match",
@@ -84,9 +126,14 @@ var Camera = function () {
         var delta_v = p2.sub(p1);
         delta_v.length = delta_v.length * timingFunction(percentage);
         p1.add(delta_v);
-        _this.focus = { x: p1.x, y: p1.y };
+        var oldR = old_focus.ship.rotation % 360;
+        var newR = new_focus.ship.rotation % 360;var angleOffset = 0;
+        if (Math.abs(newR - oldR) > 180) angleOffset = newR - oldR > 0 ? -360 : 360;
+        var deltaRotation = (newR - oldR + angleOffset) * percentage + oldR;
+        _this.focus = { x: p1.x, y: p1.y, ship: { rotation: deltaRotation } };
       }, 1, function () {
         _this.focus = new_focus;
+        _this.checkCount = 0;
         check();
       });
 
@@ -97,7 +144,7 @@ var Camera = function () {
           prop = _whileCondition[1];
 
       var check = function check() {
-        obj[prop] ? setTimeout(function () {
+        obj[prop] && _this.checkCount++ > 2 ? setTimeout(function () {
           check();
         }, 16) : _this.focus = old_focus;
       };
@@ -107,3 +154,4 @@ var Camera = function () {
 
   return Camera;
 }();
+//# sourceMappingURL=camera.js.map

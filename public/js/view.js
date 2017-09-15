@@ -109,14 +109,31 @@ var TINT = {
     ['#0048ff', '#cc00ff']
   ],
 
+  colors: [null, null],
+  angle: 0,
+
+  angleOffset: 0,
+
   shuffle() {
     let [c1, c2] = TINT.assortment.sample(), deg = Math.randomIntMinMax(15, 75);
     TINT.load(deg, c1, c2);
   },
 
   load(deg, c1, c2) {
+    this.angle = deg;
+    this.colors[0] = c1;
+    this.colors[1] = c2;
+    this.refresh()
+  },
+
+  setAngleOffset(deg) {
+    this.angleOffset = deg;
+    this.refresh()
+  },
+
+  refresh() {
     let elem = document.querySelector('#tint');
-    if (elem) $(elem).css('background', `linear-gradient(${deg}deg, ${c1}, ${c2})`);
+    if (elem) $(elem).css('background', `linear-gradient(${this.angle + this.angleOffset}deg, ${this.colors[0]}, ${this.colors[1]})`);
   }
 
 };
@@ -144,7 +161,7 @@ class DSGameLobby extends React.Component {
       //           1 - joined
       //           2 - locked in
       //           3 - not available to join
-      userEngagementPhase:  0,
+      // userEngagementPhase:  0,
       lobbyOptionsShown: false,
     }
   }
@@ -156,7 +173,9 @@ class DSGameLobby extends React.Component {
   }
 
   render() {
-    const data = this.props.data;
+    const data = this.props.lobbySummary;
+    const full = data.users.players.length >= data.game_settings.noneditableSettings.maxPlayers;
+    const ongoing = data.ongoing;
 
     return (
       <div id="ds-game-lobby">
@@ -164,12 +183,12 @@ class DSGameLobby extends React.Component {
           <IconBar />
           <span id="logo-type">DEEP SPACE</span>
           <LobbyType type={data.type} />
-          <LobbyActions code={data.code} prefs={data.game_settings} onClick={() => this.lobbyOptionsToggle()}/>
-          <LobbyOptions prefs={data.game_settings} show={this.state.lobbyOptionsShown} />
+          <LobbyActions code={data.code} password={data.password} onOptionsClick={() => this.lobbyOptionsToggle()}/>
+          <LobbyOptions prefs={data.game_settings.editableSettings} show={this.state.lobbyOptionsShown} />
         </div>
         <div id="part-2">
-          <PlayerConfig userEngagementPhase={this.state.userEngagementPhase} />
-          <LobbyUsers users={data.users} playerLimit={data.game_settings.player_capacity}/>
+          <PlayerConfig joined={this.props.joined} ready={this.props.ready} full={full} ongoing={ongoing} />
+          <LobbyUsers users={data.users} playerLimit={data.game_settings.noneditableSettings.maxPlayers}/>
           {/*<div id="lobby-users">*/}
             {/*<PlayersTable />*/}
             {/*<SpectatorsTable />*/}
@@ -183,9 +202,12 @@ class DSGameLobby extends React.Component {
 
 class IconBar extends React.Component {
   render() {
+    
+    const homeAction = () => window.location.reset();
+    
     return (
       <div id="icon-bar">
-        <IconButton iconName="home" />
+        <IconButton iconName="home" onClick={() => homeAction()}/>
         <IconButton iconName="volume_up" />
         <IconButton iconName="help" />
         <IconButton iconName="settings" />
@@ -198,7 +220,7 @@ class IconButton extends React.Component {
 
   render() {
     return (
-      <button className={this.props.iconName + '_icon'}><i className="material-icons">{this.props.iconName}</i></button>
+      <button className={this.props.iconName + '_icon'} onClick={() => this.props.onClick()}><i className="material-icons">{this.props.iconName}</i></button>
     );
   }
 }
@@ -220,8 +242,23 @@ class LobbyType extends React.Component {
 }
 
 class LobbyActions extends React.Component {
+
+  handlePasswordClick() {
+
+    this.props.password ? ENV.lobby.clearPassword() : ENV.lobby.setPassword()
+
+  }
+  
+  handleShareClick() {
+
+    window.prompt(`copy to share this link:`, window.location.href)
+
+  }
+
   render() {
     const code = this.props.code;
+    
+    const passwordMessage = this.props.password ? 'clear password' : 'add password';
 
     return (
       <div id="lobby-action">
@@ -230,9 +267,9 @@ class LobbyActions extends React.Component {
           {/*<Button title="share" />*/}
           {/*<Button title="password" />*/}
           {/*<Button title="options" />*/}
-          <span className="lobby-button">share</span>
-          <span className="lobby-button">add password</span>
-          <span id="lobby-button-option" className="lobby-button" onClick={() => this.props.onClick()}>options</span>
+          <span className="lobby-button" onClick={() => this.handleShareClick()}>share</span>
+          <span className="lobby-button" onClick={() => this.handlePasswordClick()}>{passwordMessage}</span>
+          <span id="lobby-button-option" className="lobby-button" onClick={() => this.props.onOptionsClick()}>options</span>
         </div>
       </div>
     );
@@ -255,6 +292,9 @@ class LobbyOptions extends React.Component {
     this.setState({
       prefs: copy,
     })
+
+    // tell server
+    ENV.lobby.updateOptions(optionKey, choiceIndex);
 
   }
 
@@ -358,6 +398,7 @@ class PlayerConfig extends React.Component {
   }
 
   handleClick(isLeft) {
+    if(this.props.ready) return;
     isLeft ? this.prevShip() : this.nextShip();
   }
 
@@ -367,9 +408,17 @@ class PlayerConfig extends React.Component {
     });
   }
 
+  handleActionClick() {
+    ENV.lobby.start(this.state.ship);
+  }
+
   render() {
+    let playerConfigClass = ( this.props.joined ? ( this.props.ready ? 'disabled' : '' ) : 'hidden' ) ;
+    let shadeClass = ( this.props.joined ? ( this.props.ready ? 'opacity-5' : 'opacity-0' ) : 'opacity-10' ) ;
+
     return (
-      <div id="player-config">
+      <div id="player-config" className={playerConfigClass}>
+        <div id="player-config-shade" className={shadeClass}></div>
         <ShipPicker ship={this.state.ship} onClick={(isLeft) => this.handleClick(isLeft)} />
         <ShipDesc ship={this.state.ship} />
         <ShipStats ship={this.state.ship} expanded={this.state.expanded} />
@@ -378,7 +427,12 @@ class PlayerConfig extends React.Component {
           {/*<AbilityBubbles />*/}
           <div id="ability-action-box-row">
             <span onClick={() => this.handleExpansionToggle()}>{this.state.expanded ? 'less' : 'more'}</span>
-            <ActionButton userEngagementPhase={this.props.userEngagementPhase} onClick={} />
+            <ActionButton
+              joined={this.props.joined}
+              ready={this.props.ready}
+              full={this.props.full}
+              ongoing={this.props.ongoing}
+              onClick={() => this.handleActionClick() } />
           </div>
         </div>
       </div>
@@ -423,7 +477,7 @@ class ShipDesc extends React.Component {
       <div id="ship-desc">
         <div id="ship-desc-image">
           <div id="ship-desc-image-background"></div>
-          <img src={imagePath} alt={typeName + ' ship image'} id="ship-desc-image-mask"/>
+          <img src={imagePath} alt={typeName + ' ship image'} id="ship-desc-image-mask" draggable="false"/>
         </div>
         <span id="ship-desc-text">{typeDesc}</span>
       </div>
@@ -481,7 +535,7 @@ class ShipSub extends React.Component {
         <span id="ship-sub-label">SUB</span>
         <div id="ship-sub-image">
           <div id="ship-sub-image-background"></div>
-          <img src={imagePath} alt={subName + ' ship sub image'} id="ship-sub-image-mask"/>
+          <img src={imagePath} alt={subName + ' ship sub image'} id="ship-sub-image-mask" draggable="false"/>
         </div>
         <span id="ship-sub-title">{subName}</span>
       </div>
@@ -492,10 +546,37 @@ class ShipSub extends React.Component {
 class ActionButton extends React.Component {
 
   render() {
-    const buttonTitle = ['CONNECT', 'START', 'waiting...', 'LOBBY FULL'][this.props.userEngagementPhase];
-    const className = this.props.userEngagementPhase===3 ? 'disabled' : '';
+
+    let buttonTitle;
+    let className = '';
+    let actionBlock = () => {};
+    if(this.props.joined) {
+      if(this.props.ready) {
+        buttonTitle = 'waiting...';
+        className = 'disabled';
+      } else {
+        buttonTitle = 'START';
+        actionBlock = () => { this.props.onClick(); }
+      }
+    } else {
+      if(this.props.ongoing) {
+        buttonTitle = 'IN PROGRESS';
+        className = 'hollow';
+      } else {
+        if(this.props.full) {
+          buttonTitle = 'LOBBY FULL';
+          className = 'hollow';
+        } else {
+          buttonTitle = 'CONNECT';
+          actionBlock = () => { ENV.lobby.join() }
+        }
+      }
+    }
+
+    // const buttonTitle = ['CONNECT', 'START', 'waiting...', 'LOBBY FULL'][this.props.userEngagementPhase];
+    // const className = this.props.userEngagementPhase===3 ? 'disabled' : '';
     return (
-      <button className={className}>{buttonTitle}</button>
+      <button className={className} onClick={() => actionBlock()}>{buttonTitle}</button>
     );
   }
 }
@@ -523,28 +604,43 @@ class PlayersTable extends React.Component {
 
     let rows = [];
     let index = 0;
-    for(let [name, rank, team, ready] of this.props.users) {
+    for(let [id, name, rank, team, ready] of this.props.users) {
 
+      let highlight = ENV.user.id === id ? 'highlight' : '';
       ready = ready ? '✓' : '';
       let sign = (rank % 100 <= 30 ? '-' : (rank % 100 >= 70 ? '+' : ''));
-      rank = `${User.calculateRankLetter(rank) + sign}`;
+      let rankSymbol = `${User.calculateRankLetter(rank) + sign}`;
       team = team || 'SOLO';
       rows.push(
-        <tr key={name+rank}>
+        <tr key={name+rank} className={highlight}>
           <td>{++index + '.'}</td>
           <td>{ready}</td>
           <td>{name}</td>
-          <td>{rank}</td>
+          <td>{rankSymbol}</td>
           <td>{team}</td>
         </tr>
       )
     }
-    for(let i = 0; i < this.props.limit - this.props.users.length; i++) {
+    let left = this.props.limit - this.props.users.length;
+    const over = left > 3;
+    if(over) left = 3;
+    for(let i = 0; i < left; i++) {
       rows.push(
         <tr key={++index} className="empty-row">
           <td></td>
           <td></td>
           <td>{'empty'}</td>
+          <td></td>
+          <td></td>
+        </tr>
+      )
+    }
+    if(over) {
+      rows.push(
+        <tr key={++index} className="empty-row">
+          <td></td>
+          <td></td>
+          <td>{'...'}</td>
           <td></td>
           <td></td>
         </tr>
@@ -711,8 +807,8 @@ let INFO = {
 };
 
 const LOBBY_OPTIONS = {
-  map: ['MAP', 'alpha map', 'beta map', 'gamma map'],
-  mode: ['GAME MODE', 'Capture the Flag', 'Territorial', 'Survival'],
+  map: ['MAP', 'Wide Sky', 'Nautical'],
+  mode: ['GAME MODE', 'Capture the Flag', 'Territorial'],//, 'Survival'],
   player_capacity: ['MAX PLAYERS', '2', '3', '4', '5', '6', '7', '8'],
   stock: ['STOCK', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 };
@@ -738,12 +834,16 @@ const REF = {
     ],
     sub: ['attractor', 'heat seeker', 'repulsors', 'stealth', 'block bomb'],
     stats: [
-      ['HEALTH', '0.6', '0.6', '0.2', '1.0', '0.7'],
-      ['SPEED', '0.6', '0.6', '0.9', '0.4', '0.4'],
-      ['ATTACK', '0.5', '0.4', '0.3', '0.5', '1.0'],
-      ['RANGE', '0.5', '0.5', '0.3', '0.7', '0.4'],
+      ['HEALTH' , '0.6', '0.6', '0.2', '1.0', '0.7'],
+      ['SPEED'  , '0.6', '0.6', '0.9', '0.4', '0.4'],
+      ['ATTACK' , '0.5', '0.4', '0.3', '0.5', '1.0'],
+      ['RANGE'  , '0.5', '0.5', '0.3', '0.7', '0.4'],
     ]
 
+  },
+
+  results: {
+    modeMeasure: ['distance', 'amount covered', 'time lasted']
   }
 
 };

@@ -1,0 +1,371 @@
+
+/* things which don't -might belong (start) */
+
+#container { height: 100%; width: 100%; }
+
+/* things which don't belong (end) */
+
+/* typefaces */
+
+.header-1 {
+    font: bold 40px "Roboto Condensed", sans-serif;
+    letter-spacing: 5px;
+}
+
+.header-2 {
+    font: bold 26px "Roboto Condensed", sans-serif;
+    letter-spacing: 3px;
+}
+
+.lobby-button {
+    font: 24px "Roboto Condensed", sans-serif;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.lobby-button:not([disabled]):hover {
+    text-decoration: underline;
+    color: #CFD8DC;
+}
+.lobby-button[disabled] {
+    opacity: 0.4;
+    cursor: default;
+    text-decoration: none;
+}
+/*.lobby-button[disabled]:hover {text-decoration: none}*/
+
+
+.lobby-text {
+    font: 18px "Roboto Condensed", sans-serif;
+}
+
+.lobby-id {
+    font: 43px "Unica One", sans-serif;
+}
+
+
+
+/* structure */
+
+.parent-container /*general*/
+{
+
+    width: 100%;
+    height: 100%;
+
+    padding: 6% 8%;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+
+    -webkit-font-smoothing: antialiased;
+
+    -webkit-user-select: none;  /* Chrome all / Safari all */
+    -moz-user-select: none;     /* Firefox all */
+    -ms-user-select: none;      /* IE 10+ */
+    user-select: none;          /* Likely future */
+
+}
+
+
+.split-view /*general*/
+{
+    width: 100%;
+    height: 100%;
+}
+
+.split-view-part1
+{
+
+    width: calc(50% - 2px);
+    border-right: 2px solid var(--md-blue-grey-300);
+    height: 100%;
+    float: left;
+
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+
+}
+
+.split-view-part2
+{
+
+    width: 50%;
+    height: 100%;
+    float: left;
+
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+
+}
+
+
+#ds-game-friends /* -- .parent-container */
+{
+    color: var(--md-blue-grey-300);
+}
+
+.title-row
+{
+    width: 100%;
+    margin-bottom: 14px;
+
+    text-align: left;
+}
+
+.title-row > .lobby-button
+{
+    float: right;
+}
+
+.player-button
+{
+    font: 23px "Unica One", sans-serif;
+    cursor: pointer;
+}
+
+.player-button:hover { text-decoration: underline }
+
+.filler-text {
+    display: inline-block;
+    width: 100%;
+    font: 24px "Roboto Condensed", sans-serif;
+    text-align: center;
+    opacity: 0.4;
+    padding-bottom: 14px;
+}
+
+#part-1
+{
+    padding-right: 4%;
+    text-align: left;
+}
+
+#icon-bar {
+    width: 100%;
+    text-align: left;
+}
+
+#icon-bar > * { margin-right: 12px }
+
+#friends-header
+{
+    width: 100%;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--md-blue-grey-300);
+}
+
+#friends-header-title
+{
+    display: inline-block;
+    width: 100%;
+}
+
+#friends-header-desc
+{
+    display: inline-block;
+    width: 100%;
+    max-width: 360px;
+    margin-bottom: 14px;
+}
+
+#friends-header-button-row
+{
+    width: 100%;
+    text-align: right;
+}
+
+#friends-lobby-section
+{
+    width: 100%;
+    padding: 32px 0px 28px 0px;
+}
+
+.lobby-row
+{
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+.lobby-row-info-group
+{
+    width: calc(100% - 64px);
+}
+
+.lobby-row-info-group > .lobby-id
+{
+    display: inline-block;
+    width: 160px;
+}
+
+.player-list
+{
+    width: 100%;
+}
+
+.lobby-row > .lobby-button
+{
+    float: right;
+    transform: translateY(50%);
+}
+
+.lobby-row .player-button:not(:last-child)::after {
+    content: ", ";
+}
+
+#part-2
+{
+    box-sizing: border-box;
+}
+
+#friends-unavailable-section
+{
+    padding: 0px 32px;
+    box-sizing: border-box;
+    padding-bottom: 28px;
+    margin-bottom: 24px;
+}
+
+#friends-history-section
+{
+    padding-left: 32px;
+    box-sizing: border-box;
+    padding-bottom: 28px;
+    margin-bottom: 24px;
+}
+
+#friends-unavailable-section > .player-button,
+#friends-history-section > .player-button
+{
+    display: inline-block;
+    width: 100%;
+
+    font: 23px "Unica One", sans-serif;
+    text-align: left;
+}
+
+/* MEDIA TAGS */
+@media screen
+and (max-width: 1300px) {
+
+    #part-1 {
+        width: calc(100% - 340px);
+        border-right-width: 2px
+    }
+
+    #icon-bar {
+        margin-bottom: 8px;
+    }
+
+    #part-2 {
+
+        width: 340px;
+        padding-left: 32px;
+
+        overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
+
+    }
+
+    #friends-unavailable-section.split-view-part1 { border-right: 0; }
+
+    #friends-unavailable-section, #friends-history-section
+    {
+        width: 100%;
+        height: auto;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+}
+
+
+
+@media screen
+and (max-width: 1100px) {
+
+    #ds-game-friends {padding: 32px}
+
+}
+
+@media screen
+and (max-width: 800px) {
+
+    #ds-game-friends {
+        padding: 10%;
+        overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #ds-game-friends > #part-1 {
+        width: 100%;
+        height: auto;
+        padding-right: 0;
+        border-right: none;
+        border-bottom: 2px solid var(--md-blue-grey-300);
+    }
+
+    #friends-header-button-row { width: calc(100% - 360px); }
+
+    .player-list { width: calc(100% - 160px) }
+
+    #ds-game-friends > #part-2 {
+        width: 100%;
+        height: auto;
+        padding-left: unset;
+        padding-top: 32px;
+    }
+
+    #friends-unavailable-section, #friends-history-section
+    {
+        width: 50%;
+        height: 100%;
+    }
+
+    #friends-unavailable-section
+    {
+        padding-right: 32px;
+        border-right: 2px solid var(--md-blue-grey-300);
+    }
+
+    #friends-history-section
+    {
+        padding-left: 32px;
+        margin-left: -2px;
+        border-left: 2px solid var(--md-blue-grey-300);
+    }
+
+}
+
+@media screen
+and (max-width: 800px)
+and (max-height: 500px)
+and (min-width: 600px) {
+    #ds-game-friends {
+        padding: 6%;
+    }
+}
+
+@media screen
+and (max-width: 600px) {
+
+
+    .player-list { width: 100% }
+    #friends-header-button-row { width: 100%; }
+
+    #friends-unavailable-section {
+        border-bottom: 2px solid var(--md-blue-grey-300);
+    }
+
+    #friends-unavailable-section, #friends-history-section
+    {
+        width: 100%;
+        height: auto;
+        border-left: none;
+        border-right: none;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+}

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
@@ -17,7 +17,7 @@ var V2D = function () {
   }
 
   _createClass(V2D, [{
-    key: "set",
+    key: 'set',
     value: function set(_ref2) {
       var x = _ref2.x,
           y = _ref2.y;
@@ -26,32 +26,32 @@ var V2D = function () {
       this.y = _ref3[1];
     }
   }, {
-    key: "reset",
+    key: 'reset',
     value: function reset() {
       this.set({ x: 0, y: 0 });
     }
   }, {
-    key: "copy",
+    key: 'copy',
     value: function copy() {
       return new V2D(this.x, this.y);
     }
   }, {
-    key: "add",
+    key: 'add',
     value: function add(v) {
       this.x += v.x;this.y += v.y;return this;
     }
   }, {
-    key: "sub",
+    key: 'sub',
     value: function sub(v) {
       this.x -= v.x;this.y -= v.y;return this;
     }
   }, {
-    key: "mul",
+    key: 'mul',
     value: function mul(n) {
       this.x *= n;this.y *= n;return this;
     }
   }, {
-    key: "div",
+    key: 'div',
     value: function div(n) {
       this.x /= n;this.y /= n;return this;
     }
@@ -59,22 +59,22 @@ var V2D = function () {
     // non mutating
 
   }, {
-    key: "add_",
+    key: 'add_',
     value: function add_(n) {
       return this.copy().add(n);
     }
   }, {
-    key: "sub_",
+    key: 'sub_',
     value: function sub_(n) {
       return this.copy().sub(n);
     }
   }, {
-    key: "mul_",
+    key: 'mul_',
     value: function mul_(n) {
       return this.copy().mul(n);
     }
   }, {
-    key: "div_",
+    key: 'div_',
     value: function div_(n) {
       return this.copy().div(n);
     }
@@ -82,7 +82,7 @@ var V2D = function () {
     // unit vector
 
   }, {
-    key: "unit_v",
+    key: 'unit_v',
     value: function unit_v() {
       return this.div_(this.length);
     }
@@ -90,7 +90,7 @@ var V2D = function () {
     // dot product
 
   }, {
-    key: "angle",
+    key: 'angle',
     get: function get() {
       return Math.atan2(this.y, this.x);
     },
@@ -100,7 +100,7 @@ var V2D = function () {
       this.y = Math.sin(a) * l;
     }
   }, {
-    key: "length",
+    key: 'length',
     get: function get() {
       return Math.sqrt(this.x * this.x + this.y * this.y);
     },
@@ -110,7 +110,7 @@ var V2D = function () {
       this.y = Math.sin(a) * l;
     }
   }], [{
-    key: "new",
+    key: 'new',
     value: function _new() {
       var v = new V2D();
       switch (arguments.length) {
@@ -118,8 +118,8 @@ var V2D = function () {
           v.set({ x: 0, y: 0 });
           break;
         case 1:
-          if (arguments[0].x && arguments[0].y) v.set(arguments[0]);
-          if (arguments[0].length && arguments[0].angle) {
+          if (typeof arguments[0].x !== 'undefined' && typeof arguments[0].y !== 'undefined') v.set(arguments[0]);
+          if (typeof arguments[0].length !== 'undefined' && typeof arguments[0].angle !== 'undefined') {
             v.length = arguments[0].length;v.angle = arguments[0].angle;
           }
           break;
@@ -130,7 +130,7 @@ var V2D = function () {
       return v;
     }
   }, {
-    key: "dot",
+    key: 'dot',
     value: function dot(a, b) {
       return a.x * b.x + a.y * b.y;
     }
@@ -138,7 +138,7 @@ var V2D = function () {
     // projection of a onto b
 
   }, {
-    key: "proj",
+    key: 'proj',
     value: function proj(a, b) {
       return b.mul_(V2D.dot(a, b) / V2D.dot(b, b));
     }
@@ -146,7 +146,7 @@ var V2D = function () {
     // rejection of a from b
 
   }, {
-    key: "rejc",
+    key: 'rejc',
     value: function rejc(a, b) {
       return a.sub_(V2D.proj(a, b));
     }
@@ -161,3 +161,4 @@ var Rect = function Rect(x, y, w, h) {
   this.x = x;this.y = y;
   this.width = w;this.height = h;
 };
+//# sourceMappingURL=v2d.js.map

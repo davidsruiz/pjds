@@ -1,26 +1,20 @@
 'use strict';
 
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var Network = function () {
-  function Network() {
-    _classCallCheck(this, Network);
-  }
+// client.js
+// by David Ruiz
+// Copyright DEEP SPACE All Rights Reserved 2017
 
-  // connect to server using id and name
-
-  _createClass(Network, [{
-    key: 'connect',
-    value: function connect() {}
-  }]);
-
-  return Network;
-}();
 
 var Lobby = function () {
   function Lobby() {
+    var _this = this;
+
     _classCallCheck(this, Lobby);
 
     this.info = {
@@ -41,18 +35,33 @@ var Lobby = function () {
       ]
     };
 
+    this.user = {
+      isJoined: false,
+      isReady: false,
+      team: null
+    };
+    this.userIsJoined = false;
+
     this.socketSetup();
+    this.network = new GameNetworkAdapter(null, this.socket);
+
+    window.onbeforeunload = function () {
+      return _this.beforeExit();
+    };
   }
 
   _createClass(Lobby, [{
     key: 'socketSetup',
     value: function socketSetup() {
-      var _this = this;
+      var _this2 = this;
 
       var socket = this.socket = io.connect();
 
       socket.on('pie', function () {
         alert('received');
+      });
+      socket.on('error', function (msg) {
+        alert('server error -- ' + msg);
       });
 
       // setting up responses`
@@ -60,38 +69,47 @@ var Lobby = function () {
       // connect -> auth
       // connect -> connected
       socket.on('auth', function (a) {
-        return _this.auth(a);
+        return _this2.auth(a);
       });
       socket.on('connected', function (a) {
-        return _this.connected(a);
+        return _this2.connected(a);
+      });
+      socket.on('passwordSet', function (a) {
+        return _this2.passwordSet(a);
+      });
+      socket.on('passwordCleared', function (a) {
+        return _this2.passwordCleared(a);
       });
 
-      socket.on('playerAdded', function (a) {
-        return _this.playerAdded(a);
+      socket.on('joined', function (a) {
+        return _this2.joined(a);
       });
-      socket.on('playerUpdated', function (a) {
-        return _this.playerUpdated(a);
+      socket.on('lobbyFull', function (a) {
+        return _this2.lobbyFull(a);
       });
-      socket.on('playerRemoved', function (a) {
-        return _this.playerRemoved(a);
-      });
-
-      socket.on('spectatorAdded', function (a) {
-        return _this.spectatorAdded(a);
-      });
-      socket.on('spectatorUpdated', function (a) {
-        return _this.spectatorUpdated(a);
-      });
-      socket.on('spectatorRemoved', function (a) {
-        return _this.spectatorRemoved(a);
+      socket.on('starting', function (a) {
+        return _this2.starting(a);
       });
 
-      socket.on('updateMap', function (a) {
-        return _this.updateMap(a);
+      socket.on('usersUpdate', function (a) {
+        return _this2.usersUpdate(a);
+      });
+      socket.on('playersUpdate', function (a) {
+        return _this2.playersUpdate(a);
+      });
+      socket.on('optionsUpdate', function (a) {
+        return _this2.optionsUpdate(a);
+      });
+
+      socket.on('gameStarted', function (a) {
+        return _this2.gameStarted(a);
+      });
+      socket.on('gameEnded', function (a) {
+        return _this2.gameEnded(a);
       });
 
       socket.on('disconnected', function (a) {
-        return _this.disconnected(a);
+        return _this2.disconnected(a);
       });
     }
   }, {
@@ -113,6 +131,12 @@ var Lobby = function () {
 
       var password = window.prompt('This lobby requires a password. Enter it here:');
 
+      // if dialog was canceled, return home
+      if (password === null) {
+        history.back();
+        return;
+      }
+
       // connect to specific lobby presenting id and name
       var lobbyID = window.location.pathname.slice(1),
 
@@ -131,45 +155,203 @@ var Lobby = function () {
       this.info = data[1];
 
       // ENV.UI.init();
-      ENV.lobby_ui.initReact();
+      ENV.lobby_ui.render();
+
+      // NOTE NOTE NOTE: if the lobby is public or private automatically join as
+      // there was always room for you as intended.
+      var lobbyType = this.info.type;
+      if (lobbyType == 0 || lobbyType == 2) this.join();
     }
   }, {
     key: 'join',
-    value: function join(shipType) {
+    value: function join() {
+      var _this3 = this;
 
+      // OLD
       // the prerequisits for joining are:
       // {name, rank, team, ready, ship, slots []}
 
+      // NEW
+      // the prerequisits for joining are:
+      // {name, rank, team}
+
+      // :name
+      if (!ENV.user.name) ENV.UA.getName();
+
+      // :team
+      switch (this.info.type) {
+        case 0:
+          // public
+          this.user.team = null;
+          break;
+        case 1:
+          // private
+          if ((this.user.team = ENV.lobby_ui.getTeam()) === null) return;
+          break;
+        case 2:
+          // practice
+          this.user.team = 0;
+          break;
+      }
+
+      // :rank
+      ENV.user.get_rank.then(function (rank) {
+
+        var data = [ENV.user.name, rank, _this3.user.team];
+        _this3.socket.emit('join', data);
+      }).catch(function () {
+        alert('An error occurred...');
+      });
+
       // connect to specific lobby presenting id and name
-      var lobbyID = window.location.pathname.slice(1),
-
-      // [lobby_id, user_id, user_name];
-
-      data = [lobbyID, ENV.user.id, ENV.user.name, false];
-
-      this.socket.emit('connect', data);
+      // let lobbyID = window.location.pathname.slice(1),
+      //   // [lobby_id, user_id, user_name];
+      //
+      //   data = [ENV.user.name, shipType];
+      //
+      // this.socket.emit('join', data);
     }
   }, {
-    key: 'playerAdded',
-    value: function playerAdded() {}
+    key: 'joined',
+    value: function joined() {
+      this.user.isJoined = true;
+      ENV.lobby_ui.render();
+    }
   }, {
-    key: 'playerUpdated',
-    value: function playerUpdated() {}
+    key: 'lobbyFull',
+    value: function lobbyFull() {
+      ENV.lobby_ui.render();
+    }
   }, {
-    key: 'playerRemoved',
-    value: function playerRemoved() {}
+    key: 'start',
+    value: function start(shipType) {
+
+      // future prerequisits for starting are:
+      // {shipType, [slots]}
+
+      // the prerequisits for starting are:
+      // {shipType}
+
+      this.socket.emit('start', shipType);
+    }
   }, {
-    key: 'updateMap',
-    value: function updateMap() {}
+    key: 'starting',
+    value: function starting() {
+      this.user.isReady = true;
+      ENV.lobby_ui.render();
+    }
+  }, {
+    key: 'usersUpdate',
+    value: function usersUpdate(newUsersData) {
+      this.info.users = newUsersData;
+      ENV.lobby_ui.render();
+    }
+  }, {
+    key: 'playersUpdate',
+    value: function playersUpdate(newUsersData) {
+      this.info.users.players = newUsersData;
+      ENV.lobby_ui.render();
+    }
+  }, {
+    key: 'updateOptions',
+    value: function updateOptions(key, value) {
+      var data = [key, value];
+      this.socket.emit('updateOptions', data);
+    }
+  }, {
+    key: 'optionsUpdate',
+    value: function optionsUpdate(data) {
+      var _data = _slicedToArray(data, 2),
+          key = _data[0],
+          value = _data[1];
+
+      this.info.game_settings.editableSettings[key] = value;
+      ENV.lobby_ui.render();
+    }
+  }, {
+    key: 'setPassword',
+    value: function setPassword() {
+
+      var p = ENV.lobby_ui.getPassword();
+      if (p) {
+        this.socket.emit('setPassword', p);
+      }
+    }
+  }, {
+    key: 'passwordSet',
+    value: function passwordSet(password) {
+      this.info.password = password;
+      ENV.lobby_ui.render();
+    }
+  }, {
+    key: 'clearPassword',
+    value: function clearPassword() {
+      this.socket.emit('clearPassword');
+    }
+  }, {
+    key: 'passwordCleared',
+    value: function passwordCleared() {
+      this.info.password = null;
+      ENV.lobby_ui.render();
+    }
+
+    // on game start
+
+  }, {
+    key: 'gameStarted',
+    value: function gameStarted(setupData) {
+
+      this.info.ongoing = true;
+
+      ENV.spectate = !this.user.isJoined;
+      ENV.game = DeepSpaceGame.create(setupData, this.network);
+      ENV.friends.addHistory(_(setupData.players).reject(function (p) {
+        return p[0] === ENV.user.id;
+      }).map(function (p) {
+        return [p[0], p[1]];
+      }));
+      this.network.listen();
+
+      LOBBY.startCountdown(function () {
+        ENV.game.start();
+        LOBBY.refreshClock();
+      });
+    }
+  }, {
+    key: 'gameEnded',
+    value: function gameEnded(results) {
+
+      console.log(results);
+
+      this.user.isReady = false;
+      this.info.ongoing = false;
+
+      this.network.stopListening();
+
+      ENV.game.end();
+      LOBBY.hideGame();
+
+      setTimeout(function () {
+
+        LOBBY.showResults(results);
+      }, TIME.sec(2));
+
+      // this.game.end();
+    }
   }, {
     key: 'disconnected',
     value: function disconnected() {}
   }, {
-    key: 'setPassword',
-    value: function setPassword() {}
-  }, {
-    key: 'passwordSet',
-    value: function passwordSet() {}
+    key: 'beforeExit',
+    value: function beforeExit() {
+
+      // as a user closes the window..
+      // - record if they leave a team alone
+      var isOngoing = this.info.ongoing;
+      var isPlaying = this.isJoined;
+      var isPublicLobby = this.info.type == 0;
+      if (isOngoing && isPlaying && isPublicLobby) ENV.storage.ongoing = true; // save in local storage TODO revise
+    }
   }]);
 
   return Lobby;
@@ -180,6 +362,7 @@ $(function () {
   // A client loads a lobby page..
 
   //-1. instantiate lobby (app)
+  ENV.friends = new Friends();
   ENV.lobby = new Lobby();
   ENV.lobby_ui = new LobbyUI();
 
@@ -236,12 +419,47 @@ var LobbyUI = function () {
       resolve(name);
     }
   }, {
-    key: 'get_team',
-    value: function get_team(max_team_count, solo_option) {}
+    key: 'getTeam',
+    value: function getTeam() {
+      var max_team_count = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : ENV.lobby.info.game_settings.noneditableSettings.maxTeams;
+      var solo_option = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+
+      var result = window.prompt('Type your team # between 1 and ' + max_team_count + ' (blank for none)');
+      if (result === '') result = 0; // shortcut for solo
+
+      var userCanceledDialog = result === null;
+      var isNotANumber = isNaN(new Number(result));
+      var isUnderBounds = result < 0;
+      var isOverBounds = result > max_team_count;
+
+      if (userCanceledDialog || isNotANumber || isUnderBounds || isOverBounds) return null;
+      return result;
+    }
   }, {
-    key: 'initReact',
-    value: function initReact() {
-      ReactDOM.render(React.createElement(DSGameLobby, { data: ENV.lobby.info }), document.getElementById('container'));
+    key: 'getPassword',
+    value: function getPassword() {
+
+      var password = window.prompt('Enter a 4 digit password', '0000');
+
+      if (/^\d{4}$/.test(password)) {
+
+        // success
+        return password;
+      } else if (password === null) {
+
+        // cancel
+        return;
+      } else {
+
+        // failure
+        window.alert('Not 4 numbers, please try again...');
+        return;
+      }
+    }
+  }, {
+    key: 'render',
+    value: function render() {
+      ReactDOM.render(React.createElement(DSGameLobby, { lobbySummary: ENV.lobby.info, joined: ENV.lobby.user.isJoined, ready: ENV.lobby.user.isReady }), document.getElementById('container'));
     }
   }]);
 

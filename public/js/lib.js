@@ -66,13 +66,18 @@ Array.prototype.delete = function(el) { var i = this.indexOf(el); if(i!=-1) { th
 Array.prototype.toSet = function() { return new Set(this) };
 Array.prototype.average = function() { let t; for(var el of this) if(typeof t == 'undefined') { t = el } else { t += el } return t/this.length };
 
-Set.prototype.draw = function() { var next = this.values().next().value; this.delete(next); return next };
+Set.prototype.first = function() { return this.values().next().value };
+Set.prototype.draw = function() { this.delete(this.first()) };
 Set.prototype.toArray = function() { return Array.from(this) };
 
 Array.new = function(l = 0, filler) { var a = new Array(); l.times((i)=>{a.push(typeof(filler)=="function" ? filler(i) : filler)}); return a }
 Math.flipCoin = (p = 0.5) => Math.random() < p;
 Math.randomMinMax = (min, max) => (Math.random()*(max - min)) + min;
 Math.randomIntMinMax = (min, max) => Math.floor((Math.random()*(max - min)) + min);
+
+
+const TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
+
 
 
 /*const setIntervalTimeout = function(block, interval, timeout) {
@@ -103,14 +108,14 @@ const setAnimationTimeout = function(block, timeout, callback = ()=>{}) {
   let dt = 0;
   let elapsed = 0;
 
-  let update = () => {
-    let now = (new Date()).getTime();
+  const update = () => {
+    const now = (new Date()).getTime();
     dt = (now - last_time) / 1000;
     last_time = now;
     elapsed += dt;
   };
 
-  let loop = (() => {
+  const loop = (() => {
     update();
     // log(`${dt} :: ${elapsed} :: ${timeout}`);
     if(elapsed < timeout) {
@@ -146,7 +151,7 @@ var err = m => console.error(m);
 (function(){}).constructor.prototype.wait = function(ms) { setTimeout(this, ms) };
 
 //  game
-var localIDMatches = id => id == ENV["id"];
+var localIDMatches = id => id == ENV.user.id;
 
 Array.prototype.first = function() {return this[0]}; Array.prototype.last = function() {return this[this.length-1]}
 String.prototype.is = function(str) {return this == str}
@@ -161,7 +166,8 @@ String.prototype.padding = function(n = 0, c = " ") { var [s, alt] = [this, true
 // GamepadList.prototype.firstPresent = function() { for(i in this) if(this[i] !== undefined) return this[i] }
 
 // not really a uuid, but works here.
-Math.uuid = () => Math.random().toString(36).substring(2, 15);
+// Math.uuid = () => Math.random().toString(36).substring(2, 15);
+Math.uuid = () => Date.now().toString(36);
 
 window.location.reset = () => { window.location = window.location.origin }
 
@@ -231,6 +237,23 @@ function cloneCanvas(oldCanvas) {
 
 
 
+
+// UNDERSCORE JS //
+try {
+
+  _.mixin({
+    draw: function(collection) {
+      const item = collection.keys().next().value;
+      collection.delete(item);
+      return item;
+    }
+  });
+
+} catch(e) {}
+
+
+
+///////////////////
 
 /* DOCUMENTATION //
 

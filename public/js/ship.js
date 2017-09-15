@@ -7,10 +7,11 @@ class BasicShip {
     this.disabled = false;
     this.position = new V2D(20, 20);
         this.velocity = new V2D();
-        this.acceleration = new V2D();
+        // this.acceleration = new V2D();
+        this.acceleration = 0;
     this.angle = 0;
-        // this.angular_velocity = 0;
-        // this.angular_acceleration = 0;
+        this.angular_velocity = 0;
+        this.angular_acceleration = 0;
     this.health = 1;
     this.radius = 10;
     this.stealth = false;
@@ -21,41 +22,82 @@ class BasicShip {
     this.spawn =
       V2D.new(this.owner.team.game.mapInfo.spawn[this.owner.team.game.teams.length-1][this.owner.team.number])
       .add(DeepSpaceGame.spawn_structure[this.owner.team.players.length - 1][this.owner.team.players.indexOf(this.owner)]);
+    this.spawnRotation = this.owner.team.game.mapInfo.spawn[this.owner.team.game.teams.length-1][this.owner.team.number].rotation;
     this.last_known_position = this.position;
     this.reset()
   }
 
   update(dt) {
     if(!this.disabled) {
-      let inert = this.acceleration.length == 0 ;
-      !inert ? this.velocity.add(this.acceleration.mul_(60*dt)) : this.velocity.mul(Math.pow(this.LINEAR_FRICTION, (60*dt)) ); // TODO revise
+      // let inert = this.acceleration.length == 0 ;
+      // !inert ? this.velocity.add(this.acceleration.mul_(60*dt)) : this.velocity.mul(Math.pow(this.LINEAR_FRICTION, (60*dt)) ); // TODO revise
+      //
+      // // if(this.flag) this.velocity.mul(this.flag.drag);
+      //
+      // let limit = this.LINEAR_VELOCITY_LIMIT; if(this.flag) limit *= this.flag.drag; if(this.charging) limit += this.LINEAR_VELOCITY_LIMIT_EXTENDED;
+      // if(this.velocity.length > limit)
+      //    this.velocity.length = limit;
+      //
+      // this.position.add(this.velocity.mul_(dt));
+      //
+      // this.charging = false;
 
-      // if(this.flag) this.velocity.mul(this.flag.drag);
 
-      let limit = this.LINEAR_VELOCITY_LIMIT; if(this.flag) limit *= this.flag.drag; if(this.charging) limit += this.LINEAR_VELOCITY_LIMIT_EXTENDED;
-      if(this.velocity.length > limit)
-         this.velocity.length = limit;
+      // NEW SHIP CONTROLS //
 
+      //// angular motion
+
+      // apply acceleration
+      const angularMotion = this.angular_acceleration !== 0;
+      angularMotion ? this.angular_velocity += (this.angular_acceleration * 60*dt) : this.angular_velocity *= (Math.pow(this.ANGULAR_FRICTION, (60*dt) ))
+
+      // validate and adjust new velocity
+      const percentOfFullSpeed = this.velocity.length / this.LINEAR_VELOCITY_LIMIT;
+      const angularVelocityLimit = this.ANGULAR_VELOCITY_LIMIT_MAX - (percentOfFullSpeed * (this.ANGULAR_VELOCITY_LIMIT_MAX - this.ANGULAR_VELOCITY_LIMIT_MIN)); // lower percent greater ability to turn
+
+      if(this.angular_velocity > angularVelocityLimit)
+        this.angular_velocity = angularVelocityLimit;
+      if(this.angular_velocity < -angularVelocityLimit)
+        this.angular_velocity = -angularVelocityLimit;
+
+      this.angle += (this.angular_velocity * dt);
+
+
+      //// linear motion
+
+      // apply acceleration
+      const isLinearlyMoving = this.acceleration !== 0;
+      const accelerationIsPositive = this.acceleration > 0;
+      const accelerationVector = V2D.new({angle: this.angle, length: 1}); accelerationVector.length = this.acceleration;
+      // if(isLinearlyMoving && accelerationIsPositive) this.velocity.add(accelerationVector.mul(60*dt))
+      if(isLinearlyMoving) {
+        this.velocity.add(accelerationVector.mul(60*dt))
+      } else {
+        // apply friction
+        this.velocity.mul(Math.pow(this.LINEAR_FRICTION, (60*dt) ))
+      }
+
+      // validate and adjust new velocity
+      let linearVelocityLimit = this.LINEAR_VELOCITY_LIMIT; if(this.flag) linearVelocityLimit *= this.flag.drag; if(this.charging) linearVelocityLimit += this.LINEAR_VELOCITY_LIMIT_EXTENDED;
+      if(this.velocity.length > linearVelocityLimit) this.velocity.length = linearVelocityLimit;
+      if(this.velocity.length < 0) this.velocity.length = 0;
+
+      // apply velocity
       this.position.add(this.velocity.mul_(dt));
 
+
+      // misc.
       this.charging = false;
 
-      // this.angular_velocity += this.angular_acceleration
-      // this.angular_velocity *= this.ANGULAR_FRICTION - ((this.flag) ? this.flag.drag : 0)
-      // this.angle += this.angular_velocity
-      //
-      // if(this.angular_velocity > this.ANGULAR_VELOCITY_LIMIT)
-      //    this.angular_velocity = this.ANGULAR_VELOCITY_LIMIT;
-      // if(this.angular_velocity <-this.ANGULAR_VELOCITY_LIMIT)
-      //    this.angular_velocity =-this.ANGULAR_VELOCITY_LIMIT;
     }
   }
 
   // adjusts forces letting the simulation continue
   apply(data) {
     this.disabled = data.disabled;
-    this.acceleration.set(data.acceleration);
-    // this.angular_acceleration = data.angular_acceleration;
+    // this.acceleration.set(data.acceleration);
+    this.acceleration = data.acceleration;
+    this.angular_acceleration = data.angular_acceleration;
     this.angle = data.angle;
     this.health = data.health;
   }
@@ -95,7 +137,7 @@ class Ship extends BasicShip {
 
     this.block_friction = 0;
 
-    this.shoot_angle = 0;
+    this.relative_shoot_angle = 0;
 
     this.bullets = new Set();
     this.blocks = new Set();
@@ -132,7 +174,7 @@ class Ship extends BasicShip {
     return {
       disabled: this.disabled,
       acceleration: this.acceleration,
-      // angular_acceleration: this.angular_acceleration,
+      angular_acceleration: this.angular_acceleration,
       angle: this.angle,
       health: this.health
     }
@@ -151,7 +193,9 @@ class Ship extends BasicShip {
   get health() { return this.hp / this.HP_CAPACITY }
   set health(percent) { this.hp = percent * this.HP_CAPACITY }
 
-  get shoot_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.shoot_angle; fwp.add(shift); return fwp; }
+  get shoot_angle() { return this.relative_shoot_angle + this.angle }
+  get shoot_position() { const fwp = this.position.copy(); const shift = new V2D(); shift.length = 8*2; shift.angle = this.shoot_angle; fwp.add(shift); return fwp; }
+  get shot_RNG() { return (this.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1) }
 
   get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
   get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
@@ -181,16 +225,28 @@ class Ship extends BasicShip {
     this.recoil_counter+=dt; this.block_recoil_counter+=dt; this.sub_recoil_counter+=dt;
   }
 
-  shoot() { // TODO: fix
-    if(this.recoil_counter > this.ATTACK_RECOIL_DELAY && this.drain(this.ATTACK_HP*this.ATTACK_ENERGY_FRACTION_HP)) {
+  canShoot() {
 
-      var id = NetworkHelper.bullet_create(this);
+    const recoilHasPast = this.recoil_counter > this.ATTACK_RECOIL_DELAY;
+    const hasEnoughEnergy = this.canDrain(this.ATTACK_HP * this.ATTACK_ENERGY_FRACTION_HP);
 
-      this.bullets.add(id);
-      this.recoil_counter = 0;
+    return recoilHasPast && hasEnoughEnergy
 
-    }
   }
+
+  didShoot(id) {
+
+    // list new bullet id
+    this.bullets.add(id);
+
+    // drain energy
+    this.drain(this.ATTACK_HP * this.ATTACK_ENERGY_FRACTION_HP);
+
+    // reset recoil counter
+    this.recoil_counter = 0;
+
+  }
+
 
   damage(hp) {
     this.hp -= hp; this.regen_counter = 0;
@@ -203,28 +259,60 @@ class Ship extends BasicShip {
     if(this.hp > this.HP_CAPACITY) this.hp = this.HP_CAPACITY;
   }
 
-  block() {
-    if(this.flag) return;
-    if(this.block_recoil_counter > this.BLOCK_RECOIL_DELAY && this.drain(this.BLOCK_ENERGY_COST)) {
-      if(this.blocks.size > this.BLOCK_CAPACITY)
-        NetworkHelper.block_destroy(this.blocks.draw());
 
-      var id = NetworkHelper.block_create(this);
-      this.blocks.add(id);
-      this.block_recoil_counter = 0;
-    }
+  canBlock() {
+
+    const hasNoFlag = !this.flag;
+    const recoilHasPast = this.block_recoil_counter > this.BLOCK_RECOIL_DELAY;
+    const hasEnoughEnergy = this.canDrain(this.BLOCK_ENERGY_COST);
+
+    return hasNoFlag && recoilHasPast && hasEnoughEnergy
+
+  }
+  
+  didBlock(id) {
+
+    // list new block id
+    this.blocks.add(id);
+
+    // drain energy
+    this.drain(this.BLOCK_ENERGY_COST);
+
+    // reset recoil counter
+    this.block_recoil_counter = 0;
+
   }
 
-  sub() {
-    if(!(this.subs.size < this.SUB_CAPACITY || this.subs.size == 0)) return;
-    if(this.sub_recoil_counter > this.SUB_RECOIL_DELAY && this.drain(this.SUB_ENERGY_COST)) {
-      // if(!(this.subs.size > this.PULSE_CAPACITY))
-      //   NetworkHelper.out_sub_destroy(this.subs.draw());
+  get reachedBlockLimit() {
+    return this.blocks.size >= this.BLOCK_CAPACITY
+  }
 
-      var id = NetworkHelper.sub_create(this);
-      this.subs.add(id);
-      this.sub_recoil_counter = 0;
-    }
+  oldestBlockID() {
+    return this.blocks.first()
+  }
+
+
+  canSub() {
+
+    const subLimitHasNotBeenReached = this.subs.size < this.SUB_CAPACITY;
+    const recoilHasPast = this.sub_recoil_counter > this.SUB_RECOIL_DELAY;
+    const hasEnoughEnergy = this.canDrain(this.SUB_ENERGY_COST);
+
+    return subLimitHasNotBeenReached && recoilHasPast && hasEnoughEnergy
+
+  }
+
+  didSub(id) {
+
+    // list new sub id
+    this.subs.add(id);
+
+    // drain energy
+    this.drain(this.SUB_ENERGY_COST);
+
+    // reset recoil counter
+    this.sub_recoil_counter = 0;
+
   }
 
   get subPercent() {
@@ -239,6 +327,11 @@ class Ship extends BasicShip {
     if(this.energy > 100) this.energy = 100;
   }
 
+
+  canDrain(energy) {
+    return !(this.energy - energy < 0)
+  }
+
   // takes if possible, returns a result as bool
   drain(energy) {
     if(this.flag) return true;
@@ -247,6 +340,7 @@ class Ship extends BasicShip {
   }
 
   reset() {
+    this.angle = this.spawnRotation;
     this.position.set(this.spawn);
     this.velocity.reset();
     this.energy = this.ENERGY_CAPACITY;
@@ -255,22 +349,25 @@ class Ship extends BasicShip {
     this.flag = undefined;
     this.sub_recoil_counter = this.SUB_RECOIL_DELAY;
 
-    NetworkHelper.out_ship_override(this.export_override());
+    this.owner.team.game.network.sendShipOverride(this.export_override());
   }
 
-  pickup(flag) {
-    if(this.flag_recoil_counter > this.FLAG_RECOIL_DELAY) {
-      NetworkHelper.out_flag_pickup(this.owner.id);
-      this.flag_recoil_counter = 0;
-      return true;
-    }
-    return false;
+  canPickupFlag() {
+
+    const recoilHasPassed = this.flag_recoil_counter > this.FLAG_RECOIL_DELAY;
+
+    return recoilHasPassed
+
+  }
+
+  didPickupFlag() {
+    this.flag_recoil_counter = 0;
   }
 
 }
 
-Ship.type = {
-  "standard" : {
+Ship.type = [
+  {
     type: 'standard',
 
     SUB_TYPE: 'attractor',
@@ -278,7 +375,7 @@ Ship.type = {
     SUB_ENERGY_COST: 45 // ep
   },
 
-  "rate" : {
+  {
     type: 'rate',
 
     RESPAWN_DELAY: 3, // 4
@@ -296,7 +393,7 @@ Ship.type = {
     SUB_ENERGY_COST: 70
   },
 
-  "speed" : {
+  {
     type: 'speed',
 
     HP_CAPACITY: 18, // 20
@@ -316,7 +413,7 @@ Ship.type = {
     SUB_ENERGY_COST: 30
   },
 
-  "defense" : {
+  {
     type: 'defense',
 
     HP_CAPACITY: 32, // 20
@@ -338,7 +435,7 @@ Ship.type = {
     SUB_ENERGY_COST: 90 // 70 when no charge upon stealth
   },
 
-  "damage" : {
+  {
     type: 'damage',
 
     HP_CAPACITY: 22, // 20
@@ -355,7 +452,7 @@ Ship.type = {
     SUB_RECOIL_DELAY: 0.5, //s
     SUB_ENERGY_COST: 50
   }
-};
+];
 
 // BASE STATS
 // measurements will be expressed in:
@@ -367,13 +464,26 @@ Ship.baseStats = {
   type: 'base',
 
   HP_CAPACITY: 20, //hp
-  // ANGULAR_FRICTION: 0.8,//0.9,
-  // ANGULAR_VELOCITY_LIMIT: 0.12,
-  // ANGULAR_ACCELERATION_LIMIT: 0.04,//0.016,
-  LINEAR_FRICTION: 0.80, //%
+  ANGULAR_FRICTION: 0.9, //%
+  ANGULAR_VELOCITY_LIMIT_MIN: Math.radians(90), //deg/s
+  ANGULAR_VELOCITY_LIMIT_MAX: Math.radians(120), //deg/s
+  ANGULAR_ACCELERATION_LIMIT: Math.radians(8), //deg/s*s
+  LINEAR_FRICTION: 0.9, //%
   LINEAR_VELOCITY_LIMIT: 120, //188 //px/s (3px/f)
   LINEAR_ACCELERATION_LIMIT: 10, //px/s*s (0.26px/f*f)
   LINEAR_VELOCITY_LIMIT_EXTENDED: 50, //px/s
+  LINEAR_VELOCITY_LIMIT_BACKWARD: 60, //px/s
+
+  // HP_CAPACITY: 20, //hp
+  // ANGULAR_FRICTION: 0.9, //%
+  // ANGULAR_VELOCITY_LIMIT_MIN: Math.radians(60), //deg/s
+  // ANGULAR_VELOCITY_LIMIT_MAX: Math.radians(120), //deg/s
+  // ANGULAR_ACCELERATION_LIMIT: Math.radians(8), //deg/s*s
+  // LINEAR_FRICTION: 0.80, //%
+  // LINEAR_VELOCITY_LIMIT: 120, //188 //px/s (3px/f)
+  // LINEAR_ACCELERATION_LIMIT: 10, //px/s*s (0.26px/f*f)
+  // LINEAR_VELOCITY_LIMIT_EXTENDED: 50, //px/s
+
 
   RESPAWN_DELAY: 4, //s (240f)
 
@@ -388,7 +498,7 @@ Ship.baseStats = {
   REGEN_DELAY: 3, //s (180f)
   REGEN_RATE: 24, //hp/s (0.4hp/f)
 
-  BLOCK_CAPACITY: 200, //#
+  BLOCK_CAPACITY: 300, //#
   BLOCK_HP_CAPACITY: 20, //hp
   BLOCK_SPREAD: (2 * Math.PI) * (0.1), // 0.2 (30%) angle sweep in radians.
   BLOCK_RECOIL_DELAY: 1/6, //b/s (8f == 7.5b/s)

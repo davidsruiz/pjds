@@ -11,8 +11,10 @@ class V2D {
       v.set({x:0, y:0});
       break;
       case 1:
-      if(arguments[0].x && arguments[0].y) v.set(arguments[0]);
-      if(arguments[0].length && arguments[0].angle) { v.length = arguments[0].length; v.angle = arguments[0].angle; }
+      if(typeof arguments[0].x !== 'undefined' && typeof arguments[0].y !== 'undefined')
+        v.set(arguments[0]);
+      if(typeof arguments[0].length !== 'undefined' && typeof arguments[0].angle !== 'undefined') { 
+        v.length = arguments[0].length; v.angle = arguments[0].angle; }
       break;
       case 2:
       v.set({x: arguments[0], y: arguments[1]});

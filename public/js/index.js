@@ -32,22 +32,28 @@ const RANK = {
   }
 };
 
+// Math.flipCoin = (p = 0.5) => Math.random() < p;
+// Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
+// const UUID = () => (Date.now().toString(36)).split('').shuffle().join();
+
 
 
 let
-    gameport        = process.env.PORT || 4004,
+  gameport        = process.env.PORT || 4004,
 
-    io              = require('socket.io'),
-    express         = require('express'),
-    UUID            = require('node-uuid'),
+  io              = require('socket.io'),
+  express         = require('express'),
+  // UUID            = require('node-uuid'),
 
-    verbose         = false,
-    http            = require('http'),
-    app             = express(),
-    server          = http.createServer(app);
+  verbose         = false,
+  http            = require('http'),
+  app             = express(),
+  server          = http.createServer(app);
 
-// let shortid = require('shortid');
-// shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+let shortid = require('shortid');
+// shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+const UUID = () => shortid.generate();
+
 const colors = require('colors');
 const bodyParser = require('body-parser');
 app.use(bodyParser.json());
@@ -55,16 +61,16 @@ const path = require('path');
 
 app.use(express.static(path.resolve('public')));
 
-    //Tell the server to listen for incoming connections
-    server.listen(80);
+//Tell the server to listen for incoming connections
+server.listen(80);
 server.listen(gameport);
-    //Log something so we know that it succeeded.
+//Log something so we know that it succeeded.
 console.log('\t :: Express :: Listening on port ' + gameport );
 
 
 app.get( '/', function( req, res ) {
 
-  res.sendfile(path.resolve('public/server_m.html'));
+  res.sendfile(path.resolve('public/home.html'));
 
 });
 
@@ -73,7 +79,7 @@ app.get( '/', function( req, res ) {
 app.post( '/:type', function( req, res ){
 
   let lobbyID,
-      type = req.params.type;
+    type = req.params.type;
 
   switch(type) {
     case "pool":
@@ -83,52 +89,111 @@ app.post( '/:type', function( req, res ){
       if(type == "create") lobbyID = LM.new_private();
       if(type == "practice") lobbyID = LM.new_practice();
       res.redirect(`/${lobbyID}`);
-    break;
+      break;
 
     case "online_status":
-      let list = req.body.history;
-      let online = []; let c = 0;
-      for(let id of list) {
-        let client = clients.get(id);
+      const IDs = req.body.list;
+
+      // lobbies/unavailable
+      const lobbiesMap = new Map();
+      const unavailable = [];
+      for(let id of IDs) {
+        const client = clients.get(id);
         if(client && client.lobby && LM.existsInPrivate(client.lobby.id)) {
-          let entry = [client.name, client.lobby.id];
-          online.push(entry);
+          // lobbies
+          const lobby = lobbiesMap.get(client.lobby.id) || [];
+          lobby.push(id);
+          lobbiesMap.set(client.lobby.id, lobby);
+        } else {
+          // unavailable
+          unavailable.push(id);
         }
       }
-      res.json(online);
-    break;
+      const lobbies = Array.from(lobbiesMap).map(pair => [pair[0], ...pair[1]]); // transform lobbies map
+
+      // names
+      const names = [];
+      for(let id of IDs) {
+        const client = clients.get(id);
+        if(client) names.push([id, client.name])
+      }
+
+      // response
+      res.json({lobbies, unavailable, names});
+
+      break;
     case "rank":
       var id = req.body.id,
-          encoded_rank,
-          simple_rank = 0;
+        encoded_rank,
+        simple_rank = 0;
 
       if(!id) {
-        res.status(400).send('Bad Request');
+        res.status(400).send('No ID');
       } else {
         encoded_rank = TEA.encrypt(simple_rank, id);
         res.json({simple: simple_rank, encoded: encoded_rank});
       }
-    break;
+      break;
     case "update_rank":
       var id = req.body.id || UUID(),
-          encoded_rank = req.body.rank || '',
-          simple_rank = parseInt(TEA.decrypt(encoded_rank, id));
+        encoded_rank = req.body.rank || '',
+        simple_rank = parseInt(TEA.decrypt(encoded_rank, id));
 
       if(isNaN(simple_rank)) simple_rank = 0;
 
       let client = clients.get(id);
       if(client && client.won) { // if connected and needs winning
-        simple_rank = RANK.win(simple_rank);
+      // if(client && client.lobby && client.lobby.removeWinner(id)) { // if connected and needs winning
         client.won = false;
+        simple_rank = RANK.win(simple_rank);
       } else {
         simple_rank = RANK.lose(simple_rank);
       }
 
       encoded_rank = TEA.encrypt(simple_rank, id);
       res.json({simple: simple_rank, encoded: encoded_rank});
+      break;
+    case 'update_stats':
+
+      let id = req.body[0] || UUID();
+      let rank = req.body[1] || '';
+      let money = req.body[2] || '';
+      let simple_rank = parseInt(TEA.decrypt(rank, id));
+      let simple_money = parseInt(TEA.decrypt(money, id));
+
+      // if either is invalid, reset.
+      if(isNaN(simple_rank) || isNaN(simple_money)) {
+        simple_rank = 0;
+        simple_money = 0;
+      }
+
+      const onlineClient = clients.get(id);
+      if((onlineClient && onlineClient.lobby) && onlineClient.lobby.lastGameResults.has(id)) {
+
+        const [won, hits] = onlineClient.lobby.lastGameResults.get(id);
+        onlineClient.lobby.lastGameResults.delete(id);
+
+        // rank
+        if(won) {
+          simple_rank = RANK.win(simple_rank);
+        } else {
+          simple_rank = RANK.lose(simple_rank);
+        }
+
+        // money
+        simple_money += hits;
+
+      } else { simple_rank = RANK.lose(simple_rank); }
+
+      rank = TEA.encrypt(simple_rank, id);
+      money = TEA.encrypt(simple_money, id);
+      res.json([rank, money, simple_rank, simple_money]);
+
+
+      break;
     case "id":
       res.json(UUID());
-    break;
+      break;
   }
 
   // if(req.params.type == "pool") {
@@ -141,6 +206,7 @@ app.post( '/:type', function( req, res ){
   //   lobbyID = LM.new_private();
   // }
   //
+  // if(req.params.type == "practice") {
   // if(req.params.type == "practice") {
   //   lobbyID = LM.new_private({players: 1});
   // }
@@ -161,39 +227,39 @@ app.get( '/friends' , function( req, res, next ) {
 // routing to lobby
 app.get( '/*' , function( req, res, next ) {
 
-    let lobbyID = req.params[0];
-    if(LM.exists(lobbyID)) {
-      res.sendfile(path.resolve('public/game.html'));
-    } else {
-      res.redirect(`/`);
-    }
+  let lobbyID = req.params[0];
+  if(LM.exists(lobbyID)) {
+    res.sendfile(path.resolve('public/game.html'));
+  } else {
+    res.redirect(`/`);
+  }
 
 }); //app.get *
 
-    //Create a socket.io instance using our express server
+//Create a socket.io instance using our express server
 let sio = io.listen(server);
 
 
-    //Configure the socket.io connection settings.
-    //See http://socket.io/
+//Configure the socket.io connection settings.
+//See http://socket.io/
 sio.configure(function (){
-    sio.set('log level', 0);
-    sio.set('authorization', function (handshakeData, callback) {
-      callback(null, true); // error first callback style
-    });
+  sio.set('log level', 0);
+  sio.set('authorization', function (handshakeData, callback) {
+    callback(null, true); // error first callback style
+  });
 });
 
-    //Enter the game server code. The game server handles
-    //client connections looking for a game, creating games,
-    //leaving games, joining games and ending games when they leave.
+//Enter the game server code. The game server handles
+//client connections looking for a game, creating games,
+//leaving games, joining games and ending games when they leave.
 // game_server = require('./game.server.js');
 // Lobby = require('./old_lobby.js');
 // LobbyManager.
 
-    //Socket.io will call this function when a client connects,
-    //So we can send that client looking for a game to play,
-    //as well as give that client a unique ID to use so we can
-    //maintain the list if players.
+//Socket.io will call this function when a client connects,
+//So we can send that client looking for a game to play,
+//as well as give that client a unique ID to use so we can
+//maintain the list if players.
 
 
 
@@ -220,7 +286,8 @@ sio.sockets.on('connection', function (client) {
         // connect to lobby
         lobby.connect(client);
         // send client it's ID copy of lobby as now stands
-        client.emit('connected', [client.id_, lobby.map()])
+        client.emit('connected', [client.id_, lobby.map()]);
+        lobby.broadcast('usersUpdate', lobby.mapUsers(), client);
       }
     } else { client.emit('error', `lobby ${data[0]} not found`); }
 
@@ -241,13 +308,15 @@ sio.sockets.on('connection', function (client) {
         // test against password
         if(lobby.testPassword(data[1])) {
           lobby.connect(client);
-          client.emit('connected', [client.id, lobby.map()]);
+          client.emit('connected', [client.id_, lobby.map()]);
+          lobby.broadcast('usersUpdate', lobby.mapUsers(), client);
         } else {
           client.emit('auth');
         }
       } else {
         console.warn(`no auth needed! for lobby ${data[0]}`);
-        client.emit('connected', [client.id, lobby.map()]);
+        client.emit('connected', [client.id_, lobby.map()]);
+        lobby.broadcast('usersUpdate', lobby.mapUsers(), client);
       }
     } else { client.emit('error', `lobby ${data[0]} not found`); }
 
@@ -260,26 +329,50 @@ sio.sockets.on('connection', function (client) {
     if(lobby) {
 
       // return if client has already joined
-      if(lobby.players.has(client)) return;
+      if(lobby.playersMap.has(client)) return;
 
       // actual joining
-      lobby.join(client, data);
+      lobby.join(client, data)
+        .then(()=>{
+          client.emit('joined');
+          lobby.emit('usersUpdate', lobby.mapUsers())
+
+          // show up on server's radar
+          // rank change and more
+          clients.set(client.id_, client);
+        })
+        .catch((reason)=>{
+          console.log(reason.message.yellow);
+          // client.emit('error', reason);
+        });
 
     }
 
   });
 
-  client.on('connect', data => {
+  client.on('start', data => {
 
     // verify participant to lobby
     const lobby = client.lobby;
     if(lobby) {
 
-      // return if client has already joined
-      if(lobby.players.has(client)) return;
+      // return if client has already opted to start
+      if(lobby.playersMap.get(client)[3]) return;
 
-      // actual joining
-      lobby.join(client, data);
+      // actual opt to start
+      lobby.startFrom(client, data)
+        .then((everyoneIsReady)=>{
+          client.emit('starting');
+          lobby.emit('playersUpdate', lobby.mapPlayers());
+
+          // start if everyone is ready
+          if(everyoneIsReady)
+            lobby.startGame(), lobby.emit('gameStarted', lobby.getSetupData());
+        })
+        .catch((reason)=>{
+          console.log(reason.message.yellow);
+          // client.emit('error', reason.message);
+        });
 
     }
 
@@ -288,7 +381,41 @@ sio.sockets.on('connection', function (client) {
 
 
 
+  client.on('updateOptions', data => {
 
+    // remove connection to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      lobby.updateOptions(data);
+
+    } else {  }
+
+  });
+
+  client.on('setPassword', data => {
+
+    // remove connection to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      lobby.setPasswordFrom(client, data);
+
+    } else {  }
+
+  });
+
+  client.on('clearPassword', data => {
+
+    // remove connection to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      lobby.clearPasswordFrom(client, data);
+
+    } else {  }
+
+  });
 
 
 
@@ -301,8 +428,17 @@ sio.sockets.on('connection', function (client) {
     if(lobby) {
 
       lobby.disconnect(client);
+      lobby.emit('usersUpdate', lobby.mapUsers());
+
+      // delete empty lobby after 5 seconds
+      setTimeout(()=>{
+        if(lobby.empty) LM.delete(lobby.id)
+      }, 5000);
 
     } else {  }
+
+    // remove from server's radar
+    clients.delete(client.id_)
 
   });
 
@@ -437,120 +573,69 @@ sio.sockets.on('connection', function (client) {
 
 
 
-    // during game
-    // client.on('input stack', data => client.lobby ? client.lobby.broadcast('input stack', data, client) : client.emit('stop'));
+  // during game
+  // client.on('input stack', data => client.lobby ? client.lobby.broadcast('input stack', data, client) : client.emit('stop'));
 
-    client.on('ship update', data => client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop'));
-    client.on('ship override', data => client.lobby ? client.lobby.broadcast('ship override', data, client) : client.emit('stop'));
-    client.on('bullet create', data => client.lobby ? client.lobby.broadcast('bullet create', data, client) : client.emit('stop'));
-    client.on('bullet destroy', data => client.lobby ? client.lobby.broadcast('bullet destroy', data, client) : client.emit('stop'));
+  const addListenerList = function (list) {
+    for(let msg of list) addListener(msg);
+  };
+  
+  const addListener = function (msg) {
+    client.on(msg, (a) => client.lobby ? client.lobby.exec(msg, a, client) : 0);
+  };
 
-    client.on('ship damage', data => client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop'));
+  const incomingMessages = [
+    'shipUpdated', 'shipOverridden', 'shipHPAdjusted',
+    'bulletCreated', 'bulletDestroyed',
+    'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed',
+    'subCreated', 'subDestroyed',
+    'deathOccurrence',
+    'flagCaptured', 'flagDropped','flagProgress'];
 
-    client.on('block create', data => client.lobby ? client.lobby.broadcast('block create', data, client) : client.emit('stop'));
-    client.on('block destroy', data => client.lobby ? client.lobby.broadcast('block destroy', data, client) : client.emit('stop'));
-    client.on('block damage', data => client.lobby ? client.lobby.broadcast('block damage', data, client) : client.emit('stop'));
-    client.on('block change', data => client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop'));
-
-    client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));
-    client.on('sub destroy', data => client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop'));
-
-   /*client.on('combined', messages => {
-      if(!client.lobby) { client.emit('stop'); return; }
-
-      for(var [key, data] of messages) {
-        switch(key) {
-          case 'ship update':
-            client.lobby.broadcast('ship update', data, client); break;
-          case 'ship override':
-            client.lobby.broadcast('ship override', data, client); break;
-        }
-      }
-    });*/
+  addListenerList(incomingMessages);
 
 
-    // TODO: figure out what happens when a flag holder disconnects..
-    client.on('flag pickup', data => {
-      if(client.lobby) {
-        if(!client.lobby.state.flagHolder) {
-          client.lobby.emit('flag pickup', data);
-          // client.lobby.first.emit('begin create asteroids')
-          client.lobby.state.flagHolder = data.playerID;
-          if(typeof client.lobby.state.leadTeam == 'undefined')
-            client.lobby.state.leadTeam = client.lobby.getTeam(client.userid);
-        } else {
-          client.lobby.emit('flag drop', data);
-        }
-      } else {
-        client.emit('stop')
-      }
-    });
-    client.on('flag drop', data => {
-      if(client.lobby) {
-        client.lobby.emit('flag drop', data);
-        // client.lobby.emit('stop create asteroids')
-      } else {
-        client.emit('stop')
-      }
-    });
-    client.on('flag progress confirm', data => {
-      if(client.lobby) {
-        console.log(`client ${client.name} sent ${data.score}`);
-        if(client.userid == client.lobby.state.flagHolder) {
-          client.lobby.state.scores[data.team] = {t: data.team, s: data.score};
-          client.lobby.state.flagHolder = undefined;
-          client.lobby.state.leadTeam = client.lobby.game_lead_team;
-          console.log(`client.on('flag progress confirm' >> current team lead: ${client.lobby.game_lead_team}`);
-
-          // if(client.lobby.ongoing) this.finish();
-          // console.log(`data.team ${data.team}, data.score: ${data.score}`);
-        }
-      } else {
-        client.emit('stop')
-      }
-    });
 
 
-  client.on('flag progress', data => {
-    if(client.lobby) {
-      console.log(`client ${client.name} sent ${data.score}`);
-      if(data.score >= 0 && data.score <= 100) {
-        client.lobby.state.scores[data.team] = {t: data.team, s: data.score};
-        client.lobby.state.leadTeam = client.lobby.game_lead_team;
-        console.log(`client.on('flag progress' >> current team lead: ${client.lobby.game_lead_team}`);
-      }
-    } else {
-      client.emit('stop')
-    }
-  });
-
-    client.on('msg ship kill', data => client.lobby ? client.lobby.emit('msg ship kill', data) : client.emit('stop'));
-
-    client.on('game over', (data) => {
-      let lobby;
-      if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
-        console.log(`from 'game over'. winningTeam: ${data.winningTeam}`);
-        if(lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
-
-        lobby.emit('game over');
-        // lobby.emit('end with winner', {winner: data.winningTeam});
-        lobby.endCurrentGame();
-        lobby.emit('lobby state', lobby.simplify());
-      }
-    });
-
-    // let client_game_over = (data) => {
-    //   let lobby;
-    //   if((lobby = client.lobby) && lobby.state.flagHolder == client.userid) {
-    //     console.log(`from 'game over'. winningTeam: ${data.winningTeam}`);
-    //     if(lobby.type == 'public') lobby.setWinForPlayers(data.winningTeam);
-    //     lobby.emit('game over', data);
-    //     lobby.endCurrentGame();
-    //     lobby.emit('lobby state', lobby.simplify());
-    //   }
-    // };
 
 
+
+
+  // client.on('ship update', data => client.lobby ? client.lobby.broadcast('ship update', data, client) : client.emit('stop'));
+  // client.on('ship override', data => client.lobby ? client.lobby.broadcast('ship override', data, client) : client.emit('stop'));
+  // client.on('bullet create', data => client.lobby ? client.lobby.broadcast('bullet create', data, client) : client.emit('stop'));
+  // client.on('bullet destroy', data => client.lobby ? client.lobby.broadcast('bullet destroy', data, client) : client.emit('stop'));
+  //
+  // client.on('ship damage', data => client.lobby ? client.lobby.emit('ship damage', data) : client.emit('stop'));
+  //
+  // client.on('block create', data => client.lobby ? client.lobby.broadcast('block create', data, client) : client.emit('stop'));
+  // client.on('block destroy', data => client.lobby ? client.lobby.broadcast('block destroy', data, client) : client.emit('stop'));
+  // client.on('block damage', data => client.lobby ? client.lobby.broadcast('block damage', data, client) : client.emit('stop'));
+  // client.on('block change', data => client.lobby ? client.lobby.broadcast('block change', data, client) : client.emit('stop'));
+  //
+  // client.on('sub create', data => client.lobby ? client.lobby.broadcast('sub create', data, client) : client.emit('stop'));
+  // client.on('sub destroy', data => client.lobby ? client.lobby.broadcast('sub destroy', data, client) : client.emit('stop'));
+
+  /*client.on('combined', messages => {
+   if(!client.lobby) { client.emit('stop'); return; }
+
+   for(var [key, data] of messages) {
+   switch(key) {
+   case 'ship update':
+   client.lobby.broadcast('ship update', data, client); break;
+   case 'ship override':
+   client.lobby.broadcast('ship override', data, client); break;
+   }
+   }
+   });*/
+
+
+
+
+
+  this.onFinish = () => {
+
+  }
 
 
 

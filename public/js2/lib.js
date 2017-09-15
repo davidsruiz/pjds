@@ -112,8 +112,11 @@ Array.prototype.average = function () {
   return t / this.length;
 };
 
+Set.prototype.first = function () {
+  return this.values().next().value;
+};
 Set.prototype.draw = function () {
-  var next = this.values().next().value;this.delete(next);return next;
+  this.delete(this.first());
 };
 Set.prototype.toArray = function () {
   return Array.from(this);
@@ -136,6 +139,12 @@ Math.randomMinMax = function (min, max) {
 Math.randomIntMinMax = function (min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 };
+
+var TIME = { sec: function sec(mil) {
+    return mil * 1000;
+  }, min: function min(mil) {
+    return this.sec(mil) * 60;
+  } };
 
 /*const setIntervalTimeout = function(block, interval, timeout) {
 
@@ -216,7 +225,7 @@ var err = function err(m) {
 
 //  game
 var localIDMatches = function localIDMatches(id) {
-  return id == ENV["id"];
+  return id == ENV.user.id;
 };
 
 Array.prototype.first = function () {
@@ -264,8 +273,9 @@ String.prototype.padding = function () {
 // GamepadList.prototype.firstPresent = function() { for(i in this) if(this[i] !== undefined) return this[i] }
 
 // not really a uuid, but works here.
+// Math.uuid = () => Math.random().toString(36).substring(2, 15);
 Math.uuid = function () {
-  return Math.random().toString(36).substring(2, 15);
+  return Date.now().toString(36);
 };
 
 window.location.reset = function () {
@@ -349,6 +359,20 @@ function cloneCanvas(oldCanvas) {
   //return the new canvas
   return newCanvas;
 }
+
+// UNDERSCORE JS //
+try {
+
+  _.mixin({
+    draw: function draw(collection) {
+      var item = collection.keys().next().value;
+      collection.delete(item);
+      return item;
+    }
+  });
+} catch (e) {}
+
+///////////////////
 
 /* DOCUMENTATION //
 

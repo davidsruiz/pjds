@@ -56,7 +56,7 @@ var Block = function () {
     value: function damage(hp) {
       this.hp -= hp;
       if (this.hp <= 0) this.disabled = true;
-      if (this.disabled) ENV.game.endBlock(this.id);
+      if (this.disabled) ENV.game.removeBlock(this.id);
       return this.disabled;
     }
   }, {
