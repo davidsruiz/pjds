@@ -32,9 +32,15 @@ const RANK = {
   }
 };
 
+function s4() {
+  return Math.floor((1 + Math.random()) * 0x10000)
+    .toString(16)
+    .substring(1);
+}
+
 // Math.flipCoin = (p = 0.5) => Math.random() < p;
 // Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
-// const UUID = () => (Date.now().toString(36)).split('').shuffle().join();
+const UUID = () => s4() + s4();
 
 
 
@@ -50,9 +56,9 @@ let
   app             = express(),
   server          = http.createServer(app);
 
-let shortid = require('shortid');
+// let shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-const UUID = () => shortid.generate();
+// const UUID = () => shortid.generate();
 
 const colors = require('colors');
 const bodyParser = require('body-parser');

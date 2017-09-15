@@ -53,10 +53,15 @@ var RANK = {
   }
 };
 
+function s4() {
+  return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+}
+
 // Math.flipCoin = (p = 0.5) => Math.random() < p;
 // Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
-// const UUID = () => (Date.now().toString(36)).split('').shuffle().join();
-
+var UUID = function UUID() {
+  return s4() + s4();
+};
 
 var gameport = process.env.PORT || 4004,
     io = require('socket.io'),
@@ -69,11 +74,9 @@ verbose = false,
     app = express(),
     server = http.createServer(app);
 
-var shortid = require('shortid');
+// let shortid = require('shortid');
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-var UUID = function UUID() {
-  return shortid.generate();
-};
+// const UUID = () => shortid.generate();
 
 var colors = require('colors');
 var bodyParser = require('body-parser');

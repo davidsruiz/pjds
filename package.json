@@ -21,6 +21,11 @@
     "babel-preset-react": "^6.24.1"
   },
   "main": "./index.js",
+  "scripts": {
+    "build": "babel public/js --out-dir public/js2",
+    "start": "",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/davidsruiz/pjds.git"
