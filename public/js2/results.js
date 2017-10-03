@@ -2,6 +2,8 @@
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
 var RESULTS = {
   layer_node: null,
   getLayerNode: function getLayerNode() {
@@ -273,6 +275,11 @@ var RESULTS = {
         scores = _ref2[0],
         records = _ref2[1];
 
+    scores = scores.slice(0);
+    records = [].concat(_toConsumableArray(records.map(function (m) {
+      return m.slice(0);
+    })));
+
     // reference materials
     var colors = ENV.game.teams.map(function (team) {
       return team.color;
@@ -394,6 +401,34 @@ var RESULTS = {
     } else {
       console.warn('RESULTS:: player ID not found (' + id + ')');
     }
+  },
+
+
+  // results as it pertains to user
+  // ... todo .. relocate this please
+  updateUserWithResults: function updateUserWithResults(server_data) {
+
+    if (ENV.spectate) return;
+
+    var summary = this.interpret(server_data);
+    var stats = ENV.user.stats || {};
+    var wins = stats.wins || 0;
+    var losses = stats.losses || 0;
+    var kills = stats.kills || 0;
+    var deaths = stats.deaths || 0;
+
+    console.log(summary.teams.map(function (t) {
+      return t.won;
+    }));
+    console.log(ENV.game.team.number);
+    if (summary.teams[ENV.game.team.number].won) {
+      stats.wins = Number(wins) + 1;
+    } else {
+      stats.losses = Number(losses) + 1;
+    }
+
+    stats.kills = Number(kills) + ENV.game.player.score.kills;
+    stats.deaths = Number(deaths) + ENV.game.player.score.deaths;
   }
 };
 

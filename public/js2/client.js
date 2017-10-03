@@ -40,13 +40,12 @@ var Lobby = function () {
       isReady: false,
       team: null
     };
-    this.userIsJoined = false;
 
     this.socketSetup();
     this.network = new GameNetworkAdapter(null, this.socket);
 
-    window.onbeforeunload = function () {
-      return _this.beforeExit();
+    window.onbeforeunload = function (e) {
+      return _this.beforeExit(e);
     };
   }
 
@@ -61,7 +60,7 @@ var Lobby = function () {
         alert('received');
       });
       socket.on('error', function (msg) {
-        alert('server error -- ' + msg);
+        console.error('server error -- ' + msg);
       });
 
       // setting up responses`
@@ -91,6 +90,9 @@ var Lobby = function () {
         return _this2.starting(a);
       });
 
+      socket.on('lobbyUpdate', function (a) {
+        return _this2.lobbyUpdate(a);
+      });
       socket.on('usersUpdate', function (a) {
         return _this2.usersUpdate(a);
       });
@@ -100,6 +102,9 @@ var Lobby = function () {
       socket.on('optionsUpdate', function (a) {
         return _this2.optionsUpdate(a);
       });
+      socket.on('rotationUpdate', function (a) {
+        return _this2.rotationUpdate(a);
+      });
 
       socket.on('gameStarted', function (a) {
         return _this2.gameStarted(a);
@@ -108,8 +113,11 @@ var Lobby = function () {
         return _this2.gameEnded(a);
       });
 
-      socket.on('disconnected', function (a) {
-        return _this2.disconnected(a);
+      socket.on('disconnect', function (a) {
+        return _this2.disconnect(a);
+      });
+      socket.on('shouldChangeLobby', function (a) {
+        return _this2.shouldChangeLobby(a);
       });
     }
   }, {
@@ -148,6 +156,8 @@ var Lobby = function () {
   }, {
     key: 'connected',
     value: function connected(data) {
+      var _this3 = this;
+
       // data [user_id, lobby_object]
 
       ENV.user.id = data[0];
@@ -161,11 +171,15 @@ var Lobby = function () {
       // there was always room for you as intended.
       var lobbyType = this.info.type;
       if (lobbyType == 0 || lobbyType == 2) this.join();
+
+      if (lobbyType === 0) ENV.user.addListener('serverUpdate', function (data) {
+        return _this3.serverUpdate(data);
+      });
     }
   }, {
     key: 'join',
     value: function join() {
-      var _this3 = this;
+      var _this4 = this;
 
       // OLD
       // the prerequisits for joining are:
@@ -197,8 +211,8 @@ var Lobby = function () {
       // :rank
       ENV.user.get_rank.then(function (rank) {
 
-        var data = [ENV.user.name, rank, _this3.user.team];
-        _this3.socket.emit('join', data);
+        var data = [ENV.user.name, rank, _this4.user.team];
+        _this4.socket.emit('join', data);
       }).catch(function () {
         alert('An error occurred...');
       });
@@ -241,6 +255,12 @@ var Lobby = function () {
       ENV.lobby_ui.render();
     }
   }, {
+    key: 'lobbyUpdate',
+    value: function lobbyUpdate(newLobbyData) {
+      this.info = newLobbyData;
+      ENV.lobby_ui.render();
+    }
+  }, {
     key: 'usersUpdate',
     value: function usersUpdate(newUsersData) {
       this.info.users = newUsersData;
@@ -266,6 +286,16 @@ var Lobby = function () {
           value = _data[1];
 
       this.info.game_settings.editableSettings[key] = value;
+      ENV.lobby_ui.render();
+    }
+  }, {
+    key: 'rotationUpdate',
+    value: function rotationUpdate(data) {
+      var rotation = data.rotation,
+          nextChange = data.nextChange;
+
+      this.info.rotation = rotation;
+      this.info.nextChange = nextChange;
       ENV.lobby_ui.render();
     }
   }, {
@@ -330,6 +360,9 @@ var Lobby = function () {
 
       ENV.game.end();
       LOBBY.hideGame();
+      if (this.info.type === 0) RESULTS.updateUserWithResults(results);
+
+      console.log(results);
 
       setTimeout(function () {
 
@@ -339,18 +372,49 @@ var Lobby = function () {
       // this.game.end();
     }
   }, {
-    key: 'disconnected',
-    value: function disconnected() {}
+    key: 'serverUpdate',
+    value: function serverUpdate(data) {
+      var simple_rank = data.simple_rank;
+
+      this.socket.emit('updateRank', simple_rank);
+    }
+  }, {
+    key: 'disconnect',
+    value: function disconnect(reason) {
+      // window.alert('You have been disconnected');
+      // window.location.reset();
+      // window.location.replace(window.location.origin);
+      // window.history.pushState({}, 'home', '/');
+
+      window.location.reload();
+    }
+  }, {
+    key: 'shouldChangeLobby',
+    value: function shouldChangeLobby(lobbyID) {
+      this.newLobbyID = lobbyID;
+    }
+  }, {
+    key: 'changeLobby',
+    value: function changeLobby() {
+      window.location = window.location.origin + '/' + this.newLobbyID;
+    }
   }, {
     key: 'beforeExit',
-    value: function beforeExit() {
+    value: function beforeExit(e) {
 
       // as a user closes the window..
       // - record if they leave a team alone
       var isOngoing = this.info.ongoing;
-      var isPlaying = this.isJoined;
+      var isPlaying = this.user.isJoined;
       var isPublicLobby = this.info.type == 0;
       if (isOngoing && isPlaying && isPublicLobby) ENV.storage.ongoing = true; // save in local storage TODO revise
+
+
+      // const dialogText = 'Leave battle? You will lose rank points';
+      // e.returnValue = dialogText;
+      // return dialogText;
+
+      return null;
     }
   }]);
 

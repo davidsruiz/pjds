@@ -2,7 +2,7 @@
 "use strict";
 
 let Timer = require('./timer.js');
-const _ = require('./ext/underscore-min.js')
+const _ = require('./ext/underscore-min.js');
 
 let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 
@@ -62,7 +62,7 @@ class Lobby {
       numOfTeams: options.teams,
       maxPlayers: this.limit
     };
-    this.editableSettings = ['map', 'mode']
+    this.editableSettings = ['map', 'mode'];
     this.lastGameResults = new Map();
   }
 
@@ -125,7 +125,7 @@ class Lobby {
 
     return (new Promise((resolve, reject) => {
 
-      if(!this.full) {
+      if(!this.full && !this.gameVars) {
         if(!(ship_data[2] < this.options.maxTeams)) reject('illegal team number');
 
         ship_data[3] = false;
@@ -134,7 +134,7 @@ class Lobby {
         this.playersMap.set(client, ship_data);
         resolve();
       } else {
-        reject('lobby is full');
+        reject('lobby is full or ongoing');
       }
 
     }))
@@ -170,6 +170,14 @@ class Lobby {
     this.emit('passwordCleared');
   }
 
+  updateUserRank(client, rank) {
+    if(this.playersMap.has(client)) { // if public
+      this.playersMap.get(client)[1] = rank;
+      return true;
+    }
+    return false;
+  }
+
 
 
 
@@ -177,6 +185,8 @@ class Lobby {
   // when everyone is ready
 
   startGame() {
+
+    this.cancelGame();
 
     // id name team index shipType
 
@@ -338,36 +348,81 @@ class Lobby {
     return this.gameVars.setupData;
   }
 
-  endGame() { // ... think more of this
+
+
+
+  endGame() { // ... think EVEN more of this (duplication of code now)
+
+    // 0. CHECK
+    // return if already ended
+    if(!this.gameVars || !this.gameVars.ongoing) return;
+    this.gameVars.ongoing = false;
+
+    // 1. ACCOUNT FOR RESULTS
+
+    this.processResults();
+
+
+    // 2. CLEAR AND SETUP NEW
+
+    this.clearAndSetup();
+
+
+  }
+
+  cancelGame() {
+
+    // 0. CHECK
+    // return if already ended
+    if(!this.gameVars || !this.gameVars.ongoing) return;
+    this.gameVars.ongoing = false;
+
+    // 1. NOTIFY UNFORTUNATE NEWS
+
+    this.emitClosure();
+
+
+    // 2. CLEAR AND SETUP NEW
+
+    this.clearAndSetup();
+
+  }
+
+  clearAndSetup() {
 
     // 0. CHECK
     // return if already ended
     if(!this.gameVars) return;
 
-    
-    // 1. REVIEW AND CLOSE DETAILS
+    // 1. CLEAR
+
+    if(this.gameVars.timer) this.gameVars.timer.cancel();
+    this.clearGameData();
+
+
+    // 2. SETUP NEW
+
+    this.unreadyAllPlayers();
+    this.emit('usersUpdate', this.mapUsers())
+
+  }
+
+  processResults() {
 
     const results = this.gameVars.modeLogic.recap();
 
     // if public .. weigh outcome
     if(this.type == 0) this.setWinForPlayers(results);
 
-    // cancel timer if necessary
-    if(this.gameVars.timer) this.gameVars.timer.cancel();
-
     // alert players
     this.emit('gameEnded', results);
 
+  }
 
-    // 2. CLEAR
+  emitClosure() {
 
-    this.clearGameData();
-
-
-    // 3. SETUP NEW
-
-    this.unreadyAllPlayers();
-    this.emit('usersUpdate', this.mapUsers())
+    // alert players
+    this.emit('gameCanceled');
 
   }
 
@@ -1086,7 +1141,8 @@ DeepSpaceGame.colors = [
 
 DeepSpaceGame.colorCombinations = new Map([
   [1, [
-    [0], [1], [2], [3], [4], [5], [10], [11], [12], [13]
+    // [0], [1], [2], [3], [4], [5], [10], [11], [12], [13]
+    [0], [1], [2], [3], [4], [11], [12], [13]
   ]],
   [2, [
     [4, 0],
@@ -1147,8 +1203,8 @@ DeepSpaceGame.colorCombinations = new Map([
   ]],
   [8, [
     [0, 10, 2, 11, 12, 4, 5, 13]
-  ]]]
-);
+  ]]
+]);
 
 DeepSpaceGame.maps = [
   {

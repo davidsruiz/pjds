@@ -196,6 +196,9 @@ let RESULTS = {
 
   interpret([scores, records]){
 
+    scores = scores.slice(0);
+    records = [...records.map(m => m.slice(0))];
+
     // reference materials
     const colors = ENV.game.teams.map(team => team.color);
     const mode = ENV.game.gameMode;
@@ -290,6 +293,39 @@ let RESULTS = {
       console.warn(`RESULTS:: player ID not found (${id})`)
     }
 
+  },
+
+
+
+
+  // results as it pertains to user
+  // ... todo .. relocate this please
+  updateUserWithResults(server_data) {
+
+    if(ENV.spectate) return;
+
+
+    const summary = this.interpret(server_data);
+    const stats = ENV.user.stats || {};
+    const wins = stats.wins || 0;
+    const losses = stats.losses || 0;
+    const kills = stats.kills || 0;
+    const deaths = stats.deaths || 0;
+
+
+    console.log(summary.teams.map(t=>t.won));
+    console.log(ENV.game.team.number);
+    if(summary.teams[ENV.game.team.number].won) {
+      stats.wins = Number(wins) + 1
+    } else {
+      stats.losses = Number(losses) + 1
+    }
+
+    stats.kills = Number(kills) + ENV.game.player.score.kills;
+    stats.deaths = Number(deaths) + ENV.game.player.score.deaths;
+
+
+
   }
 
 
@@ -362,3 +398,8 @@ const fake_data = [
   },
 ];
 // RESULTS.load(fake_data);
+
+
+
+
+

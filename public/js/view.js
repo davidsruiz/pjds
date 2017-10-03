@@ -176,15 +176,16 @@ class DSGameLobby extends React.Component {
     const data = this.props.lobbySummary;
     const full = data.users.players.length >= data.game_settings.noneditableSettings.maxPlayers;
     const ongoing = data.ongoing;
+    const isPublic = data.type === 0;
 
     return (
       <div id="ds-game-lobby">
         <div id="part-1">
           <IconBar />
           <span id="logo-type">DEEP SPACE</span>
-          <LobbyType type={data.type} />
-          <LobbyActions code={data.code} password={data.password} onOptionsClick={() => this.lobbyOptionsToggle()}/>
-          <LobbyOptions prefs={data.game_settings.editableSettings} show={this.state.lobbyOptionsShown} />
+          <LobbyType type={data.type} rotation={data.rotation} nextChange={data.nextChange} />
+          <LobbyActions code={data.code} password={data.password} onOptionsClick={() => this.lobbyOptionsToggle()} isPublic={isPublic} />
+          <LobbyOptions type={data.type} prefs={data.game_settings.editableSettings} show={this.state.lobbyOptionsShown} />
         </div>
         <div id="part-2">
           <PlayerConfig joined={this.props.joined} ready={this.props.ready} full={full} ongoing={ongoing} />
@@ -208,9 +209,9 @@ class IconBar extends React.Component {
     return (
       <div id="icon-bar">
         <IconButton iconName="home" onClick={() => homeAction()}/>
-        <IconButton iconName="volume_up" />
-        <IconButton iconName="help" />
-        <IconButton iconName="settings" />
+        {/*<IconButton iconName="volume_up" />*/}
+        {/*<IconButton iconName="help" />*/}
+        {/*<IconButton iconName="settings" />*/}
       </div>
     );
   }
@@ -229,7 +230,38 @@ class LobbyType extends React.Component {
   render() {
 
     const name = (REF.lobby.type[this.props.type] + ' lobby').toUpperCase();
-    const desc = REF.lobby.typeDesc[this.props.type];
+
+    let desc = 'no description';
+    switch(this.props.type) {
+
+      // public matches (deal with rotation info)
+      case 0:
+
+        let {mode, map} = this.props.rotation;
+        mode = REF.lobby.options.mode[mode];
+        map = REF.lobby.options.map[map];
+
+        const nextChangeDate = new Date(this.props.nextChange);
+        let hour = nextChangeDate.getHours();
+        const timeOfDay = (hour > 11) ? 'PM' : 'AM';
+        if(hour > 11) hour -= 12;
+        if(hour == 0) hour = 12;
+        let minutes = nextChangeDate.getMinutes();
+        if(minutes < 10) minutes = '0' + minutes;
+        const timeString = `${hour} ${timeOfDay}`;
+
+        desc = REF.lobby.typeDesc[this.props.type](map, mode, timeString);
+
+        break;
+
+      // everything else
+      default:
+
+        desc = REF.lobby.typeDesc[this.props.type];
+
+        break;
+
+    }
 
     return (
       <div id="lobby-type">
@@ -260,6 +292,9 @@ class LobbyActions extends React.Component {
     
     const passwordMessage = this.props.password ? 'clear password' : 'add password';
 
+    const passwordButtonClass = `lobby-button ${this.props.isPublic ? 'hidden' : ''}`;
+    const optionButtonClass = `lobby-button ${this.props.isPublic ? 'hidden' : ''}`;
+
     return (
       <div id="lobby-action">
         <span id="lobby-id">{code.toUpperCase()}</span>
@@ -268,8 +303,8 @@ class LobbyActions extends React.Component {
           {/*<Button title="password" />*/}
           {/*<Button title="options" />*/}
           <span className="lobby-button" onClick={() => this.handleShareClick()}>share</span>
-          <span className="lobby-button" onClick={() => this.handlePasswordClick()}>{passwordMessage}</span>
-          <span id="lobby-button-option" className="lobby-button" onClick={() => this.props.onOptionsClick()}>options</span>
+          <span className={passwordButtonClass} onClick={() => this.handlePasswordClick()} hidden={this.props.isPublic}>{passwordMessage}</span>
+          <span id="lobby-button-option" className={optionButtonClass} onClick={() => this.props.onOptionsClick()}>options</span>
         </div>
       </div>
     );
@@ -306,12 +341,15 @@ class LobbyOptions extends React.Component {
     Object.keys(this.state.prefs).forEach(optionKey => {
       const optionValue = this.state.prefs[optionKey];
       options.push(
-        <ListSelect key={optionKey} optionKey={optionKey} optionValue={optionValue} onClick={(optionKey, choiceIndex) => this.handleOptionChange(optionKey, choiceIndex)} />
+        <ListSelect key={optionKey} optionKey={optionKey} optionValue={optionValue} type={this.props.type} onClick={(optionKey, choiceIndex) => this.handleOptionChange(optionKey, choiceIndex)} />
       );
     });
 
+    const hidden = (options.length === 0);
+    const collapsed = !this.props.show;
+
     return (
-      <div id="lobby-options" className={this.props.show ? '' : 'hidden'}>
+      <div id="lobby-options" className={(collapsed ? 'collapsed' : '') +' '+ (hidden ? 'hidden' : '')}>
         {options}
       </div>
     );
@@ -326,14 +364,15 @@ class ListSelect extends React.Component {
     const selectedChoice = this.props.optionValue;
 
     const selectTitle = LOBBY_OPTIONS[optionKey][0];
-    const choices = LOBBY_OPTIONS[optionKey].slice(1);
+    const choiceIndexes = LOBBY_OPTIONS[optionKey].slice(1)[this.props.type];
+    // const choices = LOBBY_OPTIONS[optionKey].slice(1);
 
     let optionChoices = [];
-    choices.forEach((choice, choiceIndex)=>{
+    choiceIndexes.forEach((choiceIndex)=>{
       optionChoices.push(
         <ListSelectOption 
-          key={choice} 
-          title={choice}
+          key={choiceIndex}
+          title={REF.lobby.options[optionKey][choiceIndex]}
           selected={choiceIndex===selectedChoice}
           onClick={() => this.props.onClick(optionKey, choiceIndex)} />
       );
@@ -550,31 +589,53 @@ class ActionButton extends React.Component {
     let buttonTitle;
     let className = '';
     let actionBlock = () => {};
-    if(this.props.joined) {
-      if(this.props.ready) {
-        buttonTitle = 'waiting...';
-        className = 'disabled';
-      } else {
-        buttonTitle = 'START';
-        actionBlock = () => { this.props.onClick(); }
-      }
+    if(this.props.ongoing) {
+      buttonTitle = 'IN PROGRESS';
+      className = 'hollow';
     } else {
-      if(this.props.ongoing) {
-        buttonTitle = 'IN PROGRESS';
-        className = 'hollow';
+      if(this.props.joined) {
+        if(this.props.ready) {
+          buttonTitle = 'waiting...';
+          className = 'disabled';
+        } else {
+          buttonTitle = 'START';
+          actionBlock = () => { this.props.onClick(); }
+        }
       } else {
         if(this.props.full) {
           buttonTitle = 'LOBBY FULL';
           className = 'hollow';
         } else {
-          buttonTitle = 'CONNECT';
+          buttonTitle = 'JOIN';
           actionBlock = () => { ENV.lobby.join() }
         }
       }
     }
 
-    // const buttonTitle = ['CONNECT', 'START', 'waiting...', 'LOBBY FULL'][this.props.userEngagementPhase];
-    // const className = this.props.userEngagementPhase===3 ? 'disabled' : '';
+    // if(this.props.joined) {
+    //   if(this.props.ready) {
+    //     buttonTitle = 'waiting...';
+    //     className = 'disabled';
+    //   } else {
+    //     buttonTitle = 'START';
+    //     actionBlock = () => { this.props.onClick(); }
+    //   }
+    // } else {
+    //   if(this.props.ongoing) {
+    //     buttonTitle = 'IN PROGRESS';
+    //     className = 'hollow';
+    //   } else {
+    //     if(this.props.full) {
+    //       buttonTitle = 'LOBBY FULL';
+    //       className = 'hollow';
+    //     } else {
+    //       buttonTitle = 'CONNECT';
+    //       actionBlock = () => { ENV.lobby.join() }
+    //     }
+    //   }
+    // }
+
+
     return (
       <button className={className} onClick={() => actionBlock()}>{buttonTitle}</button>
     );
@@ -807,8 +868,8 @@ let INFO = {
 };
 
 const LOBBY_OPTIONS = {
-  map: ['MAP', 'Wide Sky', 'Nautical'],
-  mode: ['GAME MODE', 'Capture the Flag', 'Territorial'],//, 'Survival'],
+  map: ['MAP', [], [0], [0, 1, 2, 3]],
+  mode: ['GAME MODE', [], [0, 1], [0, 1]],
   player_capacity: ['MAX PLAYERS', '2', '3', '4', '5', '6', '7', '8'],
   stock: ['STOCK', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 };
@@ -817,20 +878,26 @@ const REF = {
   lobby: {
     type: ['public', 'private', 'practice'],
     typeDesc: [
-      'This is a public lobby. Players present have complete control over game settings',
-      'This is a private lobby. Players present have complete control over game settings',
-      'This is a practice lobby. Players present have complete control over game settings',
-    ]
+      (maps, mode, time) => <span>Match up against players with similar skill. The current rotation is <b>{maps}</b> until <b>{time}</b>. The mode is <b>{mode}</b>.</span>,
+      <span><b>Share</b> a link to this lobby to invite friends in a <b>private</b> match. All players present have control over game settings.</span>,
+      <span>Test the <b>stages</b>, <b>ships</b>, and <b>modes</b> in a private environment you control.</span>,
+    ],
+    options: {
+      map: ['Wide Sky', 'Nautical', 'Nebula', 'Clockwise'],
+      mode: ['Capture the Flag', 'Territorial', 'Survival'],
+      player_capacity: ['2', '3', '4', '5', '6', '7', '8'],
+      stock: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    }
   },
 
   ship: {
     type: ['standard', 'rate', 'speed', 'defense', 'damage'],
     typeDesc: [
-      'a tune with the world and itself, this is the balanced ship',
-      'this ship produces a stream of light bullets to trap and confuse',
+      'a classic ship fit for all occasions',
+      'traps and confuses with a stream of light bullets',
       'run your way out of any situation with the speed ship',
-      'take more than just a hit with the defense ship',
-      'this ship is feared across the reach of space, use it wisely'
+      'takes more than just a hit',
+      'feared across the reach of space, use it wisely'
     ],
     sub: ['attractor', 'heat seeker', 'repulsors', 'stealth', 'block bomb'],
     stats: [

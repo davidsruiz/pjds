@@ -4,8 +4,19 @@
 // let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 ///////////////
 
+const TIME = {
+
+  sec: function(sec) { return sec * 1000 },
+  min: function(min) { return this.sec(min * 60) },
+  hrs: function(hrs) { return this.min(hrs * 60) },
+  days: function(days) { return this.hrs(days * 24) },
+
+};
+
+const GameCycles = require('./game_cycles.js');
+const cycles = new GameCycles({refreshRate: TIME.hrs(1)});
 const LobbyManager = require('./lobby_manager.js');
-const LM = new LobbyManager();
+const LM = new LobbyManager(cycles);
 let clients = new Map();
 
 const TEA = require('./TEA.js');
@@ -41,6 +52,7 @@ function s4() {
 // Math.flipCoin = (p = 0.5) => Math.random() < p;
 // Array.prototype.shuffle = function() { return this.sort(() => Math.flipCoin() )};
 const UUID = () => s4() + s4();
+const validateUUID = uuid => /^(\d|\w){8}$/.test(uuid);
 
 
 
@@ -88,10 +100,23 @@ app.post( '/:type', function( req, res ){
     type = req.params.type;
 
   switch(type) {
-    case "pool":
+    case "request_public_lobby":
+
+      console.log(req.body);
+
+      let [requestID = '', encodedRequestRank = ''] = req.body || [];
+
+      let decodedRequestRank = TEA.decrypt(String(encodedRequestRank), requestID);
+
+      if(!(decodedRequestRank >= 0)) decodedRequestRank = 0;
+
+
+      res.json(LM.findLobbyFor(decodedRequestRank));
+
+      break;
     case "create":
     case "practice":
-      if(type == "pool") lobbyID = LM.next();
+      // if(type == "pool") lobbyID = LM.next();
       if(type == "create") lobbyID = LM.new_private();
       if(type == "practice") lobbyID = LM.new_practice();
       res.redirect(`/${lobbyID}`);
@@ -142,7 +167,7 @@ app.post( '/:type', function( req, res ){
       break;
     case "update_rank":
       var id = req.body.id || UUID(),
-        encoded_rank = req.body.rank || '',
+        encoded_rank = String(req.body.rank) || '',
         simple_rank = parseInt(TEA.decrypt(encoded_rank, id));
 
       if(isNaN(simple_rank)) simple_rank = 0;
@@ -162,8 +187,8 @@ app.post( '/:type', function( req, res ){
     case 'update_stats':
 
       let id = req.body[0] || UUID();
-      let rank = req.body[1] || '';
-      let money = req.body[2] || '';
+      let rank = String(req.body[1]) || '';
+      let money = String(req.body[2]) || '';
       let simple_rank = parseInt(TEA.decrypt(rank, id));
       let simple_money = parseInt(TEA.decrypt(money, id));
 
@@ -423,6 +448,18 @@ sio.sockets.on('connection', function (client) {
 
   });
 
+  client.on('updateRank', data => {
+
+    // remove connection to lobby
+    const lobby = client.lobby;
+    if(lobby) {
+
+      lobby.updateUserRank(client, data);
+
+    } else {  }
+
+  });
+
 
 
 
@@ -437,9 +474,7 @@ sio.sockets.on('connection', function (client) {
       lobby.emit('usersUpdate', lobby.mapUsers());
 
       // delete empty lobby after 5 seconds
-      setTimeout(()=>{
-        if(lobby.empty) LM.delete(lobby.id)
-      }, 5000);
+      LM.waitThenCheck(lobby)
 
     } else {  }
 

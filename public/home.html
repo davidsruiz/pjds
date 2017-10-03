@@ -71,7 +71,7 @@
             </div>
             <hr>
             <div id="uic_footer">
-                <button id="uic_reset_button" disabled>reset stats</button>
+                <button id="uic_reset_button">reset stats</button>
                 <button id="uic_close_button">close</button>
             </div>
 
@@ -157,49 +157,28 @@
             <!--<li>OPTIONS</li>-->
 
             <span>
-            <form action="/pool" method="POST"><input type="submit" value="PUBLIC"></form>
+                <input id="publicButton" type="submit" value="PUBLIC">
             </span>
             <span>
             <a href="/friends"><input type="submit" value="FRIENDS"></a>
-            <!-- <form action="/history" method="POST"></form> -->
             </span>
-            <li>TUTORIAL</li>
+            <input type="text" value="TUTORIAL" disabled>
+            <!--<li>TUTORIAL</li>-->
             <span class="selected">
             <form action="/practice" method="POST"><input type="submit" value="PRACTICE"></form>
             </span>
-            <li>OPTIONS</li>
+            <input type="text" value="OPTIONS" disabled>
+            <!--<li>OPTIONS</li>-->
 
-            <!-- <span class="mi"><a href="/options">options</a></span>
-            <span class="mi"><a href="/about">about</a></span> -->
         </ul>
 
 
 
-        <!--<div class="left">-->
-        <!--<div class="title">DEEP SPACE</div>-->
-        <!--</div>-->
-
-        <!--<div class="right">-->
-        <!--<div class="menu">-->
-        <!--<span class="mi">-->
-        <!--<form action="/pool" method="POST"><input type="submit" value="with anyone"></form>-->
-        <!--</span>-->
-        <!--<span class="mi">-->
-        <!--<a href="/friends"><input type="submit" value="with friends"></a>-->
-        <!--&lt;!&ndash; <form action="/history" method="POST"></form> &ndash;&gt;-->
-        <!--</span>-->
-        <!--<span class="mi selected">-->
-        <!--<form action="/practice" method="POST"><input type="submit" value="solo practice"></form>-->
-        <!--</span>-->
-        <!--&lt;!&ndash; <span class="mi"><a href="/options">options</a></span>-->
-        <!--<span class="mi"><a href="/about">about</a></span> &ndash;&gt;-->
-        <!--</div>-->
-        <!--</div>-->
 
     </div>
 
     <div id="home_version">
-        <span>v0.6</span>
+        <span>v0.6.2</span>
     </div>
 </div>
 <div id="sound_layer" class="layer">

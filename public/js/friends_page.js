@@ -203,9 +203,9 @@ class IconBar extends React.Component {
     return (
       <div id="icon-bar">
         <IconButton iconName="home" onClick={() => homeAction()}/>
-        <IconButton iconName="volume_up" />
-        <IconButton iconName="help" />
-        <IconButton iconName="settings" />
+        {/*<IconButton iconName="volume_up" />*/}
+        {/*<IconButton iconName="help" />*/}
+        {/*<IconButton iconName="settings" />*/}
       </div>
     );
   }

@@ -122,7 +122,11 @@ var LOBBY = {
     }
 
     setTimeout(function () {
-      _this3.revealLobby();
+      if (ENV.lobby.newLobbyID) {
+        ENV.lobby.changeLobby();
+      } else {
+        _this3.revealLobby();
+      }
     }, TIME.sec(8));
   },
   revealLobby: function revealLobby() {

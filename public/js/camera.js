@@ -92,6 +92,18 @@ class Camera {
     // log(this.focus); log(new_focus);
     const timingFunction = BezierEasing(0.4, 0.0, 0.2, 1),
           old_focus = this.focus;
+
+    let startAngle = old_focus.ship.rotation % 360;
+    let endAngle = new_focus.ship.rotation % 360;
+    if(Math.abs(endAngle - startAngle) > 180) {
+      if(startAngle < endAngle) {
+        startAngle += 360;
+      } else {
+        endAngle += 360;
+      }
+    }
+    const clockwise = endAngle - startAngle > 0; // (+ clockwise, - counterclockwise)
+
     setAnimationTimeout((dt, elapsed, timeout)=>{
       const percentage = elapsed / timeout;
       const p1 = new V2D(old_focus.x, old_focus.y);
@@ -99,21 +111,47 @@ class Camera {
       const delta_v = p2.sub(p1);
       delta_v.length = delta_v.length * timingFunction(percentage);
       p1.add(delta_v);
-      let oldR = old_focus.ship.rotation % 360;
-      let newR = new_focus.ship.rotation % 360; let angleOffset = 0;
-      if(Math.abs(newR - oldR) > 180) angleOffset = (newR - oldR > 0) ? -360 : 360;
-      const deltaRotation = ((newR - oldR + angleOffset) * percentage) + oldR;
-      this.focus = {x:p1.x, y:p1.y, ship: {rotation: deltaRotation}};
+
+      startAngle = old_focus.ship.rotation % 360;
+      endAngle = new_focus.ship.rotation % 360;
+      let currentAngle = 0;
+      if(clockwise) {
+        if(endAngle < startAngle) endAngle += 360;
+        let diff = endAngle - startAngle;
+        currentAngle = startAngle + (diff * percentage);
+      } else {
+        if(endAngle > startAngle) endAngle -= 360;
+        let diff = startAngle - endAngle;
+        currentAngle = startAngle - (diff * percentage);
+      }
+
+      this.focus = {x:p1.x, y:p1.y, ship: {rotation: currentAngle}};
     }, 1, ()=>{
       this.focus = new_focus;
       this.checkCount = 0;
       check();
     });
 
-    // a continuous post check is required for slower machines that run at < 60 fps
+    // from here stems the infamous camera glitch...
+    // (a continuous post check is required for slower machines that run at < 60 fps)
     let [obj, prop] = whileCondition;
-    let check = () => { (obj[prop] && this.checkCount++ > 2) ? setTimeout(()=>{ check() }, 16) : this.focus = old_focus; };
-    // (()=>{ check() }).wait(1000);
+    let check = () => {
+
+      if(obj[prop]) {
+
+        setTimeout(()=>{ check() }, 16)
+
+      } else {
+
+        if(!(this.checkCount++ > 60)){
+          setTimeout(()=>{ check() }, 16)
+        }
+
+        this.focus = old_focus;
+
+      }
+
+    };
   }
 
 }

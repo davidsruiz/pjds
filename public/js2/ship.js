@@ -561,7 +561,7 @@ Ship.baseStats = {
   REGEN_DELAY: 3, //s (180f)
   REGEN_RATE: 24, //hp/s (0.4hp/f)
 
-  BLOCK_CAPACITY: 300, //#
+  BLOCK_CAPACITY: 500, //#
   BLOCK_HP_CAPACITY: 20, //hp
   BLOCK_SPREAD: 2 * Math.PI * 0.1, // 0.2 (30%) angle sweep in radians.
   BLOCK_RECOIL_DELAY: 1 / 6, //b/s (8f == 7.5b/s)

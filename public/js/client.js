@@ -31,12 +31,11 @@ class Lobby {
       isReady: false,
       team: null,
     };
-    this.userIsJoined = false;
 
     this.socketSetup();
-    this.network = new GameNetworkAdapter(null, this.socket)
+    this.network = new GameNetworkAdapter(null, this.socket);
 
-    window.onbeforeunload = () => this.beforeExit();
+    window.onbeforeunload = (e) => this.beforeExit(e);
 
   }
 
@@ -44,7 +43,7 @@ class Lobby {
     let socket = this.socket = io.connect();
 
     socket.on('pie', ()=>{alert('received')});
-    socket.on('error', (msg)=>{alert(`server error -- ${msg}`)});
+    socket.on('error', (msg)=>{console.error(`server error -- ${msg}`)});
 
     // setting up responses`
 
@@ -59,14 +58,17 @@ class Lobby {
     socket.on('lobbyFull', (a)=>this.lobbyFull(a));
     socket.on('starting', (a)=>this.starting(a));
 
+    socket.on('lobbyUpdate', (a)=>this.lobbyUpdate(a));
     socket.on('usersUpdate', (a)=>this.usersUpdate(a));
     socket.on('playersUpdate', (a)=>this.playersUpdate(a));
     socket.on('optionsUpdate', (a)=>this.optionsUpdate(a));
+    socket.on('rotationUpdate', (a)=>this.rotationUpdate(a));
 
     socket.on('gameStarted', (a)=>this.gameStarted(a));
     socket.on('gameEnded', (a)=>this.gameEnded(a));
 
-    socket.on('disconnected', (a)=>this.disconnected(a));
+    socket.on('disconnect', (a)=>this.disconnect(a));
+    socket.on('shouldChangeLobby', (a)=>this.shouldChangeLobby(a));
   }
 
 
@@ -113,6 +115,8 @@ class Lobby {
     // there was always room for you as intended.
     const lobbyType = this.info.type;
     if(lobbyType == 0 || lobbyType == 2) this.join();
+
+    if(lobbyType === 0) ENV.user.addListener('serverUpdate', data => this.serverUpdate(data))
   }
 
   join() {
@@ -188,6 +192,11 @@ class Lobby {
     ENV.lobby_ui.render();
   }
 
+  lobbyUpdate(newLobbyData) {
+    this.info = newLobbyData;
+    ENV.lobby_ui.render();
+  }
+
   usersUpdate(newUsersData) {
     this.info.users = newUsersData;
     ENV.lobby_ui.render();
@@ -206,6 +215,13 @@ class Lobby {
   optionsUpdate(data) {
     const [key, value] = data;
     this.info.game_settings.editableSettings[key] = value;
+    ENV.lobby_ui.render();
+  }
+
+  rotationUpdate(data) {
+    const {rotation, nextChange} = data;
+    this.info.rotation = rotation;
+    this.info.nextChange = nextChange;
     ENV.lobby_ui.render();
   }
 
@@ -261,6 +277,9 @@ class Lobby {
 
     ENV.game.end();
     LOBBY.hideGame();
+    if(this.info.type === 0) RESULTS.updateUserWithResults(results);
+
+    console.log(results);
 
     setTimeout(() => {
 
@@ -271,20 +290,47 @@ class Lobby {
     // this.game.end();
   }
 
+  serverUpdate(data) {
+    const {simple_rank} = data;
+    this.socket.emit('updateRank', simple_rank);
+  }
 
-  disconnected() {}
+
+  disconnect(reason) {
+    // window.alert('You have been disconnected');
+    // window.location.reset();
+    // window.location.replace(window.location.origin);
+    // window.history.pushState({}, 'home', '/');
+
+    window.location.reload();
+
+  }
+
+  shouldChangeLobby(lobbyID) {
+    this.newLobbyID = lobbyID;
+  }
+
+  changeLobby() {
+    window.location = `${window.location.origin}/${this.newLobbyID}`;
+  }
 
 
-
-  beforeExit() {
+  beforeExit(e) {
 
     // as a user closes the window..
     // - record if they leave a team alone
     const isOngoing = this.info.ongoing;
-    const isPlaying = this.isJoined;
+    const isPlaying = this.user.isJoined;
     const isPublicLobby = this.info.type == 0;
     if(isOngoing && isPlaying && isPublicLobby)
       ENV.storage.ongoing = true; // save in local storage TODO revise
+
+
+    // const dialogText = 'Leave battle? You will lose rank points';
+    // e.returnValue = dialogText;
+    // return dialogText;
+
+    return null;
 
   }
 

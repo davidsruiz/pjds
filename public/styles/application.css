@@ -132,12 +132,12 @@ body { position: relative; user-select: none; }
 #menu_layer .menu input[type="text"] { width: 180px; }
 
 #menu_layer input[type="text"] {
-    padding: 0 12px;
+    /*padding: 0 12px;*/
 
-    font-size: 40px;
-    letter-spacing: 4px;
+    /*font-size: 40px;*/
+    /*letter-spacing: 4px;*/
 
-    background-color: #455A64; /* Blue Grey 700 */
+    /*background-color: #455A64; !* Blue Grey 700 *!*/
 }
 html { background-color: #37474F; }
 

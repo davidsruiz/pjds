@@ -164,7 +164,7 @@ var Lobby = function () {
 
       return new Promise(function (resolve, reject) {
 
-        if (!_this.full) {
+        if (!_this.full && !_this.gameVars) {
           if (!(ship_data[2] < _this.options.maxTeams)) reject('illegal team number');
 
           ship_data[3] = false;
@@ -173,7 +173,7 @@ var Lobby = function () {
           _this.playersMap.set(client, ship_data);
           resolve();
         } else {
-          reject('lobby is full');
+          reject('lobby is full or ongoing');
         }
       });
     }
@@ -238,6 +238,16 @@ var Lobby = function () {
       this.clearPassword();
       this.emit('passwordCleared');
     }
+  }, {
+    key: 'updateUserRank',
+    value: function updateUserRank(client, rank) {
+      if (this.playersMap.has(client)) {
+        // if public
+        this.playersMap.get(client)[1] = rank;
+        return true;
+      }
+      return false;
+    }
 
     // start game!
     // when everyone is ready
@@ -246,6 +256,8 @@ var Lobby = function () {
     key: 'startGame',
     value: function startGame() {
       var _this3 = this;
+
+      this.cancelGame();
 
       // id name team index shipType
 
@@ -449,33 +461,74 @@ var Lobby = function () {
   }, {
     key: 'endGame',
     value: function endGame() {
-      // ... think more of this
+      // ... think EVEN more of this (duplication of code now)
+
+      // 0. CHECK
+      // return if already ended
+      if (!this.gameVars || !this.gameVars.ongoing) return;
+      this.gameVars.ongoing = false;
+
+      // 1. ACCOUNT FOR RESULTS
+
+      this.processResults();
+
+      // 2. CLEAR AND SETUP NEW
+
+      this.clearAndSetup();
+    }
+  }, {
+    key: 'cancelGame',
+    value: function cancelGame() {
+
+      // 0. CHECK
+      // return if already ended
+      if (!this.gameVars || !this.gameVars.ongoing) return;
+      this.gameVars.ongoing = false;
+
+      // 1. NOTIFY UNFORTUNATE NEWS
+
+      this.emitClosure();
+
+      // 2. CLEAR AND SETUP NEW
+
+      this.clearAndSetup();
+    }
+  }, {
+    key: 'clearAndSetup',
+    value: function clearAndSetup() {
 
       // 0. CHECK
       // return if already ended
       if (!this.gameVars) return;
 
-      // 1. REVIEW AND CLOSE DETAILS
+      // 1. CLEAR
+
+      if (this.gameVars.timer) this.gameVars.timer.cancel();
+      this.clearGameData();
+
+      // 2. SETUP NEW
+
+      this.unreadyAllPlayers();
+      this.emit('usersUpdate', this.mapUsers());
+    }
+  }, {
+    key: 'processResults',
+    value: function processResults() {
 
       var results = this.gameVars.modeLogic.recap();
 
       // if public .. weigh outcome
       if (this.type == 0) this.setWinForPlayers(results);
 
-      // cancel timer if necessary
-      if (this.gameVars.timer) this.gameVars.timer.cancel();
-
       // alert players
       this.emit('gameEnded', results);
+    }
+  }, {
+    key: 'emitClosure',
+    value: function emitClosure() {
 
-      // 2. CLEAR
-
-      this.clearGameData();
-
-      // 3. SETUP NEW
-
-      this.unreadyAllPlayers();
-      this.emit('usersUpdate', this.mapUsers());
+      // alert players
+      this.emit('gameCanceled');
     }
   }, {
     key: 'clearGameData',
@@ -1513,7 +1566,9 @@ DeepSpaceGame.colors = ['#FF4081', // 0 pink
 '#00FFE2', // 12 aqua
 '#F93FFF'];
 
-DeepSpaceGame.colorCombinations = new Map([[1, [[0], [1], [2], [3], [4], [5], [10], [11], [12], [13]]], [2, [[4, 0], [4, 1], [4, 10], [4, 2], [4, 11], [4, 3], [2, 1], [2, 0], [2, 5], [2, 12], [2, 11], [2, 13], [10, 12], [5, 11]]], [3, [[4, 3, 1], [4, 3, 0], [4, 2, 1], [4, 3, 2], [0, 2, 12], [2, 10, 12], [2, 0, 4], [2, 1, 5], [11, 5, 12], [11, 0, 2], [11, 2, 12], [11, 2, 4]]], [4, [[1, 2, 3, 4], [0, 2, 3, 4], [1, 2, 11, 4], [1, 2, 4, 5], [2, 1, 11, 5], [0, 2, 12, 4]]], [5, [[1, 10, 2, 3, 4], [1, 2, 3, 4, 5], [2, 11, 12, 4, 5], [0, 2, 12, 4, 5], [0, 2, 3, 4, 5], [10, 2, 3, 4, 5]]], [6, [[1, 10, 2, 3, 4, 5], [1, 10, 2, 3, 12, 4], [0, 10, 2, 3, 12, 4], [0, 2, 11, 12, 4, 5], [10, 2, 11, 12, 4, 5]]], [7, [[1, 10, 2, 3, 12, 4, 5], [0, 10, 2, 3, 12, 4, 5]]], [8, [[0, 10, 2, 11, 12, 4, 5, 13]]]]);
+DeepSpaceGame.colorCombinations = new Map([[1, [
+// [0], [1], [2], [3], [4], [5], [10], [11], [12], [13]
+[0], [1], [2], [3], [4], [11], [12], [13]]], [2, [[4, 0], [4, 1], [4, 10], [4, 2], [4, 11], [4, 3], [2, 1], [2, 0], [2, 5], [2, 12], [2, 11], [2, 13], [10, 12], [5, 11]]], [3, [[4, 3, 1], [4, 3, 0], [4, 2, 1], [4, 3, 2], [0, 2, 12], [2, 10, 12], [2, 0, 4], [2, 1, 5], [11, 5, 12], [11, 0, 2], [11, 2, 12], [11, 2, 4]]], [4, [[1, 2, 3, 4], [0, 2, 3, 4], [1, 2, 11, 4], [1, 2, 4, 5], [2, 1, 11, 5], [0, 2, 12, 4]]], [5, [[1, 10, 2, 3, 4], [1, 2, 3, 4, 5], [2, 11, 12, 4, 5], [0, 2, 12, 4, 5], [0, 2, 3, 4, 5], [10, 2, 3, 4, 5]]], [6, [[1, 10, 2, 3, 4, 5], [1, 10, 2, 3, 12, 4], [0, 10, 2, 3, 12, 4], [0, 2, 11, 12, 4, 5], [10, 2, 11, 12, 4, 5]]], [7, [[1, 10, 2, 3, 12, 4, 5], [0, 10, 2, 3, 12, 4, 5]]], [8, [[0, 10, 2, 11, 12, 4, 5, 13]]]]);
 
 DeepSpaceGame.maps = [{
   name: "The Event Horizon",

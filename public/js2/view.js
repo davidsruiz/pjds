@@ -182,6 +182,7 @@ var DSGameLobby = function (_React$Component) {
       var data = this.props.lobbySummary;
       var full = data.users.players.length >= data.game_settings.noneditableSettings.maxPlayers;
       var ongoing = data.ongoing;
+      var isPublic = data.type === 0;
 
       return React.createElement(
         'div',
@@ -195,11 +196,11 @@ var DSGameLobby = function (_React$Component) {
             { id: 'logo-type' },
             'DEEP SPACE'
           ),
-          React.createElement(LobbyType, { type: data.type }),
+          React.createElement(LobbyType, { type: data.type, rotation: data.rotation, nextChange: data.nextChange }),
           React.createElement(LobbyActions, { code: data.code, password: data.password, onOptionsClick: function onOptionsClick() {
               return _this2.lobbyOptionsToggle();
-            } }),
-          React.createElement(LobbyOptions, { prefs: data.game_settings.editableSettings, show: this.state.lobbyOptionsShown })
+            }, isPublic: isPublic }),
+          React.createElement(LobbyOptions, { type: data.type, prefs: data.game_settings.editableSettings, show: this.state.lobbyOptionsShown })
         ),
         React.createElement(
           'div',
@@ -236,10 +237,7 @@ var IconBar = function (_React$Component2) {
         { id: 'icon-bar' },
         React.createElement(IconButton, { iconName: 'home', onClick: function onClick() {
             return homeAction();
-          } }),
-        React.createElement(IconButton, { iconName: 'volume_up' }),
-        React.createElement(IconButton, { iconName: 'help' }),
-        React.createElement(IconButton, { iconName: 'settings' })
+          } })
       );
     }
   }]);
@@ -292,7 +290,40 @@ var LobbyType = function (_React$Component4) {
     value: function render() {
 
       var name = (REF.lobby.type[this.props.type] + ' lobby').toUpperCase();
-      var desc = REF.lobby.typeDesc[this.props.type];
+
+      var desc = 'no description';
+      switch (this.props.type) {
+
+        // public matches (deal with rotation info)
+        case 0:
+          var _props$rotation = this.props.rotation,
+              mode = _props$rotation.mode,
+              map = _props$rotation.map;
+
+          mode = REF.lobby.options.mode[mode];
+          map = REF.lobby.options.map[map];
+
+          var nextChangeDate = new Date(this.props.nextChange);
+          var hour = nextChangeDate.getHours();
+          var timeOfDay = hour > 11 ? 'PM' : 'AM';
+          if (hour > 11) hour -= 12;
+          if (hour == 0) hour = 12;
+          var minutes = nextChangeDate.getMinutes();
+          if (minutes < 10) minutes = '0' + minutes;
+          var timeString = hour + ' ' + timeOfDay;
+
+          desc = REF.lobby.typeDesc[this.props.type](map, mode, timeString);
+
+          break;
+
+        // everything else
+        default:
+
+          desc = REF.lobby.typeDesc[this.props.type];
+
+          break;
+
+      }
 
       return React.createElement(
         'div',
@@ -344,6 +375,9 @@ var LobbyActions = function (_React$Component5) {
 
       var passwordMessage = this.props.password ? 'clear password' : 'add password';
 
+      var passwordButtonClass = 'lobby-button ' + (this.props.isPublic ? 'hidden' : '');
+      var optionButtonClass = 'lobby-button ' + (this.props.isPublic ? 'hidden' : '');
+
       return React.createElement(
         'div',
         { id: 'lobby-action' },
@@ -364,14 +398,14 @@ var LobbyActions = function (_React$Component5) {
           ),
           React.createElement(
             'span',
-            { className: 'lobby-button', onClick: function onClick() {
+            { className: passwordButtonClass, onClick: function onClick() {
                 return _this8.handlePasswordClick();
-              } },
+              }, hidden: this.props.isPublic },
             passwordMessage
           ),
           React.createElement(
             'span',
-            { id: 'lobby-button-option', className: 'lobby-button', onClick: function onClick() {
+            { id: 'lobby-button-option', className: optionButtonClass, onClick: function onClick() {
                 return _this8.props.onOptionsClick();
               } },
             'options'
@@ -421,14 +455,17 @@ var LobbyOptions = function (_React$Component6) {
       // iterating over object
       Object.keys(this.state.prefs).forEach(function (optionKey) {
         var optionValue = _this10.state.prefs[optionKey];
-        options.push(React.createElement(ListSelect, { key: optionKey, optionKey: optionKey, optionValue: optionValue, onClick: function onClick(optionKey, choiceIndex) {
+        options.push(React.createElement(ListSelect, { key: optionKey, optionKey: optionKey, optionValue: optionValue, type: _this10.props.type, onClick: function onClick(optionKey, choiceIndex) {
             return _this10.handleOptionChange(optionKey, choiceIndex);
           } }));
       });
 
+      var hidden = options.length === 0;
+      var collapsed = !this.props.show;
+
       return React.createElement(
         'div',
-        { id: 'lobby-options', className: this.props.show ? '' : 'hidden' },
+        { id: 'lobby-options', className: (collapsed ? 'collapsed' : '') + ' ' + (hidden ? 'hidden' : '') },
         options
       );
     }
@@ -455,13 +492,14 @@ var ListSelect = function (_React$Component7) {
       var selectedChoice = this.props.optionValue;
 
       var selectTitle = LOBBY_OPTIONS[optionKey][0];
-      var choices = LOBBY_OPTIONS[optionKey].slice(1);
+      var choiceIndexes = LOBBY_OPTIONS[optionKey].slice(1)[this.props.type];
+      // const choices = LOBBY_OPTIONS[optionKey].slice(1);
 
       var optionChoices = [];
-      choices.forEach(function (choice, choiceIndex) {
+      choiceIndexes.forEach(function (choiceIndex) {
         optionChoices.push(React.createElement(ListSelectOption, {
-          key: choice,
-          title: choice,
+          key: choiceIndex,
+          title: REF.lobby.options[optionKey][choiceIndex],
           selected: choiceIndex === selectedChoice,
           onClick: function onClick() {
             return _this12.props.onClick(optionKey, choiceIndex);
@@ -867,26 +905,26 @@ var ActionButton = function (_React$Component15) {
       var buttonTitle = void 0;
       var className = '';
       var actionBlock = function actionBlock() {};
-      if (this.props.joined) {
-        if (this.props.ready) {
-          buttonTitle = 'waiting...';
-          className = 'disabled';
-        } else {
-          buttonTitle = 'START';
-          actionBlock = function actionBlock() {
-            _this24.props.onClick();
-          };
-        }
+      if (this.props.ongoing) {
+        buttonTitle = 'IN PROGRESS';
+        className = 'hollow';
       } else {
-        if (this.props.ongoing) {
-          buttonTitle = 'IN PROGRESS';
-          className = 'hollow';
+        if (this.props.joined) {
+          if (this.props.ready) {
+            buttonTitle = 'waiting...';
+            className = 'disabled';
+          } else {
+            buttonTitle = 'START';
+            actionBlock = function actionBlock() {
+              _this24.props.onClick();
+            };
+          }
         } else {
           if (this.props.full) {
             buttonTitle = 'LOBBY FULL';
             className = 'hollow';
           } else {
-            buttonTitle = 'CONNECT';
+            buttonTitle = 'JOIN';
             actionBlock = function actionBlock() {
               ENV.lobby.join();
             };
@@ -894,8 +932,30 @@ var ActionButton = function (_React$Component15) {
         }
       }
 
-      // const buttonTitle = ['CONNECT', 'START', 'waiting...', 'LOBBY FULL'][this.props.userEngagementPhase];
-      // const className = this.props.userEngagementPhase===3 ? 'disabled' : '';
+      // if(this.props.joined) {
+      //   if(this.props.ready) {
+      //     buttonTitle = 'waiting...';
+      //     className = 'disabled';
+      //   } else {
+      //     buttonTitle = 'START';
+      //     actionBlock = () => { this.props.onClick(); }
+      //   }
+      // } else {
+      //   if(this.props.ongoing) {
+      //     buttonTitle = 'IN PROGRESS';
+      //     className = 'hollow';
+      //   } else {
+      //     if(this.props.full) {
+      //       buttonTitle = 'LOBBY FULL';
+      //       className = 'hollow';
+      //     } else {
+      //       buttonTitle = 'CONNECT';
+      //       actionBlock = () => { ENV.lobby.join() }
+      //     }
+      //   }
+      // }
+
+
       return React.createElement(
         'button',
         { className: className, onClick: function onClick() {
@@ -1274,8 +1334,8 @@ var INFO = {
 };
 
 var LOBBY_OPTIONS = {
-  map: ['MAP', 'Wide Sky', 'Nautical'],
-  mode: ['GAME MODE', 'Capture the Flag', 'Territorial'], //, 'Survival'],
+  map: ['MAP', [], [0], [0, 1, 2, 3]],
+  mode: ['GAME MODE', [], [0, 1], [0, 1]],
   player_capacity: ['MAX PLAYERS', '2', '3', '4', '5', '6', '7', '8'],
   stock: ['STOCK', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 };
@@ -1283,12 +1343,79 @@ var LOBBY_OPTIONS = {
 var REF = {
   lobby: {
     type: ['public', 'private', 'practice'],
-    typeDesc: ['This is a public lobby. Players present have complete control over game settings', 'This is a private lobby. Players present have complete control over game settings', 'This is a practice lobby. Players present have complete control over game settings']
+    typeDesc: [function (maps, mode, time) {
+      return React.createElement(
+        'span',
+        null,
+        'Match up against players with similar skill. The current rotation is ',
+        React.createElement(
+          'b',
+          null,
+          maps
+        ),
+        ' until ',
+        React.createElement(
+          'b',
+          null,
+          time
+        ),
+        '. The mode is ',
+        React.createElement(
+          'b',
+          null,
+          mode
+        ),
+        '.'
+      );
+    }, React.createElement(
+      'span',
+      null,
+      React.createElement(
+        'b',
+        null,
+        'Share'
+      ),
+      ' a link to this lobby to invite friends in a ',
+      React.createElement(
+        'b',
+        null,
+        'private'
+      ),
+      ' match. All players present have control over game settings.'
+    ), React.createElement(
+      'span',
+      null,
+      'Test the ',
+      React.createElement(
+        'b',
+        null,
+        'stages'
+      ),
+      ', ',
+      React.createElement(
+        'b',
+        null,
+        'ships'
+      ),
+      ', and ',
+      React.createElement(
+        'b',
+        null,
+        'modes'
+      ),
+      ' in a private environment you control.'
+    )],
+    options: {
+      map: ['Wide Sky', 'Nautical', 'Nebula', 'Clockwise'],
+      mode: ['Capture the Flag', 'Territorial', 'Survival'],
+      player_capacity: ['2', '3', '4', '5', '6', '7', '8'],
+      stock: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    }
   },
 
   ship: {
     type: ['standard', 'rate', 'speed', 'defense', 'damage'],
-    typeDesc: ['a tune with the world and itself, this is the balanced ship', 'this ship produces a stream of light bullets to trap and confuse', 'run your way out of any situation with the speed ship', 'take more than just a hit with the defense ship', 'this ship is feared across the reach of space, use it wisely'],
+    typeDesc: ['a classic ship fit for all occasions', 'traps and confuses with a stream of light bullets', 'run your way out of any situation with the speed ship', 'takes more than just a hit', 'feared across the reach of space, use it wisely'],
     sub: ['attractor', 'heat seeker', 'repulsors', 'stealth', 'block bomb'],
     stats: [['HEALTH', '0.6', '0.6', '0.2', '1.0', '0.7'], ['SPEED', '0.6', '0.6', '0.9', '0.4', '0.4'], ['ATTACK', '0.5', '0.4', '0.3', '0.5', '1.0'], ['RANGE', '0.5', '0.5', '0.3', '0.7', '0.4']]
 

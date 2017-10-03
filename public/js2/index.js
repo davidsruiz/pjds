@@ -9,8 +9,27 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 // let TIME = {sec: function(mil) {return mil * 1000}, min: function(mil) {return this.sec(mil) * 60}};
 ///////////////
 
+var TIME = {
+
+  sec: function sec(_sec) {
+    return _sec * 1000;
+  },
+  min: function min(_min) {
+    return this.sec(_min * 60);
+  },
+  hrs: function hrs(_hrs) {
+    return this.min(_hrs * 60);
+  },
+  days: function days(_days) {
+    return this.hrs(_days * 24);
+  }
+
+};
+
+var GameCycles = require('./game_cycles.js');
+var cycles = new GameCycles({ refreshRate: TIME.hrs(1) });
 var LobbyManager = require('./lobby_manager.js');
-var LM = new LobbyManager();
+var LM = new LobbyManager(cycles);
 var clients = new Map();
 
 var TEA = require('./TEA.js');
@@ -62,6 +81,10 @@ function s4() {
 var UUID = function UUID() {
   return s4() + s4();
 };
+var validateUUID = function validateUUID(uuid) {
+  return (/^(\d|\w){8}$/.test(uuid)
+  );
+};
 
 var gameport = process.env.PORT || 4004,
     io = require('socket.io'),
@@ -104,10 +127,27 @@ app.post('/:type', function (req, res) {
       type = req.params.type;
 
   switch (type) {
-    case "pool":
+    case "request_public_lobby":
+
+      console.log(req.body);
+
+      var _ref = req.body || [],
+          _ref2 = _slicedToArray(_ref, 2),
+          _ref2$ = _ref2[0],
+          requestID = _ref2$ === undefined ? '' : _ref2$,
+          _ref2$2 = _ref2[1],
+          encodedRequestRank = _ref2$2 === undefined ? '' : _ref2$2;
+
+      var decodedRequestRank = TEA.decrypt(String(encodedRequestRank), requestID);
+
+      if (!(decodedRequestRank >= 0)) decodedRequestRank = 0;
+
+      res.json(LM.findLobbyFor(decodedRequestRank));
+
+      break;
     case "create":
     case "practice":
-      if (type == "pool") lobbyID = LM.next();
+      // if(type == "pool") lobbyID = LM.next();
       if (type == "create") lobbyID = LM.new_private();
       if (type == "practice") lobbyID = LM.new_practice();
       res.redirect('/' + lobbyID);
@@ -204,7 +244,7 @@ app.post('/:type', function (req, res) {
       break;
     case "update_rank":
       var _id = req.body.id || UUID(),
-          encoded_rank = req.body.rank || '',
+          encoded_rank = String(req.body.rank) || '',
           _simple_rank = parseInt(TEA.decrypt(encoded_rank, _id));
 
       if (isNaN(_simple_rank)) _simple_rank = 0;
@@ -225,8 +265,8 @@ app.post('/:type', function (req, res) {
     case 'update_stats':
 
       var _id = req.body[0] || UUID();
-      var rank = req.body[1] || '';
-      var money = req.body[2] || '';
+      var rank = String(req.body[1]) || '';
+      var money = String(req.body[2]) || '';
       var _simple_rank = parseInt(TEA.decrypt(rank, _id));
       var simple_money = parseInt(TEA.decrypt(money, _id));
 
@@ -466,6 +506,16 @@ sio.sockets.on('connection', function (client) {
     } else {}
   });
 
+  client.on('updateRank', function (data) {
+
+    // remove connection to lobby
+    var lobby = client.lobby;
+    if (lobby) {
+
+      lobby.updateUserRank(client, data);
+    } else {}
+  });
+
   client.on('disconnect', function (data) {
 
     // remove connection to lobby
@@ -476,9 +526,7 @@ sio.sockets.on('connection', function (client) {
       lobby.emit('usersUpdate', lobby.mapUsers());
 
       // delete empty lobby after 5 seconds
-      setTimeout(function () {
-        if (lobby.empty) LM.delete(lobby.id);
-      }, 5000);
+      LM.waitThenCheck(lobby);
     } else {}
 
     // remove from server's radar

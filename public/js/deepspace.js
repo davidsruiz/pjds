@@ -45,7 +45,11 @@ class DeepSpaceGame {
     // this.soundHelper = SoundHelper.start(); // olc
 
     try {
-      if (TINT) TINT.load(...data.colors[1])
+      // if (TINT) TINT.load(...data.colors[1])
+      if (TINT) {
+        if(this.mapInfo.tint) { TINT.load(...this.mapInfo.tint) }
+        else { TINT.load(...data.colors[1]) }
+      }
     } catch (e) {
       log('tint load failed')
     }
@@ -286,7 +290,9 @@ class DeepSpaceGame {
   }
 
   createViews() {
-    this.view = {};
+    this.view = {
+      grid: {width: 48, height: 48},
+    };
     this.window = {
       width: this.stage.canvas.width * this.HDPScale,
       height: this.stage.canvas.height * this.HDPScale,
@@ -299,6 +305,11 @@ class DeepSpaceGame {
     this.createShipViews();
     this.createPoolViews();
     this.createOverlayViews();
+  }
+
+  snapToGrid(position) {
+    position.x = Math.round(position.x / this.view.grid.width) * this.view.grid.width
+    position.y = Math.round(position.y / this.view.grid.height) * this.view.grid.height
   }
 
   createLayers() {
@@ -520,9 +531,10 @@ class DeepSpaceGame {
     overlay.score.team = [];
     var imagined_width = 120;
     this.teams.forEach((team, i) => {
-      var text = new createjs.Text(this.game.scores[i].toString(), "48px Roboto", team.color);
+      var text = new createjs.Text(this.game.scores[i].toString(), "48px Unica One", team.color);
       text.x = (i * imagined_width) + (imagined_width / 2);
       text.textAlign = "center";
+      text.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
       overlay.score.addChild(text);
       overlay.score.team.push(text);
     });
@@ -560,14 +572,16 @@ class DeepSpaceGame {
     overlay.message.textAlign = "center";
     overlay.message.x = (this.window.width / 2);
     overlay.message.y = 76;
+    overlay.message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
 
     this.view.layer.overlay.addChild(overlay.message);
 
     // var imagined_width = 512;
-    overlay.kill_message = new createjs.Text("", "24px Roboto");
+    overlay.kill_message = new createjs.Text("", "24px Roboto Condensed");
     overlay.kill_message.textAlign = "center";
     overlay.kill_message.x = (this.window.width / 2);
     overlay.kill_message.y = this.window.height - 76;
+    overlay.kill_message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
 
     this.view.layer.overlay.addChild(overlay.kill_message);
 
@@ -689,6 +703,16 @@ class DeepSpaceGame {
 
     // flag always on top
     // mini.setChildIndex(mini.flag, mini.numChildren-1)
+  }
+
+  destroyOverlayMinimapBlockViewFor(id) {
+    if (!this.spectate) {
+      var v = this.view.overlay.minimap.blocks.get(id);
+      if (v) {
+        this.view.overlay.minimap.blocks.delete(id);
+        this.view.overlay.minimap.removeChild(v);
+      }
+    }
   }
 
   setupCamera() {
@@ -1573,22 +1597,29 @@ class DeepSpaceGame {
         border = new createjs.Shape(DeepSpaceGame.graphics.block_border(this.teams[team.number].color, radius));
 
       var s = radius * 1.2;
+      let c;
 
       // enemy
-      fill.cache(-s, -s, s * 2, s * 2);
-      gc.blocks.enemy[team.number] = fill.cacheCanvas;
+      c = new createjs.Container();
+      fill.alpha = 0.24;
+      c.addChild(fill);
+      c.cache(-s, -s, s * 2, s * 2);
+      gc.blocks.enemy[team.number] = c.cacheCanvas;
 
       // unlocked
-      fill.alpha = 0.16;
-      let c = new createjs.Container();
+      // fill.alpha = 0.16;
+      // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius))
+      c = new createjs.Container();
       c.addChild(fill);
       c.cache(-s, -s, s * 2, s * 2);
       gc.blocks.unlocked[team.number] = c.cacheCanvas;
 
       // locked
+      // fill.alpha = 1;
+      // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#455A64', 40), radius))
       c = new createjs.Container();
       c.addChild(fill);
-      c.addChild(border);
+      // c.addChild(border);
       c.cache(-s, -s, s * 2, s * 2);
       gc.blocks.locked[team.number] = c.cacheCanvas;
     });
@@ -1738,7 +1769,7 @@ class DeepSpaceGame {
               break;
             case 'block':
               if(ship.canBlock()) {
-                if(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
+                while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
                 this.addBlock(ship)
               }
               break;
@@ -1833,6 +1864,8 @@ class DeepSpaceGame {
     this.model.blocks.forEach(b => {
       if (b.locked) return;
       if (b.qualified) {
+        this.snapToGrid(b.position);
+        b.scale = 1;
         this.setCollisionDivisions(b);
         if (!this.spectate) this.createOverlayMinimapBlockViewFor(b);
         if (!this.spectate) if (b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
@@ -1920,6 +1953,7 @@ class DeepSpaceGame {
                 if (block && !block.disabled) {
                   if ((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {
                     this.changeBlock(block.id, ship.owner.team.number)
+                    if(!this.spectate) this.ships.main.blocks.add(block.id);
                   }
                 }
               });
@@ -2036,7 +2070,7 @@ class DeepSpaceGame {
     this.updateCamera();
     this.updateBackground();
     this.updateMap();
-    this.updateTINT();
+    // this.updateTINT();
     // this.updateGrid();
 
     this.updateGameViews();
@@ -2049,19 +2083,28 @@ class DeepSpaceGame {
   updateShipViews() {
     this.ships.forEach((ship) => {
 
+      const isVisible = ( ship.view.visible = this.camera.showing(ship) );
+      const shipIsVisible = ( ship.view.visible = this.camera.showing(ship) );
+
       if (ship.view.visible = this.camera.showing(ship) || ship.view == this.camera.focus) {
 
-        var visibility = 1;
-        if (ship.disabled) {
+        let visibility = 1;
+        if(ship.disabled) {
           visibility = 0;
-        } else if (ship.stealth) {
-          if (ship.owner.team == this.team) {
-            visibility = Math.flipCoin(0.2) ? 0 : 0.4;
-          } else {
-            visibility = 0;
-          }
         } else {
-          visibility = 1;
+          if(this.game.flag && this.game.flag.holderID === ship.owner.id) {
+            visibility = 1;
+          } else {
+            if(ship.owner.team != this.team && ship.charging) {
+              visibility = 0;
+            } else if(ship.stealth) {
+              if (ship.owner.team == this.team) {
+                visibility = Math.flipCoin(0.2) ? 0 : 0.4;
+              } else {
+                visibility = 0;
+              }
+            }
+          }
         }
 
         let ship_view = ship.view.ship;
@@ -2116,10 +2159,13 @@ class DeepSpaceGame {
   updateBulletViews() {
     var views = this.view.bullets;
     this.model.bullets.forEach(b => {
-      var v = views.get(b.id);
-      if (v.visible = this.camera.showing(b)) {
+      let v = views.get(b.id);
+      if(this.camera.showing(b)) {
+        if(!v) v = this.createBulletView(b)
         v.x = b.position.x;
         v.y = b.position.y;
+      } else {
+        if(v) this.destroyBulletView(b.id);
       }
     });
   }
@@ -2128,30 +2174,32 @@ class DeepSpaceGame {
     var views = this.view.blocks;
     this.model.blocks.forEach(b => {
       var v = views.get(b.id);
-      if (!b.locked || (v.visible = this.camera.showing(b))) {
+
+      if(this.camera.showing(b)) {
+        if(!v) v = this.createBlockView(b)
         v.alpha = (b.health * 0.9 + 0.1);
-        if (!b.locked) {
-          v.x = b.position.x;
-          v.y = b.position.y;
-          // v.graphics.command.radius = b.radius;
-          v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
+        v.x = b.position.x;
+        v.y = b.position.y;
+        v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
+        if (b.qualified) {
+          let type = b.isForeign ? 'enemy' : 'locked';
+          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
         }
+      } else {
+        if(v) this.destroyBlockView(b.id);
       }
-      if (b.qualified) {
-        let type = b.isForeign ? 'enemy' : 'locked';
-        v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
-      }
+
     });
   }
 
   updateSubViews() {
     var views = this.view.subs;
-    this.model.subs.forEach(p => {
-      var v = views.get(p.id);
-      if (v) {
-        v.x = p.position.x;
-        v.y = p.position.y;
-        v.rotation = Math.degrees(p.rotation);
+    this.model.subs.forEach(s => {
+      var v = views.get(s.id);
+      if (v && (v.visible = this.camera.showing(s))) {
+        v.x = s.position.x;
+        v.y = s.position.y;
+        v.rotation = Math.degrees(s.rotation);
       }
     });
   }
@@ -2162,6 +2210,7 @@ class DeepSpaceGame {
   }
 
   updateBackground() {
+    
     const background = this.view.layer.background.map_background;
     const map_width = this.mapInfo.width;
     const map_height = this.mapInfo.height;
@@ -2526,16 +2575,8 @@ class DeepSpaceGame {
 
     const b = new Bullet(data);
 
-    // create a view for it.
-    const cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
-    const bv = new createjs.Bitmap(cache);
-    bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
-    bv.regX = bv.regY = (cache.width / 2);
-    this.view.layer.action.back.addChild(bv);
-
-    // set model and view maps
+    // set model map
     this.model.bullets.set(b.id, b);
-    this.view.bullets.set(b.id, bv);
 
     // collision groups
     b.collision_groups = [this.physics.collision_groups.BULLETS];
@@ -2565,11 +2606,7 @@ class DeepSpaceGame {
     if (!this.spectate) this.ships.main.bullets.delete(id);
 
     // erase the view for it.
-    var v = this.view.bullets.get(id);
-    if (v) {
-      this.view.bullets.delete(id);
-      this.view.layer.action.back.removeChild(v);
-    }
+    this.destroyBulletView(id);
 
   }
 
@@ -2610,18 +2647,11 @@ class DeepSpaceGame {
 
     var bl = new Block(data);
 
-    // create a view for it.
+    // misc..?
     bl.isForeign = this.spectate || bl.team != this.team.number;
-    let type = false ? 'enemy' : 'unlocked';
-    let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
-    var blv = new createjs.Bitmap(cache);
-    blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
-    blv.regX = blv.regY = (cache.width / 2);
-    this.view.layer.action.back.addChild(blv);
 
-    // set model and view maps
+    // set model map
     this.model.blocks.set(bl.id, bl);
-    this.view.blocks.set(bl.id, blv);
 
     // collision groups
     bl.collision_groups = [this.physics.collision_groups.REFUGE]
@@ -2698,8 +2728,6 @@ class DeepSpaceGame {
 
           this.ships.main.blocks.delete(id);
 
-
-
         }
 
         // replace and delete old view
@@ -2755,18 +2783,8 @@ class DeepSpaceGame {
     if (b.locked) this.refGroups.enemyBlocks.delete(b);
 
     // erase the view for it.
-    var v = this.view.blocks.get(id);
-    if (v) {
-      this.view.blocks.delete(id);
-      this.view.layer.action.back.removeChild(v);
-    }
-    if (!this.spectate) {
-      var v = this.view.overlay.minimap.blocks.get(id);
-      if (v) {
-        this.view.overlay.minimap.blocks.delete(id);
-        this.view.overlay.minimap.removeChild(v);
-      }
-    }
+    this.destroyBlockView(id);
+    this.destroyOverlayMinimapBlockViewFor(id);
 
     // notify game
     if(this.gameMode == 1) this.game.scores[b.team]--;
@@ -2948,11 +2966,12 @@ class DeepSpaceGame {
       flag.reset();
 
       var c = player.team.color, us = player.team == this.team;
+      var color = undefined;//us || this.spectate ? undefined : this.team.color;
       this.alert(
         DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](
           DeepSpaceGame.localizationStrings.colors[c][this.language]
         )
-        , us || this.spectate ? undefined : this.team.color);
+        , color);
 
       // this.updateFlagView();
     }
@@ -3021,6 +3040,8 @@ class DeepSpaceGame {
   //
   // }
 
+  
+
   alert(msg, color = "#ECEFF1") {
     clearTimeout(this.alertTimeout)
     var v = this.view.overlay.message;
@@ -3067,8 +3088,71 @@ class DeepSpaceGame {
   }
 
 
-  // inturruptions, closure and game over
 
+  /* NEW DYNAMIC GRAPHICS */
+  // Size has grown. It is now ineffective to keep copies
+  // of views for all map objects and choose to render
+  // based on visibility. Views will be created and
+  // destroyed dynamically. This will hopefully have
+  // great performance benefits 09/17/17
+
+  createBulletView(b) {
+
+    const cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
+    const bv = new createjs.Bitmap(cache);
+    bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
+    bv.regX = bv.regY = (cache.width / 2);
+    this.view.layer.action.back.addChild(bv);
+
+    // set view map
+    this.view.bullets.set(b.id, bv);
+
+    return bv
+
+  }
+
+  destroyBulletView(id) {
+
+    const v = this.view.bullets.get(id);
+    if (v) {
+      this.view.bullets.delete(id);
+      this.view.layer.action.back.removeChild(v);
+    }
+
+  }
+
+  createBlockView(bl) {
+    
+    // a block can either look fluid or locked
+    // these being either ours or theirs
+
+    // create a view for it.
+    let type = 'unlocked';
+    if(bl.locked || bl.qualified) type = bl.isForeign ? 'enemy' : 'locked';
+    let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
+    var blv = new createjs.Bitmap(cache);
+    blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
+    blv.regX = blv.regY = (cache.width / 2);
+    this.view.layer.action.back.addChild(blv);
+
+    // set view map
+    this.view.blocks.set(bl.id, blv);
+
+    return blv
+
+  }
+
+  destroyBlockView(id) {
+
+    const v = this.view.blocks.get(id);
+    if (v) {
+      this.view.blocks.delete(id);
+      this.view.layer.action.back.removeChild(v);
+    }
+
+  }
+
+  /* DEINITIALIZATION */
 
   deinit() {
     // it must go in reverse order
@@ -3147,7 +3231,16 @@ class DeepSpaceGame {
     if (player) {
       player.disconnected = true;
       player.ship.disabled = true;
-      if (this.spectate) this.activePlayers.delete(player)
+      if (this.spectate) this.activePlayers.delete(player);
+      
+      // alert team members
+      if (!this.spectate) {
+        if(player.team === this.team) this.alert(
+          DeepSpaceGame.localizationStrings.alerts['teamMemberDisconnects'][this.language](
+            player.name
+          )
+        )
+      }
     } else {
       log(`ERR in disconnectPlayer :: id(${id}) not found`)
     }
@@ -3234,6 +3327,9 @@ DeepSpaceGame.localizationStrings = {
     },
     teamLosesLead: {
       en: () => `We lost the lead!`
+    },
+    teamMemberDisconnects: {
+      en: (name) => `Your teammate ${name} has disconnected`
     }
   },
   colors: {
@@ -3483,7 +3579,7 @@ DeepSpaceGame.maps = [
       ]
     }
   },
-  { // 1
+  /*{ // 1
     name: "Liftor",
     width: 1920, height: 1920,
     teams: [2],
@@ -3519,6 +3615,106 @@ DeepSpaceGame.maps = [
           [1654, 546],
           [637, 578]
         ]
+      ]
+    }
+  },*/
+  {
+    name: "Nebula",
+    width: 3072, height: 3072,
+    teams: [2],
+    tint: [180, '#FFFFFF', '#000000', ],
+
+    // first array is for the number of teams coresponding to the teams array
+    // second is place in the arrangement for that number of teams
+    // object is position
+    spawn: [
+      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
+
+      [
+        {x: 1791, y: 160, rotation: Math.PI/2},
+        {x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI/2},
+      ],
+      [
+        {x: 1791, y: 160, rotation: Math.PI/2},
+        {x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI/2},
+      ],
+    ],
+    impermeables: {
+      copies: 2,
+      bodies: [
+        [32, // radius
+          [ 456, 549 ],
+          [ 692, 1238 ],
+          [ 787, 1367 ],
+          [ 2013, 176 ],
+          [ 1199, 1175 ],
+          [ 555, 1731 ],
+          [ 1276, 1143 ],
+          [ 1507, 192 ],
+          [ 1587, 224 ],
+          [ 1443, 391 ],
+          [ 3030, 697 ],
+          [ 2609, 847 ],
+          [ 1727, 920 ],
+          [ 1911, 643 ],
+          [ 898, 1303 ],
+          [ 1078, 1358 ],
+          [ 1503, 1341 ],
+          [ 1575, 1316 ],
+          [ 1639, 1358 ],
+          [ 2798, 859 ]
+        ],
+        [48,
+          [898,1207],[510,1183],[1110,1206],[1343,1214],[1459,274],[2888,863]
+        ],
+        [64,
+          [1372,1079],[1631,845],[946,1422],[1515,86],[1007,1278],[341,660],[2166,1047],[541,1348],[421,1271],[1395,160],[992,847],[566,537],[2449,560],[2936,751],[2699,909],[2077,86],[1497,811],[2417,697],[2737,258]
+        ],
+        [96,
+          [231,304],[330,485],[1355,911],[276,822],[820,879],[1853,845],[2045,920],[2221,1213],[2277,592]
+        ],
+        [128,
+          [2609,421],[385,1037],[641,724],[1267,334],[1215,613],[427,1519],[2149,278],[2289,857]
+        ]
+      ]
+    }
+  },
+  {
+    name: "Clockwise",
+    width: 2048, height: 2048,
+    teams: [2],
+    tint: [180, '#207272', '#000000', ],
+
+    // first array is for the number of teams coresponding to the teams array
+    // second is place in the arrangement for that number of teams
+    // object is position
+    spawn: [
+      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
+
+      [
+        {x: 1023, y: 119, rotation: Math.PI/2},
+        {x: 2048 - 1023, y: 2048 - 119, rotation: -Math.PI/2},
+      ],
+      [
+        {x: 1023, y: 119, rotation: Math.PI/2},
+        {x: 2048 - 1023, y: 2048 - 119, rotation: -Math.PI/2},
+      ],
+    ],
+    impermeables: {
+      copies: 2,
+      bodies: [
+        [32, // radius
+          [557,1059],[509,1367],[1000,876],[1077,844],[678,1420],[1897,192],[1977,224],[1162,344],[589,173],[1613,398],[1367,299],[1439,274],[1485,211]
+        ],
+        [48,
+          [589,77],[481,1009],[587,1415],[911,907],[1144,915],[941,372],[745,1491]
+        ],
+        [64,
+          [278,205],[541,748],[635,276],[1865,86],[507,521],[826,661],[370,1091],[420,1312],[317,1219],[1056,320],[1266,332],[497,883],[1549,302]
+        ],
+        [96,
+          [806,292],[656,617],[118,662]
+        ],
       ]
     }
   },

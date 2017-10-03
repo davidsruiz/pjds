@@ -273,3 +273,32 @@ try {
     obj
       The obj that forEach() is being applied to.
                                                                               */
+
+
+// Time zones -- universal..
+
+// .. work on it..
+
+const TIME_STRINGS = {
+
+}
+
+const READABLE_TIME = {
+
+  // READABLE_TIME.format(date, str)
+  // str: will contain replaceable pieces represented by the following
+  // 2017-09-27T19:26:43.415Z
+  //      %Y = full year
+  //      %y = short year
+  //      %M = month
+  //      %D = date
+  //      %d = day of week
+  //      %h = month
+  //
+
+  format(str) {
+
+  }
+
+}
+

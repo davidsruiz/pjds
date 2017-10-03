@@ -108,7 +108,14 @@ let LOBBY = {
     }
 
 
-    setTimeout(()=>{this.revealLobby();}, TIME.sec(8));
+    setTimeout(()=>{
+      if(ENV.lobby.newLobbyID) {
+        ENV.lobby.changeLobby();
+      } else {
+        this.revealLobby();
+      }
+
+    }, TIME.sec(8));
   },
 
   revealLobby() {

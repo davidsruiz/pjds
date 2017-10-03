@@ -119,6 +119,18 @@ var Camera = function () {
       // log(this.focus); log(new_focus);
       var timingFunction = BezierEasing(0.4, 0.0, 0.2, 1),
           old_focus = this.focus;
+
+      var startAngle = old_focus.ship.rotation % 360;
+      var endAngle = new_focus.ship.rotation % 360;
+      if (Math.abs(endAngle - startAngle) > 180) {
+        if (startAngle < endAngle) {
+          startAngle += 360;
+        } else {
+          endAngle += 360;
+        }
+      }
+      var clockwise = endAngle - startAngle > 0; // (+ clockwise, - counterclockwise)
+
       setAnimationTimeout(function (dt, elapsed, timeout) {
         var percentage = elapsed / timeout;
         var p1 = new V2D(old_focus.x, old_focus.y);
@@ -126,29 +138,52 @@ var Camera = function () {
         var delta_v = p2.sub(p1);
         delta_v.length = delta_v.length * timingFunction(percentage);
         p1.add(delta_v);
-        var oldR = old_focus.ship.rotation % 360;
-        var newR = new_focus.ship.rotation % 360;var angleOffset = 0;
-        if (Math.abs(newR - oldR) > 180) angleOffset = newR - oldR > 0 ? -360 : 360;
-        var deltaRotation = (newR - oldR + angleOffset) * percentage + oldR;
-        _this.focus = { x: p1.x, y: p1.y, ship: { rotation: deltaRotation } };
+
+        startAngle = old_focus.ship.rotation % 360;
+        endAngle = new_focus.ship.rotation % 360;
+        var currentAngle = 0;
+        if (clockwise) {
+          if (endAngle < startAngle) endAngle += 360;
+          var diff = endAngle - startAngle;
+          currentAngle = startAngle + diff * percentage;
+        } else {
+          if (endAngle > startAngle) endAngle -= 360;
+          var _diff = startAngle - endAngle;
+          currentAngle = startAngle - _diff * percentage;
+        }
+
+        _this.focus = { x: p1.x, y: p1.y, ship: { rotation: currentAngle } };
       }, 1, function () {
         _this.focus = new_focus;
         _this.checkCount = 0;
         check();
       });
 
-      // a continuous post check is required for slower machines that run at < 60 fps
+      // from here stems the infamous camera glitch...
+      // (a continuous post check is required for slower machines that run at < 60 fps)
 
       var _whileCondition = _slicedToArray(whileCondition, 2),
           obj = _whileCondition[0],
           prop = _whileCondition[1];
 
       var check = function check() {
-        obj[prop] && _this.checkCount++ > 2 ? setTimeout(function () {
-          check();
-        }, 16) : _this.focus = old_focus;
+
+        if (obj[prop]) {
+
+          setTimeout(function () {
+            check();
+          }, 16);
+        } else {
+
+          if (!(_this.checkCount++ > 60)) {
+            setTimeout(function () {
+              check();
+            }, 16);
+          }
+
+          _this.focus = old_focus;
+        }
       };
-      // (()=>{ check() }).wait(1000);
     }
   }]);
 

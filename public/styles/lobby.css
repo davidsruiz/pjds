@@ -165,6 +165,10 @@ span, td, th { cursor: default; }
     font-weight: normal;
 }
 
+#lobby-type-desc b {
+    font-weight: bold;
+}
+
 #lobby-action, #lobby-options {
     font-weight: normal;
 }
@@ -188,7 +192,7 @@ span, td, th { cursor: default; }
     box-sizing: border-box;
 }
 
-.lobby-button { display: inline-block; }
+.lobby-button:not(.hidden) { display: inline-block; }
 
 #lobby-action-buttons > .lobby-button {
     margin: 0px 12px;
@@ -210,6 +214,8 @@ span, td, th { cursor: default; }
     overflow: hidden;
     box-sizing: border-box;
 }
+
+#lobby-options.hidden { max-height: 0; padding: 0 }
 
 .list-select {
     width: 100%;
@@ -830,8 +836,8 @@ and (min-width: 600px) {
 
 @media screen
 and (max-width: 1100px) {
-    #lobby-button-option { display: inline-block }
-    #lobby-options.hidden { max-height: 0; padding: 0 }
+    #lobby-button-option:not(.hidden) { display: inline-block }
+    #lobby-options.collapsed { max-height: 0; padding: 0 }
 }
 
 /*lobby action and buttons*/

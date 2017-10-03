@@ -47,7 +47,7 @@ var Block = function () {
   }, {
     key: "lock",
     value: function lock() {
-      this.scale = 1;
+      // this.scale = 1;
       // this.radius = 10;
       this.qualified = true;
     }

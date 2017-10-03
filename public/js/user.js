@@ -79,6 +79,8 @@ class User {
     // }
 
     // this.get_rank =
+
+    this.listeners = new Map();
   }
 
   get get_rank() {
@@ -232,6 +234,8 @@ class User {
         this.simple_rank = simple_rank;
         this.simple_money = simple_money;
 
+        this.execListeners('serverUpdate', {rank, money, simple_rank, simple_money});
+
         this.refreshUserViews();
       });
   }
@@ -249,6 +253,34 @@ class User {
     this.stats.losses = 0;
     this.stats.kills = 0;
     this.stats.deaths = 0;
+  }
+
+  // Listeners
+  addListener(key, handler) {
+
+    if(typeof handler !== 'function')
+      return false;
+
+    const listenerList = this.listeners.get(key) || [];
+    listenerList.push(handler);
+    this.listeners.set(key, listenerList);
+
+    return true; // success
+
+  }
+
+  execListeners(key, info) {
+    const listenerList = this.listeners.get(key) || [];
+    for(let listener of listenerList)
+      listener(info);
+  }
+
+  removeListener(key, handler) {
+    const listenerList = this.listeners.get(key) || [];
+    const indexOf = listenerList.indexOf(handler);
+    if(indexOf === -1) return false; // failure
+    listenerList.splice(indexOf, 1);
+    return true; // success
   }
 
 }
@@ -298,18 +330,29 @@ class UserAdapter {
     //name
     $('#uic_title').val(ENV.user.name || '_name_');
     // edit button
-    $('#uic_title_edit').text(name_set ? 'change' : 'set')
+    $('#uic_title_edit').text(name_set ? 'change' : 'set');
 
     if(user_set) {
+
+      const friends = ENV.friends ? ENV.friends.friends.size : 0;
+      const wins = ENV.user.stats.wins || 0;
+      const losses = ENV.user.stats.losses || 0;
+      const kills = ENV.user.stats.kills || 0;
+      const deaths = ENV.user.stats.deaths || 0;
+      let winRate = (wins/losses || 0).round(1);
+      if(winRate > 10) winRate = '10+';
+
       $('#uic_money_cell').text(ENV.user.simple_money);
       $('#uic_rank_cell').text(ENV.user.rank_letter + ' - ' + ENV.user.rank_number);
-      $('#uic_win_cell').text('0');
-      $('#uic_friends_cell').text('0');
+      $('#uic_win_cell').text(winRate);
+      $('#uic_friends_cell').text(friends);
 
-      $('#uic_wins_row').text('0');
-      $('#uic_losses_row').text('0');
-      $('#uic_kills_row').text('0');
-      $('#uic_deaths_row').text('0');
+      $('#uic_wins_row').text(wins);
+      $('#uic_losses_row').text(losses);
+      $('#uic_kills_row').text(kills);
+      $('#uic_deaths_row').text(deaths);
+
+      $('#uic_reset_button').removeAttr('disabled');
     } else {
       $('#uic_money_cell').text('-');
       $('#uic_rank_cell').text('-');
@@ -339,12 +382,14 @@ $(()=>{
 
   if(userViewsAreAvailable()) { // revise ... make user always accessible with its view components optional
 
-    $('#user_mini_info').click(jqEvent => { LOBBY.showLayer('#user_info_layer') });
-    $('#user_info_background, #uic_close_button').click(jqEvent => { LOBBY.hideLayer('#user_info_layer') })
-
     ENV.UA = new UserAdapter(ENV.user);
-    $('#uic_title_edit').click(jqEvent => { ENV.UA.getName() })
+    $('#uic_title_edit').click(jqEvent => { ENV.UA.getName() });
+    $('#uic_reset_button').click(jqEvent => { ENV.user.resetStats(); ENV.UA.refreshUI(); })
     ENV.UA.refreshUI();
+
+
+    $('#user_mini_info').click(jqEvent => { ENV.UA.refreshUI(); LOBBY.showLayer('#user_info_layer') });
+    $('#user_info_background, #uic_close_button').click(jqEvent => { LOBBY.hideLayer('#user_info_layer') })
 
   }
 

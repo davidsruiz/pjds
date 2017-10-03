@@ -56,9 +56,18 @@ var DeepSpaceGame = function () {
       // this.soundHelper = SoundHelper.start(); // olc
 
       try {
-        var _TINT;
+        // if (TINT) TINT.load(...data.colors[1])
+        if (TINT) {
+          if (this.mapInfo.tint) {
+            var _TINT;
 
-        if (TINT) (_TINT = TINT).load.apply(_TINT, _toConsumableArray(data.colors[1]));
+            (_TINT = TINT).load.apply(_TINT, _toConsumableArray(this.mapInfo.tint));
+          } else {
+            var _TINT2;
+
+            (_TINT2 = TINT).load.apply(_TINT2, _toConsumableArray(data.colors[1]));
+          }
+        }
       } catch (e) {
         log('tint load failed');
       }
@@ -398,7 +407,9 @@ var DeepSpaceGame = function () {
   }, {
     key: 'createViews',
     value: function createViews() {
-      this.view = {};
+      this.view = {
+        grid: { width: 48, height: 48 }
+      };
       this.window = {
         width: this.stage.canvas.width * this.HDPScale,
         height: this.stage.canvas.height * this.HDPScale
@@ -411,6 +422,12 @@ var DeepSpaceGame = function () {
       this.createShipViews();
       this.createPoolViews();
       this.createOverlayViews();
+    }
+  }, {
+    key: 'snapToGrid',
+    value: function snapToGrid(position) {
+      position.x = Math.round(position.x / this.view.grid.width) * this.view.grid.width;
+      position.y = Math.round(position.y / this.view.grid.height) * this.view.grid.height;
     }
   }, {
     key: 'createLayers',
@@ -639,9 +656,10 @@ var DeepSpaceGame = function () {
       overlay.score.team = [];
       var imagined_width = 120;
       this.teams.forEach(function (team, i) {
-        var text = new createjs.Text(_this9.game.scores[i].toString(), "48px Roboto", team.color);
+        var text = new createjs.Text(_this9.game.scores[i].toString(), "48px Unica One", team.color);
         text.x = i * imagined_width + imagined_width / 2;
         text.textAlign = "center";
+        text.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
         overlay.score.addChild(text);
         overlay.score.team.push(text);
       });
@@ -675,14 +693,16 @@ var DeepSpaceGame = function () {
       overlay.message.textAlign = "center";
       overlay.message.x = this.window.width / 2;
       overlay.message.y = 76;
+      overlay.message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
 
       this.view.layer.overlay.addChild(overlay.message);
 
       // var imagined_width = 512;
-      overlay.kill_message = new createjs.Text("", "24px Roboto");
+      overlay.kill_message = new createjs.Text("", "24px Roboto Condensed");
       overlay.kill_message.textAlign = "center";
       overlay.kill_message.x = this.window.width / 2;
       overlay.kill_message.y = this.window.height - 76;
+      overlay.kill_message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
 
       this.view.layer.overlay.addChild(overlay.kill_message);
 
@@ -807,6 +827,17 @@ var DeepSpaceGame = function () {
 
       // flag always on top
       // mini.setChildIndex(mini.flag, mini.numChildren-1)
+    }
+  }, {
+    key: 'destroyOverlayMinimapBlockViewFor',
+    value: function destroyOverlayMinimapBlockViewFor(id) {
+      if (!this.spectate) {
+        var v = this.view.overlay.minimap.blocks.get(id);
+        if (v) {
+          this.view.overlay.minimap.blocks.delete(id);
+          this.view.overlay.minimap.removeChild(v);
+        }
+      }
     }
   }, {
     key: 'setupCamera',
@@ -1749,22 +1780,29 @@ var DeepSpaceGame = function () {
             border = new createjs.Shape(DeepSpaceGame.graphics.block_border(_this17.teams[team.number].color, radius));
 
         var s = radius * 1.2;
+        var c = void 0;
 
         // enemy
-        fill.cache(-s, -s, s * 2, s * 2);
-        gc.blocks.enemy[team.number] = fill.cacheCanvas;
+        c = new createjs.Container();
+        fill.alpha = 0.24;
+        c.addChild(fill);
+        c.cache(-s, -s, s * 2, s * 2);
+        gc.blocks.enemy[team.number] = c.cacheCanvas;
 
         // unlocked
-        fill.alpha = 0.16;
-        var c = new createjs.Container();
+        // fill.alpha = 0.16;
+        // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius))
+        c = new createjs.Container();
         c.addChild(fill);
         c.cache(-s, -s, s * 2, s * 2);
         gc.blocks.unlocked[team.number] = c.cacheCanvas;
 
         // locked
+        // fill.alpha = 1;
+        // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#455A64', 40), radius))
         c = new createjs.Container();
         c.addChild(fill);
-        c.addChild(border);
+        // c.addChild(border);
         c.cache(-s, -s, s * 2, s * 2);
         gc.blocks.locked[team.number] = c.cacheCanvas;
       });
@@ -1941,8 +1979,9 @@ var DeepSpaceGame = function () {
                     break;
                   case 'block':
                     if (ship.canBlock()) {
-                      if (ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID());
-                      this.addBlock(ship);
+                      while (ship.reachedBlockLimit) {
+                        this.removeBlock(ship.oldestBlockID());
+                      }this.addBlock(ship);
                     }
                     break;
                   case 'shoot':
@@ -2068,6 +2107,8 @@ var DeepSpaceGame = function () {
       this.model.blocks.forEach(function (b) {
         if (b.locked) return;
         if (b.qualified) {
+          _this21.snapToGrid(b.position);
+          b.scale = 1;
           _this21.setCollisionDivisions(b);
           if (!_this21.spectate) _this21.createOverlayMinimapBlockViewFor(b);
           if (!_this21.spectate) if (b.team != _this21.team.number) _this21.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
@@ -2157,6 +2198,7 @@ var DeepSpaceGame = function () {
                   if (block && !block.disabled) {
                     if ((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {
                       _this22.changeBlock(block.id, ship.owner.team.number);
+                      if (!_this22.spectate) _this22.ships.main.blocks.add(block.id);
                     }
                   }
                 });
@@ -2353,7 +2395,7 @@ var DeepSpaceGame = function () {
       this.updateCamera();
       this.updateBackground();
       this.updateMap();
-      this.updateTINT();
+      // this.updateTINT();
       // this.updateGrid();
 
       this.updateGameViews();
@@ -2369,19 +2411,28 @@ var DeepSpaceGame = function () {
 
       this.ships.forEach(function (ship) {
 
+        var isVisible = ship.view.visible = _this23.camera.showing(ship);
+        var shipIsVisible = ship.view.visible = _this23.camera.showing(ship);
+
         if (ship.view.visible = _this23.camera.showing(ship) || ship.view == _this23.camera.focus) {
 
           var visibility = 1;
           if (ship.disabled) {
             visibility = 0;
-          } else if (ship.stealth) {
-            if (ship.owner.team == _this23.team) {
-              visibility = Math.flipCoin(0.2) ? 0 : 0.4;
-            } else {
-              visibility = 0;
-            }
           } else {
-            visibility = 1;
+            if (_this23.game.flag && _this23.game.flag.holderID === ship.owner.id) {
+              visibility = 1;
+            } else {
+              if (ship.owner.team != _this23.team && ship.charging) {
+                visibility = 0;
+              } else if (ship.stealth) {
+                if (ship.owner.team == _this23.team) {
+                  visibility = Math.flipCoin(0.2) ? 0 : 0.4;
+                } else {
+                  visibility = 0;
+                }
+              }
+            }
           }
 
           var ship_view = ship.view.ship;
@@ -2441,9 +2492,12 @@ var DeepSpaceGame = function () {
       var views = this.view.bullets;
       this.model.bullets.forEach(function (b) {
         var v = views.get(b.id);
-        if (v.visible = _this24.camera.showing(b)) {
+        if (_this24.camera.showing(b)) {
+          if (!v) v = _this24.createBulletView(b);
           v.x = b.position.x;
           v.y = b.position.y;
+        } else {
+          if (v) _this24.destroyBulletView(b.id);
         }
       });
     }
@@ -2455,31 +2509,34 @@ var DeepSpaceGame = function () {
       var views = this.view.blocks;
       this.model.blocks.forEach(function (b) {
         var v = views.get(b.id);
-        if (!b.locked || (v.visible = _this25.camera.showing(b))) {
+
+        if (_this25.camera.showing(b)) {
+          if (!v) v = _this25.createBlockView(b);
           v.alpha = b.health * 0.9 + 0.1;
-          if (!b.locked) {
-            v.x = b.position.x;
-            v.y = b.position.y;
-            // v.graphics.command.radius = b.radius;
-            v.scaleX = v.scaleY = b.radius / Block.stats.MAX_RADIUS * b.scale;
+          v.x = b.position.x;
+          v.y = b.position.y;
+          v.scaleX = v.scaleY = b.radius / Block.stats.MAX_RADIUS * b.scale;
+          if (b.qualified) {
+            var type = b.isForeign ? 'enemy' : 'locked';
+            v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
           }
-        }
-        if (b.qualified) {
-          var type = b.isForeign ? 'enemy' : 'locked';
-          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
+        } else {
+          if (v) _this25.destroyBlockView(b.id);
         }
       });
     }
   }, {
     key: 'updateSubViews',
     value: function updateSubViews() {
+      var _this26 = this;
+
       var views = this.view.subs;
-      this.model.subs.forEach(function (p) {
-        var v = views.get(p.id);
-        if (v) {
-          v.x = p.position.x;
-          v.y = p.position.y;
-          v.rotation = Math.degrees(p.rotation);
+      this.model.subs.forEach(function (s) {
+        var v = views.get(s.id);
+        if (v && (v.visible = _this26.camera.showing(s))) {
+          v.x = s.position.x;
+          v.y = s.position.y;
+          v.rotation = Math.degrees(s.rotation);
         }
       });
     }
@@ -2492,6 +2549,7 @@ var DeepSpaceGame = function () {
   }, {
     key: 'updateBackground',
     value: function updateBackground() {
+
       var background = this.view.layer.background.map_background;
       var map_width = this.mapInfo.width;
       var map_height = this.mapInfo.height;
@@ -2534,14 +2592,14 @@ var DeepSpaceGame = function () {
   }, {
     key: 'updateMap',
     value: function updateMap() {
-      var _this26 = this;
+      var _this27 = this;
 
       this.teams.forEach(function (team) {
-        team.spawn_camp.view.visible = _this26.camera.showing(team.spawn_camp);
+        team.spawn_camp.view.visible = _this27.camera.showing(team.spawn_camp);
       });
 
       this.model.map.impermeables.forEach(function (imp, i) {
-        _this26.view.map.impermeables[i].visible = _this26.camera.showing(imp);
+        _this27.view.map.impermeables[i].visible = _this27.camera.showing(imp);
       });
     }
   }, {
@@ -2562,15 +2620,15 @@ var DeepSpaceGame = function () {
   }, {
     key: 'updateGameViews',
     value: function updateGameViews() {
-      var _this27 = this;
+      var _this28 = this;
 
       var list = this.calculateTeamScoreAppearance();
 
       this.view.overlay.score.team.forEach(function (text, i) {
-        text.text = _this27.game.scores[i];
+        text.text = _this28.game.scores[i];
         // text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);
 
-        if (_this27.gameMode == 0) // todo FIX --     export logic to another function to know which is larger
+        if (_this28.gameMode == 0) // todo FIX --     export logic to another function to know which is larger
           text.scaleX = text.scaleY = list[i] ? 1 : 0.86;
       });
 
@@ -2738,7 +2796,7 @@ var DeepSpaceGame = function () {
   }, {
     key: 'timerExpire',
     value: function timerExpire() {
-      var _this28 = this;
+      var _this29 = this;
 
       // let server know TODO this should not lie here like this..
       switch (this.gameMode) {
@@ -2758,19 +2816,19 @@ var DeepSpaceGame = function () {
 
       // disconnect if no server response after 6s
       setTimeout(function () {
-        if (!(_this28.game.ended || _this28.game.overtime)) LOBBY.disconnect();
+        if (!(_this29.game.ended || _this29.game.overtime)) LOBBY.disconnect();
       }, 6000);
     }
   }, {
     key: 'takeOvertime',
     value: function takeOvertime() {
-      var _this29 = this;
+      var _this30 = this;
 
       this.game.overtime = true;
 
       // disconnect if no server response after 40s
       setTimeout(function () {
-        if (!_this29.game.ended) LOBBY.disconnect();
+        if (!_this30.game.ended) LOBBY.disconnect();
       }, TIME.sec(40)); // OVERTIME DURATION.. todo
     }
   }, {
@@ -2896,16 +2954,8 @@ var DeepSpaceGame = function () {
 
       var b = new Bullet(data);
 
-      // create a view for it.
-      var cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
-      var bv = new createjs.Bitmap(cache);
-      bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
-      bv.regX = bv.regY = cache.width / 2;
-      this.view.layer.action.back.addChild(bv);
-
-      // set model and view maps
+      // set model map
       this.model.bullets.set(b.id, b);
-      this.view.bullets.set(b.id, bv);
 
       // collision groups
       b.collision_groups = [this.physics.collision_groups.BULLETS];
@@ -2935,11 +2985,7 @@ var DeepSpaceGame = function () {
       if (!this.spectate) this.ships.main.bullets.delete(id);
 
       // erase the view for it.
-      var v = this.view.bullets.get(id);
-      if (v) {
-        this.view.bullets.delete(id);
-        this.view.layer.action.back.removeChild(v);
-      }
+      this.destroyBulletView(id);
     }
 
     // * BLOCKS * //
@@ -2981,18 +3027,11 @@ var DeepSpaceGame = function () {
 
       var bl = new Block(data);
 
-      // create a view for it.
+      // misc..?
       bl.isForeign = this.spectate || bl.team != this.team.number;
-      var type = false ? 'enemy' : 'unlocked';
-      var cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
-      var blv = new createjs.Bitmap(cache);
-      blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
-      blv.regX = blv.regY = cache.width / 2;
-      this.view.layer.action.back.addChild(blv);
 
-      // set model and view maps
+      // set model map
       this.model.blocks.set(bl.id, bl);
-      this.view.blocks.set(bl.id, blv);
 
       // collision groups
       bl.collision_groups = [this.physics.collision_groups.REFUGE];
@@ -3130,18 +3169,8 @@ var DeepSpaceGame = function () {
       if (b.locked) this.refGroups.enemyBlocks.delete(b);
 
       // erase the view for it.
-      var v = this.view.blocks.get(id);
-      if (v) {
-        this.view.blocks.delete(id);
-        this.view.layer.action.back.removeChild(v);
-      }
-      if (!this.spectate) {
-        var v = this.view.overlay.minimap.blocks.get(id);
-        if (v) {
-          this.view.overlay.minimap.blocks.delete(id);
-          this.view.overlay.minimap.removeChild(v);
-        }
-      }
+      this.destroyBlockView(id);
+      this.destroyOverlayMinimapBlockViewFor(id);
 
       // notify game
       if (this.gameMode == 1) this.game.scores[b.team]--;
@@ -3328,7 +3357,8 @@ var DeepSpaceGame = function () {
 
         var c = player.team.color,
             us = player.team == this.team;
-        this.alert(DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](DeepSpaceGame.localizationStrings.colors[c][this.language]), us || this.spectate ? undefined : this.team.color);
+        var color = undefined; //us || this.spectate ? undefined : this.team.color;
+        this.alert(DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](DeepSpaceGame.localizationStrings.colors[c][this.language]), color);
 
         // this.updateFlagView();
       }
@@ -3396,10 +3426,11 @@ var DeepSpaceGame = function () {
     //
     // }
 
+
   }, {
     key: 'alert',
     value: function alert(msg) {
-      var _this30 = this;
+      var _this31 = this;
 
       var color = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "#ECEFF1";
 
@@ -3408,13 +3439,13 @@ var DeepSpaceGame = function () {
       v.text = msg;
       v.color = color;
       if (msg.trim() !== '') this.alertTimeout = setTimeout(function () {
-        _this30.alert("");
+        _this31.alert("");
       }, 4000);
     }
   }, {
     key: 'alert_kill',
     value: function alert_kill(msg) {
-      var _this31 = this;
+      var _this32 = this;
 
       var color = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "#ECEFF1";
 
@@ -3423,7 +3454,7 @@ var DeepSpaceGame = function () {
       v.text = msg;
       v.color = color;
       if (msg.trim() !== '') this.alertKillTimeout = setTimeout(function () {
-        _this31.alert_kill("");
+        _this32.alert_kill("");
       }, 4000);
     }
   }, {
@@ -3446,8 +3477,71 @@ var DeepSpaceGame = function () {
       }
     }
 
-    // inturruptions, closure and game over
+    /* NEW DYNAMIC GRAPHICS */
+    // Size has grown. It is now ineffective to keep copies
+    // of views for all map objects and choose to render
+    // based on visibility. Views will be created and
+    // destroyed dynamically. This will hopefully have
+    // great performance benefits 09/17/17
 
+  }, {
+    key: 'createBulletView',
+    value: function createBulletView(b) {
+
+      var cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
+      var bv = new createjs.Bitmap(cache);
+      bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
+      bv.regX = bv.regY = cache.width / 2;
+      this.view.layer.action.back.addChild(bv);
+
+      // set view map
+      this.view.bullets.set(b.id, bv);
+
+      return bv;
+    }
+  }, {
+    key: 'destroyBulletView',
+    value: function destroyBulletView(id) {
+
+      var v = this.view.bullets.get(id);
+      if (v) {
+        this.view.bullets.delete(id);
+        this.view.layer.action.back.removeChild(v);
+      }
+    }
+  }, {
+    key: 'createBlockView',
+    value: function createBlockView(bl) {
+
+      // a block can either look fluid or locked
+      // these being either ours or theirs
+
+      // create a view for it.
+      var type = 'unlocked';
+      if (bl.locked || bl.qualified) type = bl.isForeign ? 'enemy' : 'locked';
+      var cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
+      var blv = new createjs.Bitmap(cache);
+      blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
+      blv.regX = blv.regY = cache.width / 2;
+      this.view.layer.action.back.addChild(blv);
+
+      // set view map
+      this.view.blocks.set(bl.id, blv);
+
+      return blv;
+    }
+  }, {
+    key: 'destroyBlockView',
+    value: function destroyBlockView(id) {
+
+      var v = this.view.blocks.get(id);
+      if (v) {
+        this.view.blocks.delete(id);
+        this.view.layer.action.back.removeChild(v);
+      }
+    }
+
+    /* DEINITIALIZATION */
 
   }, {
     key: 'deinit',
@@ -3563,6 +3657,11 @@ var DeepSpaceGame = function () {
         player.disconnected = true;
         player.ship.disabled = true;
         if (this.spectate) this.activePlayers.delete(player);
+
+        // alert team members
+        if (!this.spectate) {
+          if (player.team === this.team) this.alert(DeepSpaceGame.localizationStrings.alerts['teamMemberDisconnects'][this.language](player.name));
+        }
       } else {
         log('ERR in disconnectPlayer :: id(' + id + ') not found');
       }
@@ -3719,6 +3818,11 @@ DeepSpaceGame.localizationStrings = {
       en: function en() {
         return 'We lost the lead!';
       }
+    },
+    teamMemberDisconnects: {
+      en: function en(name) {
+        return 'Your teammate ' + name + ' has disconnected';
+      }
     }
   },
   colors: {
@@ -3862,10 +3966,49 @@ DeepSpaceGame.maps = [{ // 0
     bodies: [[32, // radius
     [325, 764], [989, 98], [746, 898], [1054, 1308], [1179, 1260], [1514, 1308], [993, 1356], [534, 1308], [1546, 194], [1488, 130], [173, 1028], [173, 892], [470, 880], [325, 764], [667, 892]], [48, [1218, 274], [1242, 786], [618, 1260], [1139, 1340], [238, 960], [794, 818]], [64, [1084, 475], [422, 322], [914, 784], [1654, 546], [1279, 1219], [1423, 1228]], [96, [298, 539], [967, 610]], [128, [831, 411]]]
   }
-}, { // 1
+},
+/*{ // 1
   name: "Liftor",
   width: 1920, height: 1920,
   teams: [2],
+   // first array is for the number of teams coresponding to the teams array
+  // second is place in the arrangement for that number of teams
+  // object is position
+  spawn: [
+    // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
+     [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+    [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+    [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
+    [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]
+  ],
+  impermeables: {
+    copies: 2,
+    bodies: [
+      [32, // radius
+        [929, 76],
+        [582, 128],
+        [696, 176],
+        [811, 226],
+        [173, 892],
+        [173, 1028]
+      ],
+      [48,
+        [1218, 274],
+        [1242, 786],
+        [238, 960]
+      ],
+      [64,
+        [1654, 546],
+        [637, 578]
+      ]
+    ]
+  }
+},*/
+{
+  name: "Nebula",
+  width: 3072, height: 3072,
+  teams: [2],
+  tint: [180, '#FFFFFF', '#000000'],
 
   // first array is for the number of teams coresponding to the teams array
   // second is place in the arrangement for that number of teams
@@ -3873,11 +4016,29 @@ DeepSpaceGame.maps = [{ // 0
   spawn: [
   // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
 
-  [{ x: 192, y: 192 }, { x: 1920 - 192, y: 1920 - 192 }, { x: 1920 - 192, y: 192 }, { x: 192, y: 1920 - 192 }], [{ x: 192, y: 192 }, { x: 1920 - 192, y: 1920 - 192 }, { x: 1920 - 192, y: 192 }, { x: 192, y: 1920 - 192 }], [{ x: 192, y: 192 }, { x: 1920 - 192, y: 1920 - 192 }, { x: 1920 - 192, y: 192 }, { x: 192, y: 1920 - 192 }], [{ x: 192, y: 192 }, { x: 1920 - 192, y: 1920 - 192 }, { x: 1920 - 192, y: 192 }, { x: 192, y: 1920 - 192 }]],
+  [{ x: 1791, y: 160, rotation: Math.PI / 2 }, { x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI / 2 }], [{ x: 1791, y: 160, rotation: Math.PI / 2 }, { x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI / 2 }]],
   impermeables: {
     copies: 2,
     bodies: [[32, // radius
-    [929, 76], [582, 128], [696, 176], [811, 226], [173, 892], [173, 1028]], [48, [1218, 274], [1242, 786], [238, 960]], [64, [1654, 546], [637, 578]]]
+    [456, 549], [692, 1238], [787, 1367], [2013, 176], [1199, 1175], [555, 1731], [1276, 1143], [1507, 192], [1587, 224], [1443, 391], [3030, 697], [2609, 847], [1727, 920], [1911, 643], [898, 1303], [1078, 1358], [1503, 1341], [1575, 1316], [1639, 1358], [2798, 859]], [48, [898, 1207], [510, 1183], [1110, 1206], [1343, 1214], [1459, 274], [2888, 863]], [64, [1372, 1079], [1631, 845], [946, 1422], [1515, 86], [1007, 1278], [341, 660], [2166, 1047], [541, 1348], [421, 1271], [1395, 160], [992, 847], [566, 537], [2449, 560], [2936, 751], [2699, 909], [2077, 86], [1497, 811], [2417, 697], [2737, 258]], [96, [231, 304], [330, 485], [1355, 911], [276, 822], [820, 879], [1853, 845], [2045, 920], [2221, 1213], [2277, 592]], [128, [2609, 421], [385, 1037], [641, 724], [1267, 334], [1215, 613], [427, 1519], [2149, 278], [2289, 857]]]
+  }
+}, {
+  name: "Clockwise",
+  width: 2048, height: 2048,
+  teams: [2],
+  tint: [180, '#207272', '#000000'],
+
+  // first array is for the number of teams coresponding to the teams array
+  // second is place in the arrangement for that number of teams
+  // object is position
+  spawn: [
+  // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
+
+  [{ x: 1023, y: 119, rotation: Math.PI / 2 }, { x: 2048 - 1023, y: 2048 - 119, rotation: -Math.PI / 2 }], [{ x: 1023, y: 119, rotation: Math.PI / 2 }, { x: 2048 - 1023, y: 2048 - 119, rotation: -Math.PI / 2 }]],
+  impermeables: {
+    copies: 2,
+    bodies: [[32, // radius
+    [557, 1059], [509, 1367], [1000, 876], [1077, 844], [678, 1420], [1897, 192], [1977, 224], [1162, 344], [589, 173], [1613, 398], [1367, 299], [1439, 274], [1485, 211]], [48, [589, 77], [481, 1009], [587, 1415], [911, 907], [1144, 915], [941, 372], [745, 1491]], [64, [278, 205], [541, 748], [635, 276], [1865, 86], [507, 521], [826, 661], [370, 1091], [420, 1312], [317, 1219], [1056, 320], [1266, 332], [497, 883], [1549, 302]], [96, [806, 292], [656, 617], [118, 662]]]
   }
 }];
 

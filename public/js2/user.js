@@ -85,6 +85,8 @@ var User = function () {
     // }
 
     // this.get_rank =
+
+    this.listeners = new Map();
   }
 
   _createClass(User, [{
@@ -243,6 +245,8 @@ var User = function () {
         _this3.simple_rank = simple_rank;
         _this3.simple_money = simple_money;
 
+        _this3.execListeners('serverUpdate', { rank: rank, money: money, simple_rank: simple_rank, simple_money: simple_money });
+
         _this3.refreshUserViews();
       });
     }
@@ -261,6 +265,59 @@ var User = function () {
       this.stats.losses = 0;
       this.stats.kills = 0;
       this.stats.deaths = 0;
+    }
+
+    // Listeners
+
+  }, {
+    key: 'addListener',
+    value: function addListener(key, handler) {
+
+      if (typeof handler !== 'function') return false;
+
+      var listenerList = this.listeners.get(key) || [];
+      listenerList.push(handler);
+      this.listeners.set(key, listenerList);
+
+      return true; // success
+    }
+  }, {
+    key: 'execListeners',
+    value: function execListeners(key, info) {
+      var listenerList = this.listeners.get(key) || [];
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = listenerList[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var listener = _step.value;
+
+          listener(info);
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+    }
+  }, {
+    key: 'removeListener',
+    value: function removeListener(key, handler) {
+      var listenerList = this.listeners.get(key) || [];
+      var indexOf = listenerList.indexOf(handler);
+      if (indexOf === -1) return false; // failure
+      listenerList.splice(indexOf, 1);
+      return true; // success
     }
   }, {
     key: 'get_rank',
@@ -359,15 +416,26 @@ var UserAdapter = function () {
       $('#uic_title_edit').text(name_set ? 'change' : 'set');
 
       if (user_set) {
+
+        var friends = ENV.friends ? ENV.friends.friends.size : 0;
+        var wins = ENV.user.stats.wins || 0;
+        var losses = ENV.user.stats.losses || 0;
+        var kills = ENV.user.stats.kills || 0;
+        var deaths = ENV.user.stats.deaths || 0;
+        var winRate = (wins / losses || 0).round(1);
+        if (winRate > 10) winRate = '10+';
+
         $('#uic_money_cell').text(ENV.user.simple_money);
         $('#uic_rank_cell').text(ENV.user.rank_letter + ' - ' + ENV.user.rank_number);
-        $('#uic_win_cell').text('0');
-        $('#uic_friends_cell').text('0');
+        $('#uic_win_cell').text(winRate);
+        $('#uic_friends_cell').text(friends);
 
-        $('#uic_wins_row').text('0');
-        $('#uic_losses_row').text('0');
-        $('#uic_kills_row').text('0');
-        $('#uic_deaths_row').text('0');
+        $('#uic_wins_row').text(wins);
+        $('#uic_losses_row').text(losses);
+        $('#uic_kills_row').text(kills);
+        $('#uic_deaths_row').text(deaths);
+
+        $('#uic_reset_button').removeAttr('disabled');
       } else {
         $('#uic_money_cell').text('-');
         $('#uic_rank_cell').text('-');
@@ -401,18 +469,21 @@ $(function () {
   if (userViewsAreAvailable()) {
     // revise ... make user always accessible with its view components optional
 
-    $('#user_mini_info').click(function (jqEvent) {
-      LOBBY.showLayer('#user_info_layer');
-    });
-    $('#user_info_background, #uic_close_button').click(function (jqEvent) {
-      LOBBY.hideLayer('#user_info_layer');
-    });
-
     ENV.UA = new UserAdapter(ENV.user);
     $('#uic_title_edit').click(function (jqEvent) {
       ENV.UA.getName();
     });
+    $('#uic_reset_button').click(function (jqEvent) {
+      ENV.user.resetStats();ENV.UA.refreshUI();
+    });
     ENV.UA.refreshUI();
+
+    $('#user_mini_info').click(function (jqEvent) {
+      ENV.UA.refreshUI();LOBBY.showLayer('#user_info_layer');
+    });
+    $('#user_info_background, #uic_close_button').click(function (jqEvent) {
+      LOBBY.hideLayer('#user_info_layer');
+    });
   }
 });
 //# sourceMappingURL=user.js.map

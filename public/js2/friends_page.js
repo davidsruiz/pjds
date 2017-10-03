@@ -524,10 +524,7 @@ var IconBar = function (_React$Component8) {
         { id: "icon-bar" },
         React.createElement(IconButton, { iconName: "home", onClick: function onClick() {
             return homeAction();
-          } }),
-        React.createElement(IconButton, { iconName: "volume_up" }),
-        React.createElement(IconButton, { iconName: "help" }),
-        React.createElement(IconButton, { iconName: "settings" })
+          } })
       );
     }
   }]);

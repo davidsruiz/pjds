@@ -26,4 +26,20 @@ $(() => {
   // const UA = new UserAdapter(ENV.user);
   // $('#uic_title_edit').click(jqEvent => { UA.getName() })
   // UA.refreshUI();
+
+  $('#publicButton').click(()=>{
+
+    $.ajax({
+      url: '/request_public_lobby',
+      type: 'POST',
+      data: JSON.stringify([ENV.user.id || '', ENV.user.rank || '']),
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json'
+    })
+      .done(lobbyID => {
+        window.location = `${window.location.origin}/${lobbyID}`
+      });
+
+  })
+
 });
