@@ -1085,6 +1085,8 @@ class DeepSpaceGame {
           x -= bias[0]; // bias towards player;
           y -= bias[1];
 
+          if(ENV.options.input.invertControls) { x = -x; y = -y }
+
           if (x > threshold) {
             inputStack.add('rt')
           } else {

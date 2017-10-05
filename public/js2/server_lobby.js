@@ -165,13 +165,21 @@ var Lobby = function () {
       return new Promise(function (resolve, reject) {
 
         if (!_this.full && !_this.gameVars) {
-          if (!(ship_data[2] < _this.options.maxTeams)) reject('illegal team number');
 
-          ship_data[3] = false;
+          var exceedsMaxLimit = !(ship_data[2] < _this.options.maxTeams + 1);
+          var exceedsMinLimit = ship_data[2] < 0;
 
-          _this.spectators.delete(client);
-          _this.playersMap.set(client, ship_data);
-          resolve();
+          if (exceedsMaxLimit || exceedsMinLimit) {
+
+            reject('illegal team number');
+          } else {
+
+            ship_data[3] = false;
+
+            _this.spectators.delete(client);
+            _this.playersMap.set(client, ship_data);
+            resolve();
+          }
         } else {
           reject('lobby is full or ongoing');
         }

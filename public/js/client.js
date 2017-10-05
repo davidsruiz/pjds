@@ -409,7 +409,19 @@ class LobbyUI {
   }
 
   getTeam(max_team_count = ENV.lobby.info.game_settings.noneditableSettings.maxTeams, solo_option = true) {
-    let result = window.prompt(`Type your team # between 1 and ${max_team_count} (blank for none)` );
+
+    let optionsArr = [];
+    let optionsStr = '';
+    for(let i = 0; i < max_team_count; i++) optionsArr.push(i+1+'');
+    if(optionsArr.length > 1) {
+      optionsArr[optionsArr.length-1] = 'or ' + optionsArr[optionsArr.length-1];
+      optionsStr = optionsArr.join(', ');
+    } else {
+      optionsStr = optionsArr[0];
+    }
+    const message = `Join which team?\n${optionsStr}`;
+
+    let result = window.prompt(message);
     if(result === '') result = 0; // shortcut for solo
 
     const userCanceledDialog = result === null;

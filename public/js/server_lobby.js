@@ -126,13 +126,24 @@ class Lobby {
     return (new Promise((resolve, reject) => {
 
       if(!this.full && !this.gameVars) {
-        if(!(ship_data[2] < this.options.maxTeams)) reject('illegal team number');
 
-        ship_data[3] = false;
+        const exceedsMaxLimit = !(ship_data[2] < this.options.maxTeams+1);
+        const exceedsMinLimit = (ship_data[2] < 0);
 
-        this.spectators.delete(client);
-        this.playersMap.set(client, ship_data);
-        resolve();
+        if(exceedsMaxLimit || exceedsMinLimit) {
+
+          reject('illegal team number');
+
+        } else {
+
+          ship_data[3] = false;
+
+          this.spectators.delete(client);
+          this.playersMap.set(client, ship_data);
+          resolve();
+
+        }
+
       } else {
         reject('lobby is full or ongoing');
       }

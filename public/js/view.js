@@ -879,7 +879,7 @@ const REF = {
     type: ['public', 'private', 'practice'],
     typeDesc: [
       (maps, mode, time) => <span>Match up against players with similar skill. The current rotation is <b>{maps}</b> until <b>{time}</b>. The mode is <b>{mode}</b>.</span>,
-      <span><b>Share</b> a link to this lobby to invite friends in a <b>private</b> match. All players present have control over game settings.</span>,
+      <span>Enjoy a <b>private</b> space where you and <b>friends</b> can play. All present players have control over settings.</span>,
       <span>Test the <b>stages</b>, <b>ships</b>, and <b>modes</b> in a private environment you control.</span>,
     ],
     options: {

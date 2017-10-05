@@ -1370,18 +1370,19 @@ var REF = {
     }, React.createElement(
       'span',
       null,
-      React.createElement(
-        'b',
-        null,
-        'Share'
-      ),
-      ' a link to this lobby to invite friends in a ',
+      'Enjoy a ',
       React.createElement(
         'b',
         null,
         'private'
       ),
-      ' match. All players present have control over game settings.'
+      ' space where you and ',
+      React.createElement(
+        'b',
+        null,
+        'friends'
+      ),
+      ' can play. All present players have control over settings.'
     ), React.createElement(
       'span',
       null,

@@ -488,7 +488,20 @@ var LobbyUI = function () {
       var max_team_count = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : ENV.lobby.info.game_settings.noneditableSettings.maxTeams;
       var solo_option = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
 
-      var result = window.prompt('Type your team # between 1 and ' + max_team_count + ' (blank for none)');
+
+      var optionsArr = [];
+      var optionsStr = '';
+      for (var i = 0; i < max_team_count; i++) {
+        optionsArr.push(i + 1 + '');
+      }if (optionsArr.length > 1) {
+        optionsArr[optionsArr.length - 1] = 'or ' + optionsArr[optionsArr.length - 1];
+        optionsStr = optionsArr.join(', ');
+      } else {
+        optionsStr = optionsArr[0];
+      }
+      var message = 'Join which team?\n' + optionsStr;
+
+      var result = window.prompt(message);
       if (result === '') result = 0; // shortcut for solo
 
       var userCanceledDialog = result === null;
