@@ -1,47 +1,21 @@
-//team.js ...........................................................
 
-var Team = (function()
-{
-	//exposed methods:
+class Team {
 
-	var create = function(color)
-	{
-		var obj = Object.create(def);
-        obj.color = color;
-        obj.players = [];
+  constructor(game, number) {
+    this.game = game;
+    this.number = number;
+    this.players = [];
+  }
 
-		return obj;
-	};
+  get color() {
+    return DeepSpaceGame.colors[this.game.colors[0][this.number]];
+  }
 
-	//definition:
+  createPlayer(id, name, type) {
+    var p = new Player(this, id);
+    p.name = name; p.type = type;
 
-	var def =
-	{
-        color: null,
-        players: null,
-
-		addPlayer: function(player)
-		{
-            this.players[this.players.length] = player;
-            player.team = this;
-		},
-
-        removePlayer: function(player)
-        {
-            this.players.splice(this.players.indexOf(player), 1);
-            player.team = null;
-        },
-
-        getPoints: function()
-        {
-            var total = 0;
-            for(player of this.players) {
-                total += player.points;
-            }
-            return total;
-        }
-
-	};
-
-	return {create:create};
-}());
+    this.players.push(p);
+    this.game.players.set(id, p);
+  }
+}

@@ -1,57 +1,47 @@
-//bullet.js ...........................................................
+class Bullet {
 
-var Bullet = (function()
-{
-	//exposed methods:
+  constructor(data) {
+    this.id = data.id;
+    this.team = data.team;
+    this.creator = data.creator; // id
 
-	var create = function()
-	{
-		var obj = Object.create(def);
-		obj.radius = 4;
-		obj.color = '#FFF';
-		obj.pos = Vec2D.create(0, 0);
-		obj.vel = Vec2D.create(0, 0);
-		obj.blacklisted = false;
-    obj.hp = 10;
+    Object.assign(this, Bullet.stats);
 
-		return obj;
-	};
+    // needs work
+    this.position = new V2D(data.position.x, data.position.y);
 
-	//Bullet definition:
+    this.velocity = new V2D();
+    this.velocity.length = data.speed;
+    this.velocity.angle = data.angle;
+    this.velocity.add(data.velocity);
+    // this.velocity.add(V2D.proj(data.velocity, this.velocity));
 
-	var def =
-	{
-		radius: null,
-		color: null,
-		pos: null,
-		vel: null,
-		blacklisted: null,
-    hp: 10,
+    this.radius = data.radius;
 
-		update: function()
-		{
-			this.pos.add(this.vel);
-		},
+    this.hp = data.hp;
+    this.LIFESPAN = data.lifespan;
 
-		reset: function()
-		{
-			this.blacklisted = false;
-		}
-	};
-
-  var load = function(data) {
-    var obj = Object.create(def);
-		obj.radius = data.radius;
-		obj.color = data.color;
-		obj.pos = Vec2D.create(data.pos._x, data.pos._y);
-		obj.vel = Vec2D.create(data.vel._x, data.vel._y);
-		obj.blacklisted = data.blacklisted;
-    obj.hp = data.color;
-
-		obj.timestamp = data.timestamp;
-		obj.game_index = data.game_index;
-
-		return obj;
+    this.life_counter = 0;
+    this.disabled = false;
   }
-	return {create:create,load:load};
-}());
+
+  update(dt) {
+    this.position.add(this.velocity.mul_(dt));
+    if((this.life_counter+=dt) > this.LIFESPAN) {
+      this.disabled = true;
+      ENV.game.removeBullet(this.id);
+    }
+  }
+
+  damage(hp) { // TODO: create a damagable or health-capable protocol ... https://github.com/Gozala/protocol
+    this.hp -= hp;
+    return this.disabled = (this.hp <= 0);
+  }
+}
+
+Bullet.stats = {
+  MAX_RADIUS: 12,
+  // radius: 8, //8,
+  SPEED: 200, //600 //px/s
+  velocity_effect: 'combined' // 'combined' or 'projected'
+};

@@ -1,0 +1,72 @@
+
+.non_select {
+  -webkit-user-select: none;  /* Chrome all / Safari all */
+  -moz-user-select: none;     /* Firefox all */
+  -ms-user-select: none;      /* IE 10+ */
+  user-select: none;          /* Likely future */
+}
+
+#help_drawer[open="true"] {
+  height: 245px;
+}
+
+#help_drawer {
+  background-color: #455A64;
+
+  color: #C6CDD0;
+  font-family: 'Roboto Condensed';
+  
+  box-shadow: 0px 0px 14px rgba(0, 0, 0, 0.2);
+
+  z-index: 10;
+}
+
+
+#help_drawer > header {
+  display: inline-block;
+  width: 100%;
+
+}
+
+#help_drawer .title {
+  float: left;
+  margin: 28px 0px 0px 32px;
+  font-size: 28px;
+  letter-spacing: 2px;
+  cursor: default;
+}
+
+#help_drawer .close {
+  width: 28px;
+  height: 28px;
+  float: right;
+  margin: 28px 24px 0px 0px;
+  cursor: pointer;
+}
+
+#help_drawer .carousel {
+  display: inline-block;
+  width: 100%;
+  margin: 26px 0px;
+  text-align: center;
+}
+
+#help_drawer .middle {
+  height: 106px;
+}
+#help_drawer .left {
+  /*float: left;*/
+  position: absolute;
+  left: 64px;
+}
+#help_drawer .left, #help_drawer .right {
+  width: 14px;
+  margin: 50px 0px;
+  cursor: pointer;
+}
+#help_drawer .right {
+  /*float: right;*/
+  position: absolute;
+  right: 64px;
+  transform: rotate(180deg);
+}

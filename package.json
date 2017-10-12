@@ -1,15 +1,38 @@
 {
   "name": "deep-space",
-  "author" : "David Ruiz",
-  "description": "A coop asteroids game",
+  "author": "David Ruiz",
+  "description": "A real time online multiplayer game",
   "license": "MIT",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "dependencies": {
+    "babelify": "^7.3.0",
+    "classnames": "^2.2.5",
     "express": "3.3.x",
+    "node-uuid": "1.3.3",
+    "shortid": "^2.2.8",
     "socket.io": "0.9.x",
-    "node-uuid": "1.3.3"
+    "swearjar": "^0.2.0"
   },
   "engine": {
     "node": "0.10.x"
-  }
+  },
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.6.0",
+    "babel-preset-react": "^6.24.1"
+  },
+  "main": "./index.js",
+  "scripts": {
+    "build": "babel public/js --out-dir public/js2",
+    "start": "",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidsruiz/pjds.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidsruiz/pjds/issues"
+  },
+  "homepage": "https://github.com/davidsruiz/pjds#readme"
 }

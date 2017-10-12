@@ -1,0 +1,66 @@
+body{
+background: #37474F;
+}
+
+/* STARS */
+
+#space, .stars{
+overflow:hidden;
+position:absolute;
+top:0;
+bottom:0;
+left:0;
+right:0;
+}
+
+$rate: 3;
+$duration: 24;
+
+.stars{
+background-image: url(/images/star_pattern.png);
+// background-image: radial-gradient(1px 1px at 10px 30px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 40px 70px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 50px 160px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 90px 40px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 130px 80px, #B0BEC5, rgba(176,190,197, 0)), radial-gradient(1px 1px at 160px 110px, #B0BEC5, rgba(176,190,197, 0));
+background-repeat:repeat;
+/*background-size*/
+-webkit-background-size:200px 200px;
+   -moz-background-size:200px 200px;
+     -o-background-size:200px 200px;
+        background-size:200px 200px;
+/*animation*/
+-webkit-animation:zoom #{$duration}s infinite cubic-bezier(0.94, 0.06, 0.94, 0.06);
+   -moz-animation:zoom #{$duration}s infinite cubic-bezier(0.94, 0.06, 0.94, 0.06);
+    -ms-animation:zoom #{$duration}s infinite cubic-bezier(0.94, 0.06, 0.94, 0.06);
+     -o-animation:zoom #{$duration}s infinite cubic-bezier(0.94, 0.06, 0.94, 0.06);
+        animation:zoom #{$duration}s infinite cubic-bezier(0.94, 0.06, 0.94, 0.06);
+opacity:0;
+
+image-rendering: auto;
+image-rendering: crisp-edges;
+image-rendering: pixelated;
+}
+
+
+
+@for $i from 0 through ($duration*(1/$rate) - 1) {
+  .stars:nth-child(#{1+$i}){
+  background-position:#{72*$i}px #{43*$i}px;
+  /*animation-delay*/
+  -webkit-animation-delay:#{$i*$rate}s;
+     -moz-animation-delay:#{$i*$rate}s;
+      -ms-animation-delay:#{$i*$rate}s;
+       -o-animation-delay:#{$i*$rate}s;
+          animation-delay:#{$i*$rate}s;
+  }
+}
+
+@keyframes zoom{
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  35% { opacity: 1; }
+  95% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: scale(20);
+  }
+}

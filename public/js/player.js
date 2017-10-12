@@ -1,37 +1,17 @@
-//player.js ...........................................................
 
-var Player = (function()
-{
-	//exposed methods:
+class Player {
 
-	var create = function(name)
-	{
-		var obj = Object.create(def);
-        obj.name = name;
-		obj.points = 0;
+  constructor(team, id) {
+    this.team = team;
+    this.id = id;
 
-		return obj;
-	};
+    this.name = null;
+    this.type = null;
+    this.ship = null;
+    this.input = null;
 
-	//definition:
+    this.score = {kills: 0, deaths: 0}
+    this.disconnected = false;
+  }
 
-	var def =
-	{
-        name: null,
-		team: null,
-        ship: null,
-		points: null,
-
-		addPoints: function(p)
-		{
-			this.points += p;
-		},
-
-        setPoints: function(p)
-        {
-            this.points = p;
-        }
-	};
-
-	return {create:create};
-}());
+}
