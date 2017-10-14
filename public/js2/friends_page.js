@@ -854,4 +854,3 @@ var FRIENDS_REF = {
   },
   clearHistoryQuestion: "Clear history?"
 };
-//# sourceMappingURL=friends_page.js.map

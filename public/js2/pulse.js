@@ -58,4 +58,3 @@ Pulse.stats = {
 
   LIFESPAN: 180
 };
-//# sourceMappingURL=pulse.js.map

@@ -580,4 +580,3 @@ Ship.baseStats = {
 };
 
 // SPECIALS??? LARGE HEAVY BLOCK, or INTEL
-//# sourceMappingURL=ship.js.map

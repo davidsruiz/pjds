@@ -1,6 +1,6 @@
 var ENV = ENV || {};
 
-ENV.storage = localStorage;
+ENV.storage = sessionStorage;
 ENV.help = {};
 ENV.view = {};
 ENV.options = {

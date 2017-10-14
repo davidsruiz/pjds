@@ -346,6 +346,7 @@ var DeepSpaceGame = function () {
     value: function setupView() {
       this.setupPalette();
       this.configureCreateJS();
+      this.configureProton();
       this.setupCamera();
     }
   }, {
@@ -631,20 +632,6 @@ var DeepSpaceGame = function () {
       this.view.blocks = new Map();
       this.view.subs = new Map();
     }
-
-    // createParticleViews() {
-    //   this.ships.forEach((ship) => {
-    //     var view = ship.view;
-    //
-    //     DeepSpaceGame.renderingParameters.times(() => {
-    //       var particle = DeepSpaceGame.graphics.particle();
-    //       view.reserve.push(new createjs.Shape);
-    //     });
-    //
-    //     this.stage.addChild(ship.view = view);
-    //   });
-    // }
-
   }, {
     key: 'createOverlayViews',
     value: function createOverlayViews() {
@@ -838,6 +825,61 @@ var DeepSpaceGame = function () {
           this.view.overlay.minimap.removeChild(v);
         }
       }
+    }
+  }, {
+    key: 'configureProton',
+    value: function configureProton() {
+
+      // vars and references
+      this.view.proton = {};
+      var stage = this.stage;
+      var canvas = stage.canvas;
+      var view = this.view.layer.action.back;
+      var proton = this.view.proton.main = new Proton();
+      var renderer = this.view.proton.renderer = new Proton.Renderer('easel', proton, view);
+      var emitter = this.view.proton.emitter = new Proton.Emitter();
+      var color = this.ships.main.owner.team.color;
+
+      // setup and config
+      var graphics = DeepSpaceGame.graphics.block_fill(color, 6);
+      var particle = new createjs.Shape(graphics);
+      particle.cache(-10, -10, 20, 20);
+      var cache = particle.cacheCanvas;
+
+      var bitmap = new createjs.Bitmap(cache);
+      // const bitmap = new createjs.Bitmap('images/close.png');
+
+      emitter.rate = new Proton.Rate(1, 0.1);
+      emitter.addInitialize(new Proton.ImageTarget(bitmap));
+      emitter.addInitialize(new Proton.Life(1, 2.5));
+      emitter.addInitialize(new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar'));
+
+      emitter.addBehaviour(new Proton.Scale(1, 5));
+      emitter.addBehaviour(new Proton.Alpha(0.2, 0));
+
+      // emitter.rate = new Proton.Rate(new Proton.Span(30, 40), new Proton.Span(.5, 2));
+      // emitter.addInitialize(new Proton.ImageTarget(bitmap));
+      //
+      // emitter.addInitialize(new Proton.Mass(1, 5));
+      // emitter.addInitialize(new Proton.Radius(20));
+      // emitter.addInitialize(new Proton.Position(new Proton.LineZone(0, -40, canvas.width, -40)));
+      // emitter.addInitialize(new Proton.V(0, new Proton.Span(.1, 1)));
+      //
+      // emitter.addBehaviour(new Proton.CrossZone(new Proton.LineZone(0, canvas.height, canvas.width, canvas.height + 20, 'down'), 'dead'));
+      // emitter.addBehaviour(new Proton.Rotate(new Proton.Span(0, 360), new Proton.Span(-.5, .5), 'add'));
+      // emitter.addBehaviour(new Proton.Scale(new Proton.Span(.2, 1)));
+      // emitter.addBehaviour(new Proton.RandomDrift(5, 0, .15));
+      // emitter.addBehaviour(new Proton.Gravity(0.9));
+
+
+      emitter.emit();
+      proton.addEmitter(emitter);
+
+      renderer.start();
+
+      // // refresh proton
+      // proton.update();
+
     }
   }, {
     key: 'setupCamera',
@@ -2406,6 +2448,8 @@ var DeepSpaceGame = function () {
 
       if (!this.spectate) this.updateMinimapView();
 
+      this.updateProton();
+
       this.stage.update(); // render changes!!
     }
   }, {
@@ -2760,6 +2804,30 @@ var DeepSpaceGame = function () {
     key: 'updateCameraFocus',
     value: function updateCameraFocus() {
       this.camera.focus = this.activePlayers[this.activePlayerIndex].ship.view;
+    }
+  }, {
+    key: 'updateProton',
+    value: function updateProton() {
+
+      // update ship dependencies
+      if (!this.spectate) {
+        var timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);
+        var percent = this.ships.main.velocity.length / (this.ships.main.LINEAR_VELOCITY_LIMIT + this.ships.main.LINEAR_VELOCITY_LIMIT_EXTENDED);
+        var amount = percent < 0.2 ? 0 : 1;
+        //
+        // var percent = ENV.game.ships.main.velocity.length /
+        //   (ENV.game.ships.main.LINEAR_VELOCITY_LIMIT + ENV.game.ships.main.LINEAR_VELOCITY_LIMIT_EXTENDED);
+        var slowest = 0.1;var fastest = 0.02;
+        var pos = this.ships.main.back_weapon_position;
+        this.view.proton.emitter.p.x = pos.x;
+        this.view.proton.emitter.p.y = pos.y;
+        this.view.proton.emitter.rotation = -Math.degrees(this.ships.main.angle) - 90;
+        this.view.proton.emitter.rate.timePan.a = this.view.proton.emitter.rate.timePan.b = slowest - (slowest - fastest) * timingFunction(percent);
+        this.view.proton.emitter.rate.numPan.a = this.view.proton.emitter.rate.numPan.b = amount;
+      }
+
+      // refresh proton
+      this.view.proton.main.update();
     }
   }, {
     key: 'log',

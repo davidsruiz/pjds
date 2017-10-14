@@ -2,7 +2,7 @@
 
 var ENV = ENV || {};
 
-ENV.storage = localStorage;
+ENV.storage = sessionStorage;
 ENV.help = {};
 ENV.view = {};
 ENV.options = {
@@ -42,4 +42,3 @@ ENV.options = {
 //   stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 //   document.body.appendChild( stats.dom );
 // });
-//# sourceMappingURL=env.js.map

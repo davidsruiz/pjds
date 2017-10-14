@@ -92,4 +92,3 @@ try {
 } catch (e) {
   console.warn(e);
 }
-//# sourceMappingURL=timer.js.map

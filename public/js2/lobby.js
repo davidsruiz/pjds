@@ -241,4 +241,3 @@ ENV.lobby = {
     // {name}
   ]
 };
-//# sourceMappingURL=lobby.js.map

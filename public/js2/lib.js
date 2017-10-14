@@ -414,4 +414,3 @@ var READABLE_TIME = {
 
   format: function format(str) {}
 };
-//# sourceMappingURL=lib.js.map

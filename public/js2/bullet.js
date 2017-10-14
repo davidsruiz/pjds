@@ -59,4 +59,3 @@ Bullet.stats = {
   SPEED: 200, //600 //px/s
   velocity_effect: 'combined' // 'combined' or 'projected'
 };
-//# sourceMappingURL=bullet.js.map

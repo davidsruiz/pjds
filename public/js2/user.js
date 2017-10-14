@@ -486,4 +486,3 @@ $(function () {
     });
   }
 });
-//# sourceMappingURL=user.js.map

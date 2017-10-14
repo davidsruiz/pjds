@@ -1437,4 +1437,3 @@ var IMAGES = {
 //   <DSGameLobby data={INFO} />,
 //   document.getElementById('container')
 // );
-//# sourceMappingURL=view.js.map

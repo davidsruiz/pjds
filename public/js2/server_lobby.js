@@ -1660,4 +1660,3 @@ var REF = {
 
 
 module.exports = Lobby;
-//# sourceMappingURL=server_lobby.js.map

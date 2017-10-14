@@ -31,4 +31,3 @@ var Team = function () {
 
   return Team;
 }();
-//# sourceMappingURL=team.js.map

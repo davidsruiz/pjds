@@ -690,4 +690,3 @@ function recordHistory(data) {
   ENV.storage.setItem("previous_players", JSON.stringify(pp.toArray()));
 }
 */
-//# sourceMappingURL=client.js.map

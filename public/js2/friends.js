@@ -171,4 +171,3 @@ var Friends = function () {
 
   return Friends;
 }();
-//# sourceMappingURL=friends.js.map

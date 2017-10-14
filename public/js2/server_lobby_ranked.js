@@ -226,4 +226,3 @@ var RankedLobby = function (_Lobby) {
 }(Lobby);
 
 module.exports = RankedLobby;
-//# sourceMappingURL=server_lobby_ranked.js.map

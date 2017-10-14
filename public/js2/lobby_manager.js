@@ -212,4 +212,3 @@ var LobbyManager = function () {
 }();
 
 module.exports = LobbyManager;
-//# sourceMappingURL=lobby_manager.js.map
