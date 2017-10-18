@@ -92,6 +92,10 @@ class BasicShip {
     }
   }
 
+  get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
+  get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
+
+
   // adjusts forces letting the simulation continue
   apply(data) {
     this.disabled = data.disabled;
@@ -196,9 +200,6 @@ class Ship extends BasicShip {
   get shoot_angle() { return this.relative_shoot_angle + this.angle }
   get shoot_position() { const fwp = this.position.copy(); const shift = new V2D(); shift.length = 8*2; shift.angle = this.shoot_angle; fwp.add(shift); return fwp; }
   get shot_RNG() { return (this.ATTACK_SPREAD / 2) * ((Math.random()*2) - 1) }
-
-  get front_weapon_position() { var fwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle; fwp.add(shift); return fwp; }
-  get back_weapon_position() { var bwp = this.position.copy(); var shift = new V2D(); shift.length = 8*2; shift.angle = this.angle - Math.PI; bwp.add(shift); return bwp }
 
   update(dt) {
     let c = this.charging;

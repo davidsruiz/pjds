@@ -830,6 +830,15 @@ var DeepSpaceGame = function () {
     key: 'configureProton',
     value: function configureProton() {
 
+      // functions
+      var bitmapOfColor = function bitmapOfColor(color) {
+        var graphics = DeepSpaceGame.graphics.block_fill(color, 6);
+        var particle = new createjs.Shape(graphics);
+        particle.cache(-10, -10, 20, 20);
+        var cache = particle.cacheCanvas;
+        return new createjs.Bitmap(cache);
+      };
+
       // vars and references
       this.view.proton = {};
       var stage = this.stage;
@@ -837,43 +846,90 @@ var DeepSpaceGame = function () {
       var view = this.view.layer.action.back;
       var proton = this.view.proton.main = new Proton();
       var renderer = this.view.proton.renderer = new Proton.Renderer('easel', proton, view);
-      var emitter = this.view.proton.emitter = new Proton.Emitter();
-      var color = this.ships.main.owner.team.color;
+      var emitters = this.view.proton.emitters = new Map();
 
-      // setup and config
-      var graphics = DeepSpaceGame.graphics.block_fill(color, 6);
-      var particle = new createjs.Shape(graphics);
-      particle.cache(-10, -10, 20, 20);
-      var cache = particle.cacheCanvas;
+      var imageTargets = this.view.proton.imageTargets = {};
+      imageTargets.teams = [];
+      imageTargets.death = new Proton.ImageTarget(bitmapOfColor('#FFFFFF'));
+      var _iteratorNormalCompletion4 = true;
+      var _didIteratorError4 = false;
+      var _iteratorError4 = undefined;
 
-      var bitmap = new createjs.Bitmap(cache);
-      // const bitmap = new createjs.Bitmap('images/close.png');
+      try {
+        for (var _iterator4 = this.teams[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+          var team = _step4.value;
 
-      emitter.rate = new Proton.Rate(1, 0.1);
-      emitter.addInitialize(new Proton.ImageTarget(bitmap));
-      emitter.addInitialize(new Proton.Life(1, 2.5));
-      emitter.addInitialize(new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar'));
+          imageTargets.teams.push(new Proton.ImageTarget(bitmapOfColor(team.color)));
+        }
+      } catch (err) {
+        _didIteratorError4 = true;
+        _iteratorError4 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion4 && _iterator4.return) {
+            _iterator4.return();
+          }
+        } finally {
+          if (_didIteratorError4) {
+            throw _iteratorError4;
+          }
+        }
+      }
 
-      emitter.addBehaviour(new Proton.Scale(1, 5));
-      emitter.addBehaviour(new Proton.Alpha(0.2, 0));
+      var util = this.view.proton.util = {};
+      util.hasInitializer = function (emitter, initializer) {
+        return emitter.initializes.indexOf(initializer) > -1;
+      };
 
-      // emitter.rate = new Proton.Rate(new Proton.Span(30, 40), new Proton.Span(.5, 2));
-      // emitter.addInitialize(new Proton.ImageTarget(bitmap));
-      //
-      // emitter.addInitialize(new Proton.Mass(1, 5));
-      // emitter.addInitialize(new Proton.Radius(20));
-      // emitter.addInitialize(new Proton.Position(new Proton.LineZone(0, -40, canvas.width, -40)));
-      // emitter.addInitialize(new Proton.V(0, new Proton.Span(.1, 1)));
-      //
-      // emitter.addBehaviour(new Proton.CrossZone(new Proton.LineZone(0, canvas.height, canvas.width, canvas.height + 20, 'down'), 'dead'));
-      // emitter.addBehaviour(new Proton.Rotate(new Proton.Span(0, 360), new Proton.Span(-.5, .5), 'add'));
-      // emitter.addBehaviour(new Proton.Scale(new Proton.Span(.2, 1)));
-      // emitter.addBehaviour(new Proton.RandomDrift(5, 0, .15));
-      // emitter.addBehaviour(new Proton.Gravity(0.9));
+      // for each ship
+      var _iteratorNormalCompletion5 = true;
+      var _didIteratorError5 = false;
+      var _iteratorError5 = undefined;
 
+      try {
+        for (var _iterator5 = this.ships[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+          var ship = _step5.value;
 
-      emitter.emit();
-      proton.addEmitter(emitter);
+          var local = ship === this.ships.main;
+
+          var emitter = new Proton.Emitter();
+          var color = ship.owner.team.color;
+
+          // setup and config
+          var graphics = DeepSpaceGame.graphics.block_fill(color, 6);
+          var particle = new createjs.Shape(graphics);
+          particle.cache(-10, -10, 20, 20);
+          var cache = particle.cacheCanvas;
+          var bitmap = new createjs.Bitmap(cache);
+
+          emitter.rate = new Proton.Rate(1, 0.2);
+          emitter.addInitialize(imageTargets.teams[ship.owner.team.number]);
+          emitter.addInitialize(new Proton.Life(1, 2.5));
+          var force = new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar');
+          emitter.addInitialize(force);
+          emitter.force = force;
+
+          emitter.addBehaviour(new Proton.Scale(1, 5));
+          emitter.addBehaviour(new Proton.Alpha(0.2, 0));
+
+          emitter.emit();
+          proton.addEmitter(emitter);
+          emitters.set(ship, emitter);
+        }
+      } catch (err) {
+        _didIteratorError5 = true;
+        _iteratorError5 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion5 && _iterator5.return) {
+            _iterator5.return();
+          }
+        } finally {
+          if (_didIteratorError5) {
+            throw _iteratorError5;
+          }
+        }
+      }
 
       renderer.start();
 
@@ -1149,13 +1205,13 @@ var DeepSpaceGame = function () {
           // r joystick press
           gamepad.buttons[14].pressed]]]);
 
-          var _iteratorNormalCompletion4 = true;
-          var _didIteratorError4 = false;
-          var _iteratorError4 = undefined;
+          var _iteratorNormalCompletion6 = true;
+          var _didIteratorError6 = false;
+          var _iteratorError6 = undefined;
 
           try {
-            for (var _iterator4 = buttonMap[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-              var _ref3 = _step4.value;
+            for (var _iterator6 = buttonMap[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+              var _ref3 = _step6.value;
 
               var _ref4 = _slicedToArray(_ref3, 2);
 
@@ -1180,16 +1236,16 @@ var DeepSpaceGame = function () {
               }
             }
           } catch (err) {
-            _didIteratorError4 = true;
-            _iteratorError4 = err;
+            _didIteratorError6 = true;
+            _iteratorError6 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion4 && _iterator4.return) {
-                _iterator4.return();
+              if (!_iteratorNormalCompletion6 && _iterator6.return) {
+                _iterator6.return();
               }
             } finally {
-              if (_didIteratorError4) {
-                throw _iteratorError4;
+              if (_didIteratorError6) {
+                throw _iteratorError6;
               }
             }
           }
@@ -1399,26 +1455,26 @@ var DeepSpaceGame = function () {
 
       (rows * cols).times(function () {
         var obj = {};
-        var _iteratorNormalCompletion5 = true;
-        var _didIteratorError5 = false;
-        var _iteratorError5 = undefined;
+        var _iteratorNormalCompletion7 = true;
+        var _didIteratorError7 = false;
+        var _iteratorError7 = undefined;
 
         try {
-          for (var _iterator5 = Object.keys(physics.collision_groups)[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-            var group = _step5.value;
+          for (var _iterator7 = Object.keys(physics.collision_groups)[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+            var group = _step7.value;
             obj[physics.collision_groups[group]] = new Set();
           }
         } catch (err) {
-          _didIteratorError5 = true;
-          _iteratorError5 = err;
+          _didIteratorError7 = true;
+          _iteratorError7 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion5 && _iterator5.return) {
-              _iterator5.return();
+            if (!_iteratorNormalCompletion7 && _iterator7.return) {
+              _iterator7.return();
             }
           } finally {
-            if (_didIteratorError5) {
-              throw _iteratorError5;
+            if (_didIteratorError7) {
+              throw _iteratorError7;
             }
           }
         }
@@ -1456,49 +1512,49 @@ var DeepSpaceGame = function () {
         if (_this13.physics.divisions[division_index]) d.add(division_index);
       });
 
-      var _iteratorNormalCompletion6 = true;
-      var _didIteratorError6 = false;
-      var _iteratorError6 = undefined;
+      var _iteratorNormalCompletion8 = true;
+      var _didIteratorError8 = false;
+      var _iteratorError8 = undefined;
 
       try {
-        for (var _iterator6 = d[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-          var division_index = _step6.value;
-          var _iteratorNormalCompletion7 = true;
-          var _didIteratorError7 = false;
-          var _iteratorError7 = undefined;
+        for (var _iterator8 = d[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+          var division_index = _step8.value;
+          var _iteratorNormalCompletion9 = true;
+          var _didIteratorError9 = false;
+          var _iteratorError9 = undefined;
 
           try {
-            for (var _iterator7 = physics_body.collision_groups[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-              var group = _step7.value;
+            for (var _iterator9 = physics_body.collision_groups[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+              var group = _step9.value;
 
               this.physics.divisions[division_index][group].add(physics_body);
             }
           } catch (err) {
-            _didIteratorError7 = true;
-            _iteratorError7 = err;
+            _didIteratorError9 = true;
+            _iteratorError9 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion7 && _iterator7.return) {
-                _iterator7.return();
+              if (!_iteratorNormalCompletion9 && _iterator9.return) {
+                _iterator9.return();
               }
             } finally {
-              if (_didIteratorError7) {
-                throw _iteratorError7;
+              if (_didIteratorError9) {
+                throw _iteratorError9;
               }
             }
           }
         }
       } catch (err) {
-        _didIteratorError6 = true;
-        _iteratorError6 = err;
+        _didIteratorError8 = true;
+        _iteratorError8 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion6 && _iterator6.return) {
-            _iterator6.return();
+          if (!_iteratorNormalCompletion8 && _iterator8.return) {
+            _iterator8.return();
           }
         } finally {
-          if (_didIteratorError6) {
-            throw _iteratorError6;
+          if (_didIteratorError8) {
+            throw _iteratorError8;
           }
         }
       }
@@ -1507,49 +1563,49 @@ var DeepSpaceGame = function () {
     key: 'clearCollisionDivisions',
     value: function clearCollisionDivisions(physics_body) {
       if (physics_body.divisions) {
-        var _iteratorNormalCompletion8 = true;
-        var _didIteratorError8 = false;
-        var _iteratorError8 = undefined;
+        var _iteratorNormalCompletion10 = true;
+        var _didIteratorError10 = false;
+        var _iteratorError10 = undefined;
 
         try {
-          for (var _iterator8 = physics_body.divisions[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-            var i = _step8.value;
-            var _iteratorNormalCompletion9 = true;
-            var _didIteratorError9 = false;
-            var _iteratorError9 = undefined;
+          for (var _iterator10 = physics_body.divisions[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+            var i = _step10.value;
+            var _iteratorNormalCompletion11 = true;
+            var _didIteratorError11 = false;
+            var _iteratorError11 = undefined;
 
             try {
-              for (var _iterator9 = physics_body.collision_groups[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-                var group = _step9.value;
+              for (var _iterator11 = physics_body.collision_groups[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+                var group = _step11.value;
 
                 this.physics.divisions[i][group].delete(physics_body);
               }
             } catch (err) {
-              _didIteratorError9 = true;
-              _iteratorError9 = err;
+              _didIteratorError11 = true;
+              _iteratorError11 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion9 && _iterator9.return) {
-                  _iterator9.return();
+                if (!_iteratorNormalCompletion11 && _iterator11.return) {
+                  _iterator11.return();
                 }
               } finally {
-                if (_didIteratorError9) {
-                  throw _iteratorError9;
+                if (_didIteratorError11) {
+                  throw _iteratorError11;
                 }
               }
             }
           }
         } catch (err) {
-          _didIteratorError8 = true;
-          _iteratorError8 = err;
+          _didIteratorError10 = true;
+          _iteratorError10 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion8 && _iterator8.return) {
-              _iterator8.return();
+            if (!_iteratorNormalCompletion10 && _iterator10.return) {
+              _iterator10.return();
             }
           } finally {
-            if (_didIteratorError8) {
-              throw _iteratorError8;
+            if (_didIteratorError10) {
+              throw _iteratorError10;
             }
           }
         }
@@ -1960,13 +2016,13 @@ var DeepSpaceGame = function () {
   }, {
     key: 'updateShips',
     value: function updateShips() {
-      var _iteratorNormalCompletion10 = true;
-      var _didIteratorError10 = false;
-      var _iteratorError10 = undefined;
+      var _iteratorNormalCompletion12 = true;
+      var _didIteratorError12 = false;
+      var _iteratorError12 = undefined;
 
       try {
-        for (var _iterator10 = this.ships[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-          var ship = _step10.value;
+        for (var _iterator12 = this.ships[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+          var ship = _step12.value;
 
 
           ship.update(this.dt);
@@ -1980,13 +2036,13 @@ var DeepSpaceGame = function () {
                 y2 = 0,
                 s = false;
 
-            var _iteratorNormalCompletion11 = true;
-            var _didIteratorError11 = false;
-            var _iteratorError11 = undefined;
+            var _iteratorNormalCompletion13 = true;
+            var _didIteratorError13 = false;
+            var _iteratorError13 = undefined;
 
             try {
-              for (var _iterator11 = input[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-                var prop = _step11.value;
+              for (var _iterator13 = input[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+                var prop = _step13.value;
 
                 switch (prop) {
                   case 'up':
@@ -2042,16 +2098,16 @@ var DeepSpaceGame = function () {
               // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
               // if (ship.velocity.length) ship.angle = ship.velocity.angle;
             } catch (err) {
-              _didIteratorError11 = true;
-              _iteratorError11 = err;
+              _didIteratorError13 = true;
+              _iteratorError13 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion11 && _iterator11.return) {
-                  _iterator11.return();
+                if (!_iteratorNormalCompletion13 && _iterator13.return) {
+                  _iterator13.return();
                 }
               } finally {
-                if (_didIteratorError11) {
-                  throw _iteratorError11;
+                if (_didIteratorError13) {
+                  throw _iteratorError13;
                 }
               }
             }
@@ -2101,16 +2157,16 @@ var DeepSpaceGame = function () {
           // if(ship.position.y > this.mapInfo.height) ship.position.y = 0;
         }
       } catch (err) {
-        _didIteratorError10 = true;
-        _iteratorError10 = err;
+        _didIteratorError12 = true;
+        _iteratorError12 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion10 && _iterator10.return) {
-            _iterator10.return();
+          if (!_iteratorNormalCompletion12 && _iterator12.return) {
+            _iterator12.return();
           }
         } finally {
-          if (_didIteratorError10) {
-            throw _iteratorError10;
+          if (_didIteratorError12) {
+            throw _iteratorError12;
           }
         }
       }
@@ -2268,99 +2324,99 @@ var DeepSpaceGame = function () {
       // created. though in practice, perhaps
       // just it's attack moves. e.g. bullets
 
-      var _iteratorNormalCompletion12 = true;
-      var _didIteratorError12 = false;
-      var _iteratorError12 = undefined;
+      var _iteratorNormalCompletion14 = true;
+      var _didIteratorError14 = false;
+      var _iteratorError14 = undefined;
 
       try {
-        for (var _iterator12 = this.physics.divisions[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
-          var div = _step12.value;
-          var _iteratorNormalCompletion13 = true;
-          var _didIteratorError13 = false;
-          var _iteratorError13 = undefined;
+        for (var _iterator14 = this.physics.divisions[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
+          var div = _step14.value;
+          var _iteratorNormalCompletion15 = true;
+          var _didIteratorError15 = false;
+          var _iteratorError15 = undefined;
 
           try {
-            for (var _iterator13 = this.physics.collision_checks[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
-              var _ref6 = _step13.value;
+            for (var _iterator15 = this.physics.collision_checks[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
+              var _ref6 = _step15.value;
 
               var _ref7 = _slicedToArray(_ref6, 3);
 
               var a_type = _ref7[0];
               var b_type = _ref7[1];
               var check = _ref7[2];
-              var _iteratorNormalCompletion14 = true;
-              var _didIteratorError14 = false;
-              var _iteratorError14 = undefined;
+              var _iteratorNormalCompletion16 = true;
+              var _didIteratorError16 = false;
+              var _iteratorError16 = undefined;
 
               try {
-                for (var _iterator14 = div[a_type][Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
-                  var body_a = _step14.value;
-                  var _iteratorNormalCompletion15 = true;
-                  var _didIteratorError15 = false;
-                  var _iteratorError15 = undefined;
+                for (var _iterator16 = div[a_type][Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
+                  var body_a = _step16.value;
+                  var _iteratorNormalCompletion17 = true;
+                  var _didIteratorError17 = false;
+                  var _iteratorError17 = undefined;
 
                   try {
-                    for (var _iterator15 = div[b_type][Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
-                      var body_b = _step15.value;
+                    for (var _iterator17 = div[b_type][Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
+                      var body_b = _step17.value;
 
                       if (Physics.doTouch(body_a, body_b)) check(body_a, body_b);
                     }
                   } catch (err) {
-                    _didIteratorError15 = true;
-                    _iteratorError15 = err;
+                    _didIteratorError17 = true;
+                    _iteratorError17 = err;
                   } finally {
                     try {
-                      if (!_iteratorNormalCompletion15 && _iterator15.return) {
-                        _iterator15.return();
+                      if (!_iteratorNormalCompletion17 && _iterator17.return) {
+                        _iterator17.return();
                       }
                     } finally {
-                      if (_didIteratorError15) {
-                        throw _iteratorError15;
+                      if (_didIteratorError17) {
+                        throw _iteratorError17;
                       }
                     }
                   }
                 }
               } catch (err) {
-                _didIteratorError14 = true;
-                _iteratorError14 = err;
+                _didIteratorError16 = true;
+                _iteratorError16 = err;
               } finally {
                 try {
-                  if (!_iteratorNormalCompletion14 && _iterator14.return) {
-                    _iterator14.return();
+                  if (!_iteratorNormalCompletion16 && _iterator16.return) {
+                    _iterator16.return();
                   }
                 } finally {
-                  if (_didIteratorError14) {
-                    throw _iteratorError14;
+                  if (_didIteratorError16) {
+                    throw _iteratorError16;
                   }
                 }
               }
             }
           } catch (err) {
-            _didIteratorError13 = true;
-            _iteratorError13 = err;
+            _didIteratorError15 = true;
+            _iteratorError15 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion13 && _iterator13.return) {
-                _iterator13.return();
+              if (!_iteratorNormalCompletion15 && _iterator15.return) {
+                _iterator15.return();
               }
             } finally {
-              if (_didIteratorError13) {
-                throw _iteratorError13;
+              if (_didIteratorError15) {
+                throw _iteratorError15;
               }
             }
           }
         }
       } catch (err) {
-        _didIteratorError12 = true;
-        _iteratorError12 = err;
+        _didIteratorError14 = true;
+        _iteratorError14 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion12 && _iterator12.return) {
-            _iterator12.return();
+          if (!_iteratorNormalCompletion14 && _iterator14.return) {
+            _iterator14.return();
           }
         } finally {
-          if (_didIteratorError12) {
-            throw _iteratorError12;
+          if (_didIteratorError14) {
+            throw _iteratorError14;
           }
         }
       }
@@ -2693,29 +2749,29 @@ var DeepSpaceGame = function () {
         case 0:
           // ctf
 
-          var _iteratorNormalCompletion16 = true;
-          var _didIteratorError16 = false;
-          var _iteratorError16 = undefined;
+          var _iteratorNormalCompletion18 = true;
+          var _didIteratorError18 = false;
+          var _iteratorError18 = undefined;
 
           try {
-            for (var _iterator16 = this.teams[Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
-              var team = _step16.value;
+            for (var _iterator18 = this.teams[Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
+              var team = _step18.value;
 
               list.push(team.players.map(function (p) {
                 return p.id;
               }).indexOf(this.game.flag.holderID) != -1);
             }
           } catch (err) {
-            _didIteratorError16 = true;
-            _iteratorError16 = err;
+            _didIteratorError18 = true;
+            _iteratorError18 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion16 && _iterator16.return) {
-                _iterator16.return();
+              if (!_iteratorNormalCompletion18 && _iterator18.return) {
+                _iterator18.return();
               }
             } finally {
-              if (_didIteratorError16) {
-                throw _iteratorError16;
+              if (_didIteratorError18) {
+                throw _iteratorError18;
               }
             }
           }
@@ -2809,24 +2865,68 @@ var DeepSpaceGame = function () {
     key: 'updateProton',
     value: function updateProton() {
 
-      // update ship dependencies
-      if (!this.spectate) {
-        var timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);
-        var percent = this.ships.main.velocity.length / (this.ships.main.LINEAR_VELOCITY_LIMIT + this.ships.main.LINEAR_VELOCITY_LIMIT_EXTENDED);
-        var amount = percent < 0.2 ? 0 : 1;
-        //
-        // var percent = ENV.game.ships.main.velocity.length /
-        //   (ENV.game.ships.main.LINEAR_VELOCITY_LIMIT + ENV.game.ships.main.LINEAR_VELOCITY_LIMIT_EXTENDED);
-        var slowest = 0.1;var fastest = 0.02;
-        var pos = this.ships.main.back_weapon_position;
-        this.view.proton.emitter.p.x = pos.x;
-        this.view.proton.emitter.p.y = pos.y;
-        this.view.proton.emitter.rotation = -Math.degrees(this.ships.main.angle) - 90;
-        this.view.proton.emitter.rate.timePan.a = this.view.proton.emitter.rate.timePan.b = slowest - (slowest - fastest) * timingFunction(percent);
-        this.view.proton.emitter.rate.numPan.a = this.view.proton.emitter.rate.numPan.b = amount;
+      var timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);
+      var slowest = 0.1;var fastest = 0.02;
+      var defaultMinAngle = 150;var defaultMaxAngle = 210;
+
+      var _iteratorNormalCompletion19 = true;
+      var _didIteratorError19 = false;
+      var _iteratorError19 = undefined;
+
+      try {
+        for (var _iterator19 = this.view.proton.emitters[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
+          var _ref8 = _step19.value;
+
+          var _ref9 = _slicedToArray(_ref8, 2);
+
+          var ship = _ref9[0];
+          var emitter = _ref9[1];
+
+
+          if (ship.disabled) {
+            if (!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.death)) {
+              emitter.removeInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);
+              emitter.addInitialize(this.view.proton.imageTargets.death);
+            }
+          } else {
+            if (!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.teams[ship.owner.team.number])) {
+              emitter.removeInitialize(this.view.proton.imageTargets.death);
+              emitter.addInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);
+            }
+          }
+
+          // update ship dependencies
+          var percent = ship.velocity.length / (ship.LINEAR_VELOCITY_LIMIT + ship.LINEAR_VELOCITY_LIMIT_EXTENDED);
+          var amount = ship.disabled ? 3 : percent < 0.2 ? 0 : 1;
+          var pos = ship.back_weapon_position;
+          var minAngle = ship.disabled ? 0 : defaultMinAngle;
+          var maxAngle = ship.disabled ? 360 : defaultMinAngle;
+
+          emitter.p.x = pos.x;
+          emitter.p.y = pos.y;
+          emitter.rotation = -Math.degrees(ship.angle) - 90;
+          emitter.rate.timePan.a = emitter.rate.timePan.b = slowest - (slowest - fastest) * timingFunction(percent);
+          emitter.rate.numPan.a = emitter.rate.numPan.b = amount;
+          emitter.force.thaPan.a = minAngle;
+          emitter.force.thaPan.b = maxAngle;
+        }
+
+        // refresh proton
+      } catch (err) {
+        _didIteratorError19 = true;
+        _iteratorError19 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion19 && _iterator19.return) {
+            _iterator19.return();
+          }
+        } finally {
+          if (_didIteratorError19) {
+            throw _iteratorError19;
+          }
+        }
       }
 
-      // refresh proton
       this.view.proton.main.update();
     }
   }, {
@@ -2937,11 +3037,11 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'adjustShipHP',
-    value: function adjustShipHP(_ref8) {
-      var _ref9 = _slicedToArray(_ref8, 3),
-          toID = _ref9[0],
-          hp = _ref9[1],
-          fromID = _ref9[2];
+    value: function adjustShipHP(_ref10) {
+      var _ref11 = _slicedToArray(_ref10, 3),
+          toID = _ref11[0],
+          hp = _ref11[1],
+          fromID = _ref11[2];
 
       // health on a player can only be adjusted by own player
       if (toID !== this.player.id) return;
@@ -2961,10 +3061,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'deathOccurrence',
-    value: function deathOccurrence(_ref10) {
-      var _ref11 = _slicedToArray(_ref10, 2),
-          toID = _ref11[0],
-          fromID = _ref11[1];
+    value: function deathOccurrence(_ref12) {
+      var _ref13 = _slicedToArray(_ref12, 2),
+          toID = _ref13[0],
+          fromID = _ref13[1];
 
       var t = this.players.get(toID);
       var g = this.players.get(fromID);
@@ -3132,10 +3232,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'adjustBlockHP',
-    value: function adjustBlockHP(_ref12) {
-      var _ref13 = _slicedToArray(_ref12, 2),
-          id = _ref13[0],
-          hp = _ref13[1];
+    value: function adjustBlockHP(_ref14) {
+      var _ref15 = _slicedToArray(_ref14, 2),
+          id = _ref15[0],
+          hp = _ref15[1];
 
       var block = ENV.game.model.blocks.get(id);
       if (block) block.damage(hp);
@@ -3155,10 +3255,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'setBlockTeam',
-    value: function setBlockTeam(_ref14) {
-      var _ref15 = _slicedToArray(_ref14, 2),
-          id = _ref15[0],
-          team = _ref15[1];
+    value: function setBlockTeam(_ref16) {
+      var _ref17 = _slicedToArray(_ref16, 2),
+          id = _ref17[0],
+          team = _ref17[1];
 
       // retrieve and store block
       var b = this.model.blocks.get(id);
@@ -3437,10 +3537,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'flagProgress',
-    value: function flagProgress(_ref16) {
-      var _ref17 = _slicedToArray(_ref16, 2),
-          team = _ref17[0],
-          score = _ref17[1];
+    value: function flagProgress(_ref18) {
+      var _ref19 = _slicedToArray(_ref18, 2),
+          team = _ref19[0],
+          score = _ref19[1];
 
       // update local registry w/ server score
       this.game.scores[team] = score;
@@ -3656,32 +3756,32 @@ var DeepSpaceGame = function () {
   }, {
     key: 'deinitListeners',
     value: function deinitListeners() {
-      var _iteratorNormalCompletion17 = true;
-      var _didIteratorError17 = false;
-      var _iteratorError17 = undefined;
+      var _iteratorNormalCompletion20 = true;
+      var _didIteratorError20 = false;
+      var _iteratorError20 = undefined;
 
       try {
-        for (var _iterator17 = this.inputHandlers[Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
-          var _ref18 = _step17.value;
+        for (var _iterator20 = this.inputHandlers[Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
+          var _ref20 = _step20.value;
 
-          var _ref19 = _slicedToArray(_ref18, 2);
+          var _ref21 = _slicedToArray(_ref20, 2);
 
-          var handler = _ref19[1];
+          var handler = _ref21[1];
 
           window.removeEventListener('keydown', handler); // onkeydown
           window.removeEventListener('keyup', handler); // onkeyup
         }
       } catch (err) {
-        _didIteratorError17 = true;
-        _iteratorError17 = err;
+        _didIteratorError20 = true;
+        _iteratorError20 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion17 && _iterator17.return) {
-            _iterator17.return();
+          if (!_iteratorNormalCompletion20 && _iterator20.return) {
+            _iterator20.return();
           }
         } finally {
-          if (_didIteratorError17) {
-            throw _iteratorError17;
+          if (_didIteratorError20) {
+            throw _iteratorError20;
           }
         }
       }

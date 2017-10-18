@@ -705,6 +705,15 @@ class DeepSpaceGame {
 
   configureProton() {
 
+    // functions
+    const bitmapOfColor = (color) => {
+      const graphics = DeepSpaceGame.graphics.block_fill(color, 6);
+      const particle = new createjs.Shape(graphics);
+      particle.cache(-10, -10, 20, 20);
+      const cache = particle.cacheCanvas;
+      return new createjs.Bitmap(cache);
+    };
+
     // vars and references
     this.view.proton = {};
     const stage = this.stage;
@@ -712,43 +721,55 @@ class DeepSpaceGame {
     const view = this.view.layer.action.back;
     const proton = this.view.proton.main = new Proton();
     const renderer = this.view.proton.renderer = new Proton.Renderer('easel', proton, view);
-    const emitter = this.view.proton.emitter = new Proton.Emitter();
-    const color = this.ships.main.owner.team.color;
+    const emitters = this.view.proton.emitters = new Map();
 
-    // setup and config
-    const graphics = DeepSpaceGame.graphics.block_fill(color, 6);
-    const particle = new createjs.Shape(graphics);
-    particle.cache(-10, -10, 20, 20);
-    const cache = particle.cacheCanvas;
+    const imageTargets = this.view.proton.imageTargets = {};
+    imageTargets.teams = [];
+    imageTargets.death = new Proton.ImageTarget(bitmapOfColor('#FFFFFF'));
+    for(let team of this.teams) {
+      imageTargets.teams.push(new Proton.ImageTarget(bitmapOfColor(team.color)));
+    }
 
-    const bitmap = new createjs.Bitmap(cache);
-    // const bitmap = new createjs.Bitmap('images/close.png');
-
-    emitter.rate = new Proton.Rate(1, 0.1);
-    emitter.addInitialize(new Proton.ImageTarget(bitmap));
-    emitter.addInitialize(new Proton.Life(1, 2.5));
-    emitter.addInitialize(new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar'));
-
-    emitter.addBehaviour(new Proton.Scale(1, 5));
-    emitter.addBehaviour(new Proton.Alpha(0.2, 0));
+    const util = this.view.proton.util = {};
+    util.hasInitializer = (emitter, initializer) => {
+      return (emitter.initializes.indexOf(initializer) > -1);
+    };
     
-    // emitter.rate = new Proton.Rate(new Proton.Span(30, 40), new Proton.Span(.5, 2));
-    // emitter.addInitialize(new Proton.ImageTarget(bitmap));
-    //
-    // emitter.addInitialize(new Proton.Mass(1, 5));
-    // emitter.addInitialize(new Proton.Radius(20));
-    // emitter.addInitialize(new Proton.Position(new Proton.LineZone(0, -40, canvas.width, -40)));
-    // emitter.addInitialize(new Proton.V(0, new Proton.Span(.1, 1)));
-    //
-    // emitter.addBehaviour(new Proton.CrossZone(new Proton.LineZone(0, canvas.height, canvas.width, canvas.height + 20, 'down'), 'dead'));
-    // emitter.addBehaviour(new Proton.Rotate(new Proton.Span(0, 360), new Proton.Span(-.5, .5), 'add'));
-    // emitter.addBehaviour(new Proton.Scale(new Proton.Span(.2, 1)));
-    // emitter.addBehaviour(new Proton.RandomDrift(5, 0, .15));
-    // emitter.addBehaviour(new Proton.Gravity(0.9));
 
 
-    emitter.emit();
-    proton.addEmitter(emitter);
+
+
+    // for each ship
+    for(let ship of this.ships) {
+      const local = ship === this.ships.main;
+
+      const emitter = new Proton.Emitter();
+      const color = ship.owner.team.color;
+
+      // setup and config
+      const graphics = DeepSpaceGame.graphics.block_fill(color, 6);
+      const particle = new createjs.Shape(graphics);
+      particle.cache(-10, -10, 20, 20);
+      const cache = particle.cacheCanvas;
+      const bitmap = new createjs.Bitmap(cache);
+
+      emitter.rate = new Proton.Rate(1, 0.2);
+      emitter.addInitialize(imageTargets.teams[ship.owner.team.number]);
+      emitter.addInitialize(new Proton.Life(1, 2.5));
+      const force = new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar');
+      emitter.addInitialize(force);
+      emitter.force = force;
+
+      emitter.addBehaviour(new Proton.Scale(1, 5));
+      emitter.addBehaviour(new Proton.Alpha(0.2, 0));
+
+      emitter.emit();
+      proton.addEmitter(emitter);
+      emitters.set(ship, emitter);
+
+    }
+
+
 
     renderer.start();
 
@@ -2439,28 +2460,47 @@ class DeepSpaceGame {
 
   updateProton() {
 
-    // update ship dependencies
-    if(!this.spectate) {
-      const timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);
-      const percent = this.ships.main.velocity.length /
-        (this.ships.main.LINEAR_VELOCITY_LIMIT + this.ships.main.LINEAR_VELOCITY_LIMIT_EXTENDED);
-      const amount = percent < 0.2 ? 0 : 1;
-      //
-      // var percent = ENV.game.ships.main.velocity.length /
-      //   (ENV.game.ships.main.LINEAR_VELOCITY_LIMIT + ENV.game.ships.main.LINEAR_VELOCITY_LIMIT_EXTENDED);
-      const slowest = 0.1; const fastest = 0.02;
-      const pos = this.ships.main.back_weapon_position;
-      this.view.proton.emitter.p.x = pos.x;
-      this.view.proton.emitter.p.y = pos.y;
-      this.view.proton.emitter.rotation = -Math.degrees(this.ships.main.angle) - 90;
-      this.view.proton.emitter.rate.timePan.a =
-        this.view.proton.emitter.rate.timePan.b =
+    const timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);
+    const slowest = 0.1; const fastest = 0.02;
+    const defaultMinAngle = 150; const defaultMaxAngle = 210;
+
+    for(const [ship, emitter] of this.view.proton.emitters) {
+
+      if(ship.disabled) {
+        if(!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.death)) {
+          emitter.removeInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);
+          emitter.addInitialize(this.view.proton.imageTargets.death);
+        }
+      } else {
+        if(!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.teams[ship.owner.team.number])) {
+          emitter.removeInitialize(this.view.proton.imageTargets.death);
+          emitter.addInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);
+        }
+      }
+
+      // update ship dependencies
+      const percent = ship.velocity.length /
+        (ship.LINEAR_VELOCITY_LIMIT + ship.LINEAR_VELOCITY_LIMIT_EXTENDED);
+      let amount = ship.disabled ? 3 : (percent < 0.2 ? 0 : 1);
+      const pos = ship.back_weapon_position;
+      const minAngle = ship.disabled ? 0 : defaultMinAngle;
+      const maxAngle = ship.disabled ? 360 : defaultMinAngle;
+
+      emitter.p.x = pos.x;
+      emitter.p.y = pos.y;
+      emitter.rotation = -Math.degrees(ship.angle) - 90;
+      emitter.rate.timePan.a =
+        emitter.rate.timePan.b =
           slowest - ((slowest - fastest) * timingFunction(percent));
-      this.view.proton.emitter.rate.numPan.a =
-        this.view.proton.emitter.rate.numPan.b =
+      emitter.rate.numPan.a =
+        emitter.rate.numPan.b =
           amount;
+      emitter.force.thaPan.a = minAngle;
+      emitter.force.thaPan.b = maxAngle;
+
 
     }
+
 
     // refresh proton
     this.view.proton.main.update();

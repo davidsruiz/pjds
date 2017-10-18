@@ -98,11 +98,11 @@ var BasicShip = function () {
         this.charging = false;
       }
     }
-
-    // adjusts forces letting the simulation continue
-
   }, {
     key: 'apply',
+
+
+    // adjusts forces letting the simulation continue
     value: function apply(data) {
       this.disabled = data.disabled;
       // this.acceleration.set(data.acceleration);
@@ -145,6 +145,16 @@ var BasicShip = function () {
     key: 'clearFlag',
     value: function clearFlag() {
       this.flag = undefined;
+    }
+  }, {
+    key: 'front_weapon_position',
+    get: function get() {
+      var fwp = this.position.copy();var shift = new V2D();shift.length = 8 * 2;shift.angle = this.angle;fwp.add(shift);return fwp;
+    }
+  }, {
+    key: 'back_weapon_position',
+    get: function get() {
+      var bwp = this.position.copy();var shift = new V2D();shift.length = 8 * 2;shift.angle = this.angle - Math.PI;bwp.add(shift);return bwp;
     }
   }]);
 
@@ -409,16 +419,6 @@ var Ship = function (_BasicShip) {
       return this.ATTACK_SPREAD / 2 * (Math.random() * 2 - 1);
     }
   }, {
-    key: 'front_weapon_position',
-    get: function get() {
-      var fwp = this.position.copy();var shift = new V2D();shift.length = 8 * 2;shift.angle = this.angle;fwp.add(shift);return fwp;
-    }
-  }, {
-    key: 'back_weapon_position',
-    get: function get() {
-      var bwp = this.position.copy();var shift = new V2D();shift.length = 8 * 2;shift.angle = this.angle - Math.PI;bwp.add(shift);return bwp;
-    }
-  }, {
     key: 'reachedBlockLimit',
     get: function get() {
       return this.blocks.size >= this.BLOCK_CAPACITY;
@@ -580,3 +580,4 @@ Ship.baseStats = {
 };
 
 // SPECIALS??? LARGE HEAVY BLOCK, or INTEL
+//# sourceMappingURL=ship.js.map
