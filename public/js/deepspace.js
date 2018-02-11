@@ -819,33 +819,27 @@ class DeepSpaceGame {
       receiver.addEventListener('keydown', keyHandler); // onkeydown
       this.inputHandlers.set('keydown', keyHandler);
     } else {
-      // forward :  0 to 1
-      // turn    : -1 to 1
-      // shoot   : true or false
-      // block   : true or false
-      // sub : true or false
 
-      // var keypressWeight = 0.85;
 
-      // var inputStack = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["sub", false]]);
-      // var inputStack = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["sub", false]]);
-      // var inputStack = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["sub", false]]);
-      // var inputStack = new Map([
-      //   ["up", 0], ["dn", 0], ["lt", 0], ["rt", 0],         // move direction
-      //   ["up2", 0], ["dn2", 0], ["lt2", 0], ["rt2", 0],     // attack direction
-      //   ["block", false], ["sub", false]                    // other
-      // ]);
+      const inputs = this.input = {
+        acceleration: 0,
+        angularAcceleration: 0,
+        shoot: false,
+        shootAngle: 0,
+        block: false,
+        sub: false,
+      };
 
-      // for(var [,player] of this.players) {
-      //   player.input = [];
-      // }
-      var inputStack = this.ships.main.owner.input = new Set();
-      inputStack.changed = false;
 
       // KEYBOARD
       // key mappings, have multiple ('values') so you can switch between key bindings
       // the default values are true / false
-      var keymap = [
+
+      const keyboard = new KeyboardInput();
+
+      const keyboardStack = new InputStack();
+      window.stack = keyboardStack; window.keyboard = keyboard;
+      const keymap = [
         // up: ▲
         ["up", [38]],
         // down: ▼
@@ -865,100 +859,130 @@ class DeepSpaceGame {
         // block: space, v
         ["block", [32, 86]],
         // sub: e
-        ["sub", [69]]
+        ["sub", [69]],
+        // shoot: wsad
+        // ["shoot", [87, 83, 65, 68]],
       ];
 
-      // var values = [
-      //   // up: ▲
-      //   ["up", [38], true, false],
-      //   // down: ▼
-      //   ["dn", [40], true, false],
-      //   // left: ◀︎
-      //   ["lt", [37], true, false],
-      //   // right: ▶︎
-      //   ["rt", [39], true, false],
-      //   // up: w
-      //   ["up2", [87], true, false],
-      //   // down: s
-      //   ["dn2", [83], true, false],
-      //   // left: a
-      //   ["lt2", [65], true, false],
-      //   // right: d
-      //   ["rt2", [68], true, false],
-      //   // block: space
-      //   ["block", [32], true, false],
-      //   // sub: e
-      //   ["sub", [69], true, false]
-      // ];
-
-      // var values = [
-      //   // up: ▲ , w
-      //   ["forward", [38, 87], keypressWeight, 0],
-      //   // right: ▶︎ , d
-      //   ["turn", [39, 68], keypressWeight, 0],
-      //   // left: ◀︎ , a
-      //   ["turn", [37, 65], -keypressWeight, 0],
-      //   // shoot: z , k
-      //   ["shoot", [90, 75], true, false],
-      //   // block: x , l
-      //   ["block", [88, 76], true, false],
-      //   // block: c , ;
-      //   ["sub", [67, 186], true, false]
-
-      // // up: ▲ , w
-      // ["move_v_axis", [38, 87], keypressWeight, 0],
-      // // down: ▼ , s
-      // ["move_v_axis", [40, 83], -keypressWeight, 0],
-      // // right: ▶︎ , d
-      // ["move_h_axis", [39, 68], keypressWeight, 0],
-      // // left: ◀︎ , a
-      // ["move_h_axis", [37, 65], -keypressWeight, 0],
-      // ];
-
-      let keyHandler = (e) => {
-        var type = e.type;
-
-        if (type == 'keyup' || type == 'keydown') {
-          var eventCode = e.keyCode;
-
-          keymap.forEach((row) => {
-            row[1].forEach((code) => {
-              if (code == eventCode) {
-
-                // row[0] e.g. 'up' or 'block'
-                // row[2] is value on keydown
-                // row[3] is value on keyup
-
-                if (!type.is('keyup')) {
-                  if (!inputStack.has(row[0])) {
-                    inputStack.add(row[0]);
-                    inputStack.changed = true;
-                  }
-                } else {
-                  inputStack.delete(row[0])
-                  inputStack.changed = true;
-                }
-
-                // inputStack.delete(row[0])
-                // if(keydown)
-                // if(!type.is('keyup')) inputStack.add(row[0]);
-
-                // NetworkHelper.out_input_stack(Array.from(inputStack));
-                // inputStack.changed = true;
-                // log(Array.from(inputStack));
-              }
-            });
-          });
+      for(const [item, mappings] of keymap) {
+        for(const keycode of mappings) {
+          keyboardStack.addItemWhen(item, keyboard.button(keycode).ontrue);
+          keyboardStack.removeItemWhen(item, keyboard.button(keycode).onfalse);
         }
+      }
+      keyboardStack.on('change', () => flattenStack(keyboardStack));
+
+      const buttonWeight = 1;
+      const flattenStack = stack => {
+
+        // setup
+        inputs.acceleration = 0;
+        inputs.angularAcceleration = 0;
+        var x2 = 0, y2 = 0, shoot = false, block = false, sub = false;
+
+        // cycle through
+        for (let [input,] of stack.items) {
+          switch (input) {
+            case 'up':
+              inputs.acceleration = buttonWeight;
+              break;
+            case 'dn':
+              inputs.acceleration =-buttonWeight;
+              break;
+            case 'lt':
+              inputs.angularAcceleration =-buttonWeight;
+              break;
+            case 'rt':
+              inputs.angularAcceleration = buttonWeight;
+              break;
+            case 'up2':
+              y2 = -1;
+              shoot = true;
+              break;
+            case 'dn2':
+              y2 = 1;
+              shoot = true;
+              break;
+            case 'lt2':
+              x2 = -1;
+              shoot = true;
+              break;
+            case 'rt2':
+              x2 = 1;
+              shoot = true;
+              break;
+            case 'shoot':
+              shoot = true;
+              break;
+            case 'block':
+              block = true;
+              break;
+            case 'sub':
+              sub = true;
+              break;
+          }
+        }
+
+        // evaluate
+        var directionV = new V2D(x2, y2);
+        inputs.shootAngle = directionV.angle + (Math.PI / 2);
+        inputs.shoot = shoot;
+        inputs.block = block;
+        inputs.sub = sub;
+
       };
 
-      receiver.addEventListener('keydown', keyHandler); // onkeydown
-      receiver.addEventListener('keyup', keyHandler); // onkeyup
+      // let keyHandler = (e) => {
+      //   var type = e.type;
+      //
+      //   if (type == 'keyup' || type == 'keydown') {
+      //     var eventCode = e.keyCode;
+      //
+      //     keymap.forEach((row) => {
+      //       row[1].forEach((code) => {
+      //         if (code == eventCode) {
+      //
+      //           // row[0] e.g. 'up' or 'block'
+      //           // row[2] is value on keydown
+      //           // row[3] is value on keyup
+      //
+      //           if (!type.is('keyup')) {
+      //             if (!inputStack.has(row[0])) {
+      //               inputStack.add(row[0]);
+      //               inputStack.changed = true;
+      //             }
+      //           } else {
+      //             inputStack.delete(row[0])
+      //             inputStack.changed = true;
+      //           }
+      //
+      //           // inputStack.delete(row[0])
+      //           // if(keydown)
+      //           // if(!type.is('keyup')) inputStack.add(row[0]);
+      //
+      //           // NetworkHelper.out_input_stack(Array.from(inputStack));
+      //           // inputStack.changed = true;
+      //           // log(Array.from(inputStack));
+      //         }
+      //       });
+      //     });
+      //
+      //     if(inputStack.changed) flattenStack(inputStack);
+      //   }
+      // };
 
-      this.inputHandlers.set('keydown', keyHandler);
-      this.inputHandlers.set('keyup', keyHandler);
+      // receiver.addEventListener('keydown', keyHandler); // onkeydown
+      // receiver.addEventListener('keyup', keyHandler); // onkeyup
+      //
+      // this.inputHandlers.set('keydown', keyHandler);
+      // this.inputHandlers.set('keyup', keyHandler);
+
+
+
 
       // GAMEPAD
+
+      /*
       receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
       // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input
       // .. thus it is left here .. please revise
@@ -967,29 +991,7 @@ class DeepSpaceGame {
           var gamepad = navigator.getGamepads()[0];
           if (!gamepad) return;
 
-          /*var val, deadZone;
 
-          // UP
-          deadZone = 0.0;
-          val = gamepad.axes[3];
-          val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
-          val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-          inputStack.set("forward", val);
-
-          // LEFT and RIGHT
-          deadZone = 0.15;
-          val = gamepad.axes[0];
-          val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-          inputStack.set("turn", val);
-
-          // FIRE
-          inputStack.set("shoot", gamepad.buttons[3].pressed);
-
-          // BLOCK
-          inputStack.set("block", gamepad.buttons[7].pressed);
-
-          // OTHER
-          inputStack.set("sub", gamepad.buttons[0].pressed);*/
 
 
           // NEW :)
@@ -1114,11 +1116,179 @@ class DeepSpaceGame {
           }
 
 
+
         };
+      */
+
+      // NEWER :D
+
+      const gamepad = new GamepadInput();
+
+      // const buttonMap = new Map([
+      //
+      //   ['up', [
+      //
+      //     // - y axis
+      //     gamepad.axes[1] < -deadZone,
+      //
+      //     // l trigger
+      //     gamepad.axes[3] > 0,
+      //
+      //     // d-pad north
+      //
+      //   ]],
+      //
+      //   ['dn', [
+      //
+      //     // + y axis
+      //     gamepad.axes[1] > deadZone,
+      //
+      //     // r trigger
+      //     gamepad.axes[4] > 0,
+      //
+      //   ]],
+      //
+      //   ['lt', [
+      //
+      //     // - x axis
+      //     gamepad.axes[0] < -deadZone,
+      //
+      //   ]],
+      //
+      //   ['rt', [
+      //
+      //     // - x axis
+      //     gamepad.axes[0] > deadZone,
+      //
+      //   ]],
+      //
+      //   ['up2', [
+      //
+      //     // - y axis 2
+      //     gamepad.axes[5] < -deadZone,
+      //
+      //   ]],
+      //
+      //   ['dn2', [
+      //
+      //     // + y axis 2
+      //     gamepad.axes[5] > deadZone,
+      //
+      //   ]],
+      //
+      //   ['lt2', [
+      //
+      //     // - x axis 2
+      //     gamepad.axes[2] < -deadZone,
+      //
+      //   ]],
+      //
+      //   ['rt2', [
+      //
+      //     // + x axis 2
+      //     gamepad.axes[2] > deadZone,
+      //
+      //   ]],
+      //
+      //   ['shoot', [
+      //
+      //     // buttons a & b
+      //     gamepad.buttons[0].pressed,
+      //     gamepad.buttons[1].pressed,
+      //
+      //   ]],
+      //
+      //   ['block', [
+      //
+      //     // r shoulder button
+      //     gamepad.buttons[7].pressed,
+      //
+      //   ]],
+      //
+      //   ['sub', [
+      //
+      //     // buttons x & y
+      //     gamepad.buttons[3].pressed,
+      //     gamepad.buttons[4].pressed,
+      //
+      //     // l shoulder button
+      //     gamepad.buttons[6].pressed,
+      //
+      //     // r joystick press
+      //     gamepad.buttons[14].pressed,
+      //
+      //   ]],
+      //
+      // ]);
+
+      const deadzone = 0.2;
+      const max = 1;
+      const diff = max - deadzone;
+
+
+      // axes
+
+      keyboardStack.addItemWhen('up', gamepad.axis(1).onlessthan(-deadzone), n => (max + n / diff));
+      keyboardStack.addItemWhen('up', gamepad.axis(3).onmorethan(0));
+      keyboardStack.removeItemWhen('up', gamepad.axis(1).onmorethan(-deadzone));
+      keyboardStack.removeItemWhen('up', gamepad.axis(3).onlessthan(0));
+
+      keyboardStack.addItemWhen('dn', gamepad.axis(1).onmorethan(deadzone), n => (max - n / diff));
+      keyboardStack.addItemWhen('dn', gamepad.axis(4).onmorethan(0));
+      keyboardStack.removeItemWhen('dn', gamepad.axis(1).onlessthan(deadzone));
+      keyboardStack.removeItemWhen('dn', gamepad.axis(4).onlessthan(0));
+
+      keyboardStack.addItemWhen('lt', gamepad.axis(0).onlessthan(-deadzone), n => (max + n / diff));
+      keyboardStack.removeItemWhen('lt', gamepad.axis(0).onmorethan(-deadzone));
+
+      keyboardStack.addItemWhen('rt', gamepad.axis(0).onmorethan(deadzone), n => (max - n / diff));
+      keyboardStack.removeItemWhen('rt', gamepad.axis(0).onmorethan(deadzone));
+
+
+      keyboardStack.addItemWhen('up2', gamepad.axis(5).onlessthan(-deadzone), n => (max + n / diff));
+      keyboardStack.removeItemWhen('up2', gamepad.axis(5).onmorethan(-deadzone));
+
+      keyboardStack.addItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone), n => (max - n / diff));
+      keyboardStack.removeItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone));
+
+      keyboardStack.addItemWhen('lt2', gamepad.axis(2).onlessthan(-deadzone), n => (max + n / diff));
+      keyboardStack.removeItemWhen('lt2', gamepad.axis(2).onmorethan(-deadzone));
+
+      keyboardStack.addItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone), n => (max - n / diff));
+      keyboardStack.removeItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone));
+
+      // buttons
+
+      keyboardStack.addItemWhen('shoot', gamepad.button(0).ontrue);
+      keyboardStack.removeItemWhen('shoot', gamepad.button(0).onfalse);
+      keyboardStack.addItemWhen('shoot', gamepad.button(1).ontrue);
+      keyboardStack.removeItemWhen('shoot', gamepad.button(1).onfalse);
+
+      keyboardStack.addItemWhen('block', gamepad.button(7).ontrue);
+      keyboardStack.removeItemWhen('block', gamepad.button(7).onfalse);
+
+      keyboardStack.addItemWhen('sub', gamepad.button(3).ontrue);
+      keyboardStack.removeItemWhen('sub', gamepad.button(3).onfalse);
+      keyboardStack.addItemWhen('sub', gamepad.button(4).ontrue);
+      keyboardStack.removeItemWhen('sub', gamepad.button(4).onfalse);
+      keyboardStack.addItemWhen('sub', gamepad.button(6).ontrue);
+      keyboardStack.removeItemWhen('sub', gamepad.button(6).onfalse);
+      keyboardStack.addItemWhen('sub', gamepad.button(14).ontrue);
+      keyboardStack.removeItemWhen('sub', gamepad.button(14).onfalse);
+
+
+
+
+
+
+
 
       // MOBILE
       let raw_acc_data = [0, 0], applied_acc_data = [0, 0]; // [x, y]
       let threshold = 1, bias = [0, 0]; // deadzone
+      const minThreshhold = 1;
+      const maxThreshhold = 4;
+      const thresholdSpan = maxThreshhold - minThreshhold;
       bias = ENV.storage.calibration = (ENV.storage.calibration) ? ENV.storage.calibration.split(",").map(Number) : [0, 0];
       // let origin = [0, bias];
       if (ENV.mobile && window.DeviceMotionEvent != undefined) {
@@ -1131,7 +1301,10 @@ class DeepSpaceGame {
           // }
         }
 
-        inputStack.updateMotion = function () {
+        inputs.updateMotion = function () {
+
+          // generate the data
+          
           let orientation = window.orientation,
             [raw_x, raw_y] = raw_acc_data, [x, y] = [raw_x, raw_y];
 
@@ -1151,26 +1324,51 @@ class DeepSpaceGame {
 
           if(ENV.options.input.invertControls) { x = -x; y = -y }
 
-          if (x > threshold) {
-            inputStack.add('rt')
-          } else {
-            inputStack.delete('rt')
+          // apply the data
+
+
+          if(x > minThreshhold) { // more
+            if(x < maxThreshhold) inputs.angularAcceleration = (maxThreshhold - x) / thresholdSpan;
+            else inputs.angularAcceleration = 1;
+          } else if(x < -minThreshhold) { // less
+            if(x > -maxThreshhold) inputs.angularAcceleration = (-maxThreshhold - x) / thresholdSpan;
+            else inputs.angularAcceleration = -1;
+          } else { // neither
+            inputs.angularAcceleration = 0;
           }
-          if (x < -threshold) {
-            inputStack.add('lt')
-          } else {
-            inputStack.delete('lt')
+
+          if(y > minThreshhold) { // more
+            if(y < maxThreshhold) inputs.acceleration = (maxThreshhold - y) / thresholdSpan;
+            else inputs.acceleration = 1;
+          } else if(y < -minThreshhold) { // less
+            if(y > -maxThreshhold) inputs.acceleration = (-maxThreshhold - y) / thresholdSpan;
+            else inputs.acceleration = -1;
+          } else { // neither
+            inputs.acceleration = 0;
           }
-          if (y > threshold) {
-            inputStack.add('up')
-          } else {
-            inputStack.delete('up')
-          }
-          if (y < -threshold) {
-            inputStack.add('dn')
-          } else {
-            inputStack.delete('dn')
-          }
+
+          // if (x > threshold) {
+          //   inputStack.add('rt')
+          // } else {
+          //   inputStack.delete('rt')
+          // }
+          // if (x < -threshold) {
+          //   inputStack.add('lt')
+          // } else {
+          //   inputStack.delete('lt')
+          // }
+          // if (y > threshold) {
+          //   inputStack.add('up')
+          // } else {
+          //   inputStack.delete('up')
+          // }
+          // if (y < -threshold) {
+          //   inputStack.add('dn')
+          // } else {
+          //   inputStack.delete('dn')
+          // }
+
+          $('#clock').text(`x: ${x.round(0)}, y: ${y.round(0)}`);
 
         };
       }
@@ -1770,8 +1968,8 @@ class DeepSpaceGame {
   }
 
   updateInput() {
-    if(!this.spectate) this.updateGamepadInput();
-    if (!this.spectate) if (this.player.input.updateMotion) this.player.input.updateMotion();
+    // if(!this.spectate) this.updateGamepadInput();
+    if(!this.spectate) if(this.input.updateMotion) this.input.updateMotion();
   }
 
   // updateGamepadInput() {}
@@ -1792,80 +1990,108 @@ class DeepSpaceGame {
 
       if (ship == this.ships.main && !ship.disabled) {
 
-        var input = ship.owner.input,
-          x = 0, y = 0, x2 = 0, y2 = 0,
-          s = false;
+        const input = this.input;
 
-        for (var prop of input) {
-          switch (prop) {
-            case 'up':
-              y = 1;
-              // y = -1;
-              break;
-            case 'dn':
-              y = -1;
-              // y = 1;
-              break;
-            case 'lt':
-              x = -1;
-              break;
-            case 'rt':
-              x = 1;
-              break;
-            case 'up2':
-              y2 = -1;
-              break;
-            case 'dn2':
-              y2 = 1;
-              break;
-            case 'lt2':
-              x2 = -1;
-              break;
-            case 'rt2':
-              x2 = 1;
-              break;
-            case 'sub':
-              // if(!ship.flag) ship.sub();
-              if(ship.flag) {
-                this.releaseFlag()
-              } else {
-                if(ship.canSub())
-                  this.addSub(ship);
-              }
-              break;
-            case 'block':
-              if(ship.canBlock()) {
-                while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
-                this.addBlock(ship)
-              }
-              break;
-            case 'shoot':
-              s = true;
-              break;
+        // new abstraction
+        ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * input.acceleration;
+        ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.angularAcceleration;
+        ship.relative_shoot_angle = input.shootAngle;
+        if(input.shoot)
+          if(ship.canShoot())
+            this.addBullet(ship);
+
+        if(input.block) {
+          if(ship.canBlock()) {
+            while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
+            this.addBlock(ship)
+          }
+        }
+        if(input.sub) {
+          if(ship.flag) {
+            this.releaseFlag()
+          } else {
+            if(ship.canSub())
+              this.addSub(ship);
           }
         }
 
-        // ship.acceleration.set({x, y})
-        // if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
+
+
+
+        // var input = ship.owner.input,
+        //   x = 0, y = 0, x2 = 0, y2 = 0,
+        //   s = false;
         //
-        // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
-        // if (ship.velocity.length) ship.angle = ship.velocity.angle;
-
-        var direction_v = new V2D(x2, y2)
-        ship.relative_shoot_angle = direction_v.length ? direction_v.angle + (Math.PI/2) : 0;
-
-
-        // new ship controls
-        ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * y;
-        ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * x;
-
-
-        // if(direction_v.length) ship.shoot();
-
-
-        if (s || direction_v.length)
-          if (ship.canShoot())
-            this.addBullet(ship);
+        // for (var prop of input) {
+        //   switch (prop) {
+        //     case 'up':
+        //       y = 1;
+        //       // y = -1;
+        //       break;
+        //     case 'dn':
+        //       y = -1;
+        //       // y = 1;
+        //       break;
+        //     case 'lt':
+        //       x = -1;
+        //       break;
+        //     case 'rt':
+        //       x = 1;
+        //       break;
+        //     case 'up2':
+        //       y2 = -1;
+        //       break;
+        //     case 'dn2':
+        //       y2 = 1;
+        //       break;
+        //     case 'lt2':
+        //       x2 = -1;
+        //       break;
+        //     case 'rt2':
+        //       x2 = 1;
+        //       break;
+        //     case 'sub':
+        //       // if(!ship.flag) ship.sub();
+        //       if(ship.flag) {
+        //         this.releaseFlag()
+        //       } else {
+        //         if(ship.canSub())
+        //           this.addSub(ship);
+        //       }
+        //       break;
+        //     case 'block':
+        //       if(ship.canBlock()) {
+        //         while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
+        //         this.addBlock(ship)
+        //       }
+        //       break;
+        //     case 'shoot':
+        //       s = true;
+        //       break;
+        //   }
+        // }
+        //
+        // // ship.acceleration.set({x, y})
+        // // if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
+        // //
+        // // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
+        // // if (ship.velocity.length) ship.angle = ship.velocity.angle;
+        //
+        // var direction_v = new V2D(x2, y2)
+        // ship.relative_shoot_angle = direction_v.length ? direction_v.angle + (Math.PI/2) : 0;
+        //
+        //
+        // // new ship controls
+        // ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * y;
+        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * x;
+        //
+        //
+        // // if(direction_v.length) ship.shoot();
+        //
+        //
+        // if (s || direction_v.length)
+        //   if (ship.canShoot())
+        //     this.addBullet(ship);
       }
 
       // validate new position TODO (revise)

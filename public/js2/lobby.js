@@ -217,6 +217,7 @@ var LOBBY = {
     $('#clock').text(str);
   },
   refreshClock: function refreshClock() {
+    return;
     ENV.game.game.overtime ? LOBBY.writeClock('OVERTIME') : LOBBY.setClock(ENV.game.timer.timeLeft);
     // LOBBY.setClock(ENV.game.timer.timeLeft);
     if (!ENV.game.game.disabled) setTimeout(function () {
@@ -241,3 +242,4 @@ ENV.lobby = {
     // {name}
   ]
 };
+//# sourceMappingURL=lobby.js.map

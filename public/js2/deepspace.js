@@ -989,32 +989,24 @@ var DeepSpaceGame = function () {
         receiver.addEventListener('keydown', keyHandler); // onkeydown
         this.inputHandlers.set('keydown', keyHandler);
       } else {
-        // forward :  0 to 1
-        // turn    : -1 to 1
-        // shoot   : true or false
-        // block   : true or false
-        // sub : true or false
 
-        // var keypressWeight = 0.85;
-
-        // var inputStack = new Map([["forward", 0], ["turn", 0], ["shoot", false], ["block", false], ["sub", false]]);
-        // var inputStack = new Map([["verticle", 0], ["horizontal", 0], ["shoot", false], ["block", false], ["sub", false]]);
-        // var inputStack = new Map([["move_v_axis", 0], ["move_h_axis", 0], ["shoot_v_axis", 0], ["shoot_h_axis", 0], ["block", false], ["sub", false]]);
-        // var inputStack = new Map([
-        //   ["up", 0], ["dn", 0], ["lt", 0], ["rt", 0],         // move direction
-        //   ["up2", 0], ["dn2", 0], ["lt2", 0], ["rt2", 0],     // attack direction
-        //   ["block", false], ["sub", false]                    // other
-        // ]);
-
-        // for(var [,player] of this.players) {
-        //   player.input = [];
-        // }
-        var inputStack = this.ships.main.owner.input = new Set();
-        inputStack.changed = false;
+        var inputs = this.input = {
+          acceleration: 0,
+          angularAcceleration: 0,
+          shoot: false,
+          shootAngle: 0,
+          block: false,
+          sub: false
+        };
 
         // KEYBOARD
         // key mappings, have multiple ('values') so you can switch between key bindings
         // the default values are true / false
+
+        var keyboard = new KeyboardInput();
+
+        var keyboardStack = new InputStack();
+        window.stack = keyboardStack;window.keyboard = keyboard;
         var keymap = [
         // up: ▲
         ["up", [38]],
@@ -1037,225 +1029,460 @@ var DeepSpaceGame = function () {
         // sub: e
         ["sub", [69]]];
 
-        // var values = [
-        //   // up: ▲
-        //   ["up", [38], true, false],
-        //   // down: ▼
-        //   ["dn", [40], true, false],
-        //   // left: ◀︎
-        //   ["lt", [37], true, false],
-        //   // right: ▶︎
-        //   ["rt", [39], true, false],
-        //   // up: w
-        //   ["up2", [87], true, false],
-        //   // down: s
-        //   ["dn2", [83], true, false],
-        //   // left: a
-        //   ["lt2", [65], true, false],
-        //   // right: d
-        //   ["rt2", [68], true, false],
-        //   // block: space
-        //   ["block", [32], true, false],
-        //   // sub: e
-        //   ["sub", [69], true, false]
-        // ];
+        var _iteratorNormalCompletion6 = true;
+        var _didIteratorError6 = false;
+        var _iteratorError6 = undefined;
 
-        // var values = [
-        //   // up: ▲ , w
-        //   ["forward", [38, 87], keypressWeight, 0],
-        //   // right: ▶︎ , d
-        //   ["turn", [39, 68], keypressWeight, 0],
-        //   // left: ◀︎ , a
-        //   ["turn", [37, 65], -keypressWeight, 0],
-        //   // shoot: z , k
-        //   ["shoot", [90, 75], true, false],
-        //   // block: x , l
-        //   ["block", [88, 76], true, false],
-        //   // block: c , ;
-        //   ["sub", [67, 186], true, false]
+        try {
+          for (var _iterator6 = keymap[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+            var _ref3 = _step6.value;
 
-        // // up: ▲ , w
-        // ["move_v_axis", [38, 87], keypressWeight, 0],
-        // // down: ▼ , s
-        // ["move_v_axis", [40, 83], -keypressWeight, 0],
-        // // right: ▶︎ , d
-        // ["move_h_axis", [39, 68], keypressWeight, 0],
-        // // left: ◀︎ , a
-        // ["move_h_axis", [37, 65], -keypressWeight, 0],
-        // ];
+            var _ref4 = _slicedToArray(_ref3, 2);
 
-        var _keyHandler = function _keyHandler(e) {
-          var type = e.type;
+            var item = _ref4[0];
+            var mappings = _ref4[1];
+            var _iteratorNormalCompletion8 = true;
+            var _didIteratorError8 = false;
+            var _iteratorError8 = undefined;
 
-          if (type == 'keyup' || type == 'keydown') {
-            var eventCode = e.keyCode;
+            try {
+              for (var _iterator8 = mappings[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+                var keycode = _step8.value;
 
-            keymap.forEach(function (row) {
-              row[1].forEach(function (code) {
-                if (code == eventCode) {
-
-                  // row[0] e.g. 'up' or 'block'
-                  // row[2] is value on keydown
-                  // row[3] is value on keyup
-
-                  if (!type.is('keyup')) {
-                    if (!inputStack.has(row[0])) {
-                      inputStack.add(row[0]);
-                      inputStack.changed = true;
-                    }
-                  } else {
-                    inputStack.delete(row[0]);
-                    inputStack.changed = true;
-                  }
-
-                  // inputStack.delete(row[0])
-                  // if(keydown)
-                  // if(!type.is('keyup')) inputStack.add(row[0]);
-
-                  // NetworkHelper.out_input_stack(Array.from(inputStack));
-                  // inputStack.changed = true;
-                  // log(Array.from(inputStack));
+                keyboardStack.addItemWhen(item, keyboard.button(keycode).ontrue);
+                keyboardStack.removeItemWhen(item, keyboard.button(keycode).onfalse);
+              }
+            } catch (err) {
+              _didIteratorError8 = true;
+              _iteratorError8 = err;
+            } finally {
+              try {
+                if (!_iteratorNormalCompletion8 && _iterator8.return) {
+                  _iterator8.return();
                 }
-              });
-            });
+              } finally {
+                if (_didIteratorError8) {
+                  throw _iteratorError8;
+                }
+              }
+            }
           }
-        };
+        } catch (err) {
+          _didIteratorError6 = true;
+          _iteratorError6 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion6 && _iterator6.return) {
+              _iterator6.return();
+            }
+          } finally {
+            if (_didIteratorError6) {
+              throw _iteratorError6;
+            }
+          }
+        }
 
-        receiver.addEventListener('keydown', _keyHandler); // onkeydown
-        receiver.addEventListener('keyup', _keyHandler); // onkeyup
-
-        this.inputHandlers.set('keydown', _keyHandler);
-        this.inputHandlers.set('keyup', _keyHandler);
-
-        // GAMEPAD
-        receiver.addEventListener("gamepadconnected", function (e) {
-          return _this12.gamepad = e.gamepad;
+        keyboardStack.on('change', function () {
+          return _flattenStack(keyboardStack);
         });
-        // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input
-        // .. thus it is left here .. please revise
-        this.updateGamepadInput = !navigator.getGamepads ? function () {} : function () {
-          var gamepad = navigator.getGamepads()[0];
-          if (!gamepad) return;
 
-          /*var val, deadZone;
-           // UP
-          deadZone = 0.0;
-          val = gamepad.axes[3];
-          val = (val + 1) / 2; // adjusted weird (-1 to 1 back trigger) axis seup
-          val = (val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-          inputStack.set("forward", val);
-           // LEFT and RIGHT
-          deadZone = 0.15;
-          val = gamepad.axes[0];
-          val = (val < -deadZone || val > deadZone) ? (val - deadZone) / (1 - deadZone) : 0;
-          inputStack.set("turn", val);
-           // FIRE
-          inputStack.set("shoot", gamepad.buttons[3].pressed);
-           // BLOCK
-          inputStack.set("block", gamepad.buttons[7].pressed);
-           // OTHER
-          inputStack.set("sub", gamepad.buttons[0].pressed);*/
+        var buttonWeight = 1;
+        var _flattenStack = function _flattenStack(stack) {
 
-          // NEW :)
-          var deadZone = 0.15;
-          var buttonMap = new Map([['up', [
+          // setup
+          inputs.acceleration = 0;
+          inputs.angularAcceleration = 0;
+          var x2 = 0,
+              y2 = 0,
+              shoot = false,
+              block = false,
+              sub = false;
 
-          // - y axis
-          gamepad.axes[1] < -deadZone,
-
-          // l trigger
-          gamepad.axes[3] > 0]], ['dn', [
-
-          // + y axis
-          gamepad.axes[1] > deadZone,
-
-          // r trigger
-          gamepad.axes[4] > 0]], ['lt', [
-
-          // - x axis
-          gamepad.axes[0] < -deadZone]], ['rt', [
-
-          // - x axis
-          gamepad.axes[0] > deadZone]], ['up2', [
-
-          // - y axis 2
-          gamepad.axes[5] < -deadZone]], ['dn2', [
-
-          // + y axis 2
-          gamepad.axes[5] > deadZone]], ['lt2', [
-
-          // - x axis 2
-          gamepad.axes[2] < -deadZone]], ['rt2', [
-
-          // + x axis 2
-          gamepad.axes[2] > deadZone]], ['shoot', [
-
-          // buttons a & b
-          gamepad.buttons[0].pressed, gamepad.buttons[1].pressed]], ['block', [
-
-          // r shoulder button
-          gamepad.buttons[7].pressed]], ['sub', [
-
-          // buttons x & y
-          gamepad.buttons[3].pressed, gamepad.buttons[4].pressed,
-
-          // l shoulder button
-          gamepad.buttons[6].pressed,
-
-          // r joystick press
-          gamepad.buttons[14].pressed]]]);
-
-          var _iteratorNormalCompletion6 = true;
-          var _didIteratorError6 = false;
-          var _iteratorError6 = undefined;
+          // cycle through
+          var _iteratorNormalCompletion7 = true;
+          var _didIteratorError7 = false;
+          var _iteratorError7 = undefined;
 
           try {
-            for (var _iterator6 = buttonMap[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-              var _ref3 = _step6.value;
+            for (var _iterator7 = stack.items[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+              var _ref5 = _step7.value;
 
-              var _ref4 = _slicedToArray(_ref3, 2);
+              var _ref6 = _slicedToArray(_ref5, 1);
 
-              var code = _ref4[0];
-              var bindings = _ref4[1];
+              var input = _ref6[0];
 
-
-              var activation = _(bindings).contains(true);
-
-              if (activation) {
-
-                if (inputStack.has(code)) continue;
-
-                inputStack.add(code);
-                inputStack.changed = true;
-              } else {
-
-                if (!inputStack.has(code)) continue;
-
-                inputStack.delete(code);
-                inputStack.changed = true;
+              switch (input) {
+                case 'up':
+                  inputs.acceleration = buttonWeight;
+                  break;
+                case 'dn':
+                  inputs.acceleration = -buttonWeight;
+                  break;
+                case 'lt':
+                  inputs.angularAcceleration = -buttonWeight;
+                  break;
+                case 'rt':
+                  inputs.angularAcceleration = buttonWeight;
+                  break;
+                case 'up2':
+                  y2 = -1;
+                  shoot = true;
+                  break;
+                case 'dn2':
+                  y2 = 1;
+                  shoot = true;
+                  break;
+                case 'lt2':
+                  x2 = -1;
+                  shoot = true;
+                  break;
+                case 'rt2':
+                  x2 = 1;
+                  shoot = true;
+                  break;
+                case 'shoot':
+                  shoot = true;
+                  break;
+                case 'block':
+                  block = true;
+                  break;
+                case 'sub':
+                  sub = true;
+                  break;
               }
             }
+
+            // evaluate
           } catch (err) {
-            _didIteratorError6 = true;
-            _iteratorError6 = err;
+            _didIteratorError7 = true;
+            _iteratorError7 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion6 && _iterator6.return) {
-                _iterator6.return();
+              if (!_iteratorNormalCompletion7 && _iterator7.return) {
+                _iterator7.return();
               }
             } finally {
-              if (_didIteratorError6) {
-                throw _iteratorError6;
+              if (_didIteratorError7) {
+                throw _iteratorError7;
               }
             }
           }
+
+          var directionV = new V2D(x2, y2);
+          inputs.shootAngle = directionV.angle + Math.PI / 2;
+          inputs.shoot = shoot;
+          inputs.block = block;
+          inputs.sub = sub;
         };
+
+        // let keyHandler = (e) => {
+        //   var type = e.type;
+        //
+        //   if (type == 'keyup' || type == 'keydown') {
+        //     var eventCode = e.keyCode;
+        //
+        //     keymap.forEach((row) => {
+        //       row[1].forEach((code) => {
+        //         if (code == eventCode) {
+        //
+        //           // row[0] e.g. 'up' or 'block'
+        //           // row[2] is value on keydown
+        //           // row[3] is value on keyup
+        //
+        //           if (!type.is('keyup')) {
+        //             if (!inputStack.has(row[0])) {
+        //               inputStack.add(row[0]);
+        //               inputStack.changed = true;
+        //             }
+        //           } else {
+        //             inputStack.delete(row[0])
+        //             inputStack.changed = true;
+        //           }
+        //
+        //           // inputStack.delete(row[0])
+        //           // if(keydown)
+        //           // if(!type.is('keyup')) inputStack.add(row[0]);
+        //
+        //           // NetworkHelper.out_input_stack(Array.from(inputStack));
+        //           // inputStack.changed = true;
+        //           // log(Array.from(inputStack));
+        //         }
+        //       });
+        //     });
+        //
+        //     if(inputStack.changed) flattenStack(inputStack);
+        //   }
+        // };
+
+        // receiver.addEventListener('keydown', keyHandler); // onkeydown
+        // receiver.addEventListener('keyup', keyHandler); // onkeyup
+        //
+        // this.inputHandlers.set('keydown', keyHandler);
+        // this.inputHandlers.set('keyup', keyHandler);
+
+
+        // GAMEPAD
+
+        /*
+        receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
+        // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input
+        // .. thus it is left here .. please revise
+        this.updateGamepadInput = (!navigator.getGamepads) ? () => {
+          } : () => {
+            var gamepad = navigator.getGamepads()[0];
+            if (!gamepad) return;
+                // NEW :)
+            const deadZone = 0.15;
+            const buttonMap = new Map([
+               ['up', [
+                 // - y axis
+                gamepad.axes[1] < -deadZone,
+                 // l trigger
+                gamepad.axes[3] > 0,
+                 // d-pad north
+               ]],
+               ['dn', [
+                 // + y axis
+                gamepad.axes[1] > deadZone,
+                 // r trigger
+                gamepad.axes[4] > 0,
+               ]],
+               ['lt', [
+                 // - x axis
+                gamepad.axes[0] < -deadZone,
+               ]],
+               ['rt', [
+                 // - x axis
+                gamepad.axes[0] > deadZone,
+               ]],
+               ['up2', [
+                 // - y axis 2
+                gamepad.axes[5] < -deadZone,
+               ]],
+               ['dn2', [
+                 // + y axis 2
+                gamepad.axes[5] > deadZone,
+               ]],
+               ['lt2', [
+                 // - x axis 2
+                gamepad.axes[2] < -deadZone,
+               ]],
+               ['rt2', [
+                 // + x axis 2
+                gamepad.axes[2] > deadZone,
+               ]],
+               ['shoot', [
+                 // buttons a & b
+                gamepad.buttons[0].pressed,
+                gamepad.buttons[1].pressed,
+               ]],
+               ['block', [
+                 // r shoulder button
+                gamepad.buttons[7].pressed,
+               ]],
+               ['sub', [
+                 // buttons x & y
+                gamepad.buttons[3].pressed,
+                gamepad.buttons[4].pressed,
+                 // l shoulder button
+                gamepad.buttons[6].pressed,
+                 // r joystick press
+                gamepad.buttons[14].pressed,
+               ]],
+             ]);
+             for(let [code, bindings] of buttonMap) {
+               const activation = _(bindings).contains(true);
+               if(activation) {
+                 if(inputStack.has(code)) continue;
+                 inputStack.add(code);
+                inputStack.changed = true;
+               } else {
+                 if(!inputStack.has(code)) continue;
+                 inputStack.delete(code);
+                inputStack.changed = true;
+               }
+             }
+             };
+        */
+
+        // NEWER :D
+
+        var gamepad = new GamepadInput();
+
+        // const buttonMap = new Map([
+        //
+        //   ['up', [
+        //
+        //     // - y axis
+        //     gamepad.axes[1] < -deadZone,
+        //
+        //     // l trigger
+        //     gamepad.axes[3] > 0,
+        //
+        //     // d-pad north
+        //
+        //   ]],
+        //
+        //   ['dn', [
+        //
+        //     // + y axis
+        //     gamepad.axes[1] > deadZone,
+        //
+        //     // r trigger
+        //     gamepad.axes[4] > 0,
+        //
+        //   ]],
+        //
+        //   ['lt', [
+        //
+        //     // - x axis
+        //     gamepad.axes[0] < -deadZone,
+        //
+        //   ]],
+        //
+        //   ['rt', [
+        //
+        //     // - x axis
+        //     gamepad.axes[0] > deadZone,
+        //
+        //   ]],
+        //
+        //   ['up2', [
+        //
+        //     // - y axis 2
+        //     gamepad.axes[5] < -deadZone,
+        //
+        //   ]],
+        //
+        //   ['dn2', [
+        //
+        //     // + y axis 2
+        //     gamepad.axes[5] > deadZone,
+        //
+        //   ]],
+        //
+        //   ['lt2', [
+        //
+        //     // - x axis 2
+        //     gamepad.axes[2] < -deadZone,
+        //
+        //   ]],
+        //
+        //   ['rt2', [
+        //
+        //     // + x axis 2
+        //     gamepad.axes[2] > deadZone,
+        //
+        //   ]],
+        //
+        //   ['shoot', [
+        //
+        //     // buttons a & b
+        //     gamepad.buttons[0].pressed,
+        //     gamepad.buttons[1].pressed,
+        //
+        //   ]],
+        //
+        //   ['block', [
+        //
+        //     // r shoulder button
+        //     gamepad.buttons[7].pressed,
+        //
+        //   ]],
+        //
+        //   ['sub', [
+        //
+        //     // buttons x & y
+        //     gamepad.buttons[3].pressed,
+        //     gamepad.buttons[4].pressed,
+        //
+        //     // l shoulder button
+        //     gamepad.buttons[6].pressed,
+        //
+        //     // r joystick press
+        //     gamepad.buttons[14].pressed,
+        //
+        //   ]],
+        //
+        // ]);
+
+        var deadzone = 0.2;
+        var max = 1;
+        var diff = max - deadzone;
+
+        // axes
+
+        keyboardStack.addItemWhen('up', gamepad.axis(1).onlessthan(-deadzone), function (n) {
+          return max + n / diff;
+        });
+        keyboardStack.addItemWhen('up', gamepad.axis(3).onmorethan(0));
+        keyboardStack.removeItemWhen('up', gamepad.axis(1).onmorethan(-deadzone));
+        keyboardStack.removeItemWhen('up', gamepad.axis(3).onlessthan(0));
+
+        keyboardStack.addItemWhen('dn', gamepad.axis(1).onmorethan(deadzone), function (n) {
+          return max - n / diff;
+        });
+        keyboardStack.addItemWhen('dn', gamepad.axis(4).onmorethan(0));
+        keyboardStack.removeItemWhen('dn', gamepad.axis(1).onlessthan(deadzone));
+        keyboardStack.removeItemWhen('dn', gamepad.axis(4).onlessthan(0));
+
+        keyboardStack.addItemWhen('lt', gamepad.axis(0).onlessthan(-deadzone), function (n) {
+          return max + n / diff;
+        });
+        keyboardStack.removeItemWhen('lt', gamepad.axis(0).onmorethan(-deadzone));
+
+        keyboardStack.addItemWhen('rt', gamepad.axis(0).onmorethan(deadzone), function (n) {
+          return max - n / diff;
+        });
+        keyboardStack.removeItemWhen('rt', gamepad.axis(0).onmorethan(deadzone));
+
+        keyboardStack.addItemWhen('up2', gamepad.axis(5).onlessthan(-deadzone), function (n) {
+          return max + n / diff;
+        });
+        keyboardStack.removeItemWhen('up2', gamepad.axis(5).onmorethan(-deadzone));
+
+        keyboardStack.addItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone), function (n) {
+          return max - n / diff;
+        });
+        keyboardStack.removeItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone));
+
+        keyboardStack.addItemWhen('lt2', gamepad.axis(2).onlessthan(-deadzone), function (n) {
+          return max + n / diff;
+        });
+        keyboardStack.removeItemWhen('lt2', gamepad.axis(2).onmorethan(-deadzone));
+
+        keyboardStack.addItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone), function (n) {
+          return max - n / diff;
+        });
+        keyboardStack.removeItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone));
+
+        // buttons
+
+        keyboardStack.addItemWhen('shoot', gamepad.button(0).ontrue);
+        keyboardStack.removeItemWhen('shoot', gamepad.button(0).onfalse);
+        keyboardStack.addItemWhen('shoot', gamepad.button(1).ontrue);
+        keyboardStack.removeItemWhen('shoot', gamepad.button(1).onfalse);
+
+        keyboardStack.addItemWhen('block', gamepad.button(7).ontrue);
+        keyboardStack.removeItemWhen('block', gamepad.button(7).onfalse);
+
+        keyboardStack.addItemWhen('sub', gamepad.button(3).ontrue);
+        keyboardStack.removeItemWhen('sub', gamepad.button(3).onfalse);
+        keyboardStack.addItemWhen('sub', gamepad.button(4).ontrue);
+        keyboardStack.removeItemWhen('sub', gamepad.button(4).onfalse);
+        keyboardStack.addItemWhen('sub', gamepad.button(6).ontrue);
+        keyboardStack.removeItemWhen('sub', gamepad.button(6).onfalse);
+        keyboardStack.addItemWhen('sub', gamepad.button(14).ontrue);
+        keyboardStack.removeItemWhen('sub', gamepad.button(14).onfalse);
 
         // MOBILE
         var raw_acc_data = [0, 0],
             applied_acc_data = [0, 0]; // [x, y]
         var threshold = 1,
             bias = [0, 0]; // deadzone
+        var minThreshhold = 1;
+        var maxThreshhold = 4;
+        var thresholdSpan = maxThreshhold - minThreshhold;
         bias = ENV.storage.calibration = ENV.storage.calibration ? ENV.storage.calibration.split(",").map(Number) : [0, 0];
         // let origin = [0, bias];
         if (ENV.mobile && window.DeviceMotionEvent != undefined) {
@@ -1268,7 +1495,10 @@ var DeepSpaceGame = function () {
             // }
           };
 
-          inputStack.updateMotion = function () {
+          inputs.updateMotion = function () {
+
+            // generate the data
+
             var orientation = window.orientation,
                 _raw_acc_data = raw_acc_data,
                 _raw_acc_data2 = _slicedToArray(_raw_acc_data, 2),
@@ -1294,26 +1524,53 @@ var DeepSpaceGame = function () {
               x = -x;y = -y;
             }
 
-            if (x > threshold) {
-              inputStack.add('rt');
+            // apply the data
+
+
+            if (x > minThreshhold) {
+              // more
+              if (x < maxThreshhold) inputs.angularAcceleration = (maxThreshhold - x) / thresholdSpan;else inputs.angularAcceleration = 1;
+            } else if (x < -minThreshhold) {
+              // less
+              if (x > -maxThreshhold) inputs.angularAcceleration = (-maxThreshhold - x) / thresholdSpan;else inputs.angularAcceleration = -1;
             } else {
-              inputStack.delete('rt');
+              // neither
+              inputs.angularAcceleration = 0;
             }
-            if (x < -threshold) {
-              inputStack.add('lt');
+
+            if (y > minThreshhold) {
+              // more
+              if (y < maxThreshhold) inputs.acceleration = (maxThreshhold - y) / thresholdSpan;else inputs.acceleration = 1;
+            } else if (y < -minThreshhold) {
+              // less
+              if (y > -maxThreshhold) inputs.acceleration = (-maxThreshhold - y) / thresholdSpan;else inputs.acceleration = -1;
             } else {
-              inputStack.delete('lt');
+              // neither
+              inputs.acceleration = 0;
             }
-            if (y > threshold) {
-              inputStack.add('up');
-            } else {
-              inputStack.delete('up');
-            }
-            if (y < -threshold) {
-              inputStack.add('dn');
-            } else {
-              inputStack.delete('dn');
-            }
+
+            // if (x > threshold) {
+            //   inputStack.add('rt')
+            // } else {
+            //   inputStack.delete('rt')
+            // }
+            // if (x < -threshold) {
+            //   inputStack.add('lt')
+            // } else {
+            //   inputStack.delete('lt')
+            // }
+            // if (y > threshold) {
+            //   inputStack.add('up')
+            // } else {
+            //   inputStack.delete('up')
+            // }
+            // if (y < -threshold) {
+            //   inputStack.add('dn')
+            // } else {
+            //   inputStack.delete('dn')
+            // }
+
+            $('#clock').text('x: ' + x.round(0) + ', y: ' + y.round(0));
           };
         }
 
@@ -1455,26 +1712,26 @@ var DeepSpaceGame = function () {
 
       (rows * cols).times(function () {
         var obj = {};
-        var _iteratorNormalCompletion7 = true;
-        var _didIteratorError7 = false;
-        var _iteratorError7 = undefined;
+        var _iteratorNormalCompletion9 = true;
+        var _didIteratorError9 = false;
+        var _iteratorError9 = undefined;
 
         try {
-          for (var _iterator7 = Object.keys(physics.collision_groups)[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-            var group = _step7.value;
+          for (var _iterator9 = Object.keys(physics.collision_groups)[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+            var group = _step9.value;
             obj[physics.collision_groups[group]] = new Set();
           }
         } catch (err) {
-          _didIteratorError7 = true;
-          _iteratorError7 = err;
+          _didIteratorError9 = true;
+          _iteratorError9 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion7 && _iterator7.return) {
-              _iterator7.return();
+            if (!_iteratorNormalCompletion9 && _iterator9.return) {
+              _iterator9.return();
             }
           } finally {
-            if (_didIteratorError7) {
-              throw _iteratorError7;
+            if (_didIteratorError9) {
+              throw _iteratorError9;
             }
           }
         }
@@ -1496,9 +1753,9 @@ var DeepSpaceGame = function () {
 
       var d = physics_body.divisions = new Set(),
           r = physics_body.radius,
-          _ref5 = [physics_body.position.x, physics_body.position.y],
-          x = _ref5[0],
-          y = _ref5[1];
+          _ref7 = [physics_body.position.x, physics_body.position.y],
+          x = _ref7[0],
+          y = _ref7[1];
 
 
       [[1, 0], [0, -1], [-1, 0], [0, 1]].forEach(function (unit_offset_array) {
@@ -1512,49 +1769,49 @@ var DeepSpaceGame = function () {
         if (_this13.physics.divisions[division_index]) d.add(division_index);
       });
 
-      var _iteratorNormalCompletion8 = true;
-      var _didIteratorError8 = false;
-      var _iteratorError8 = undefined;
+      var _iteratorNormalCompletion10 = true;
+      var _didIteratorError10 = false;
+      var _iteratorError10 = undefined;
 
       try {
-        for (var _iterator8 = d[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-          var division_index = _step8.value;
-          var _iteratorNormalCompletion9 = true;
-          var _didIteratorError9 = false;
-          var _iteratorError9 = undefined;
+        for (var _iterator10 = d[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+          var division_index = _step10.value;
+          var _iteratorNormalCompletion11 = true;
+          var _didIteratorError11 = false;
+          var _iteratorError11 = undefined;
 
           try {
-            for (var _iterator9 = physics_body.collision_groups[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-              var group = _step9.value;
+            for (var _iterator11 = physics_body.collision_groups[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+              var group = _step11.value;
 
               this.physics.divisions[division_index][group].add(physics_body);
             }
           } catch (err) {
-            _didIteratorError9 = true;
-            _iteratorError9 = err;
+            _didIteratorError11 = true;
+            _iteratorError11 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion9 && _iterator9.return) {
-                _iterator9.return();
+              if (!_iteratorNormalCompletion11 && _iterator11.return) {
+                _iterator11.return();
               }
             } finally {
-              if (_didIteratorError9) {
-                throw _iteratorError9;
+              if (_didIteratorError11) {
+                throw _iteratorError11;
               }
             }
           }
         }
       } catch (err) {
-        _didIteratorError8 = true;
-        _iteratorError8 = err;
+        _didIteratorError10 = true;
+        _iteratorError10 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion8 && _iterator8.return) {
-            _iterator8.return();
+          if (!_iteratorNormalCompletion10 && _iterator10.return) {
+            _iterator10.return();
           }
         } finally {
-          if (_didIteratorError8) {
-            throw _iteratorError8;
+          if (_didIteratorError10) {
+            throw _iteratorError10;
           }
         }
       }
@@ -1563,49 +1820,49 @@ var DeepSpaceGame = function () {
     key: 'clearCollisionDivisions',
     value: function clearCollisionDivisions(physics_body) {
       if (physics_body.divisions) {
-        var _iteratorNormalCompletion10 = true;
-        var _didIteratorError10 = false;
-        var _iteratorError10 = undefined;
+        var _iteratorNormalCompletion12 = true;
+        var _didIteratorError12 = false;
+        var _iteratorError12 = undefined;
 
         try {
-          for (var _iterator10 = physics_body.divisions[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
-            var i = _step10.value;
-            var _iteratorNormalCompletion11 = true;
-            var _didIteratorError11 = false;
-            var _iteratorError11 = undefined;
+          for (var _iterator12 = physics_body.divisions[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+            var i = _step12.value;
+            var _iteratorNormalCompletion13 = true;
+            var _didIteratorError13 = false;
+            var _iteratorError13 = undefined;
 
             try {
-              for (var _iterator11 = physics_body.collision_groups[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
-                var group = _step11.value;
+              for (var _iterator13 = physics_body.collision_groups[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
+                var group = _step13.value;
 
                 this.physics.divisions[i][group].delete(physics_body);
               }
             } catch (err) {
-              _didIteratorError11 = true;
-              _iteratorError11 = err;
+              _didIteratorError13 = true;
+              _iteratorError13 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion11 && _iterator11.return) {
-                  _iterator11.return();
+                if (!_iteratorNormalCompletion13 && _iterator13.return) {
+                  _iterator13.return();
                 }
               } finally {
-                if (_didIteratorError11) {
-                  throw _iteratorError11;
+                if (_didIteratorError13) {
+                  throw _iteratorError13;
                 }
               }
             }
           }
         } catch (err) {
-          _didIteratorError10 = true;
-          _iteratorError10 = err;
+          _didIteratorError12 = true;
+          _iteratorError12 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion10 && _iterator10.return) {
-              _iterator10.return();
+            if (!_iteratorNormalCompletion12 && _iterator12.return) {
+              _iterator12.return();
             }
           } finally {
-            if (_didIteratorError10) {
-              throw _iteratorError10;
+            if (_didIteratorError12) {
+              throw _iteratorError12;
             }
           }
         }
@@ -1997,8 +2254,8 @@ var DeepSpaceGame = function () {
   }, {
     key: 'updateInput',
     value: function updateInput() {
-      if (!this.spectate) this.updateGamepadInput();
-      if (!this.spectate) if (this.player.input.updateMotion) this.player.input.updateMotion();
+      // if(!this.spectate) this.updateGamepadInput();
+      if (!this.spectate) if (this.input.updateMotion) this.input.updateMotion();
     }
 
     // updateGamepadInput() {}
@@ -2016,113 +2273,116 @@ var DeepSpaceGame = function () {
   }, {
     key: 'updateShips',
     value: function updateShips() {
-      var _iteratorNormalCompletion12 = true;
-      var _didIteratorError12 = false;
-      var _iteratorError12 = undefined;
+      var _iteratorNormalCompletion14 = true;
+      var _didIteratorError14 = false;
+      var _iteratorError14 = undefined;
 
       try {
-        for (var _iterator12 = this.ships[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
-          var ship = _step12.value;
+        for (var _iterator14 = this.ships[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
+          var ship = _step14.value;
 
 
           ship.update(this.dt);
 
           if (ship == this.ships.main && !ship.disabled) {
 
-            var input = ship.owner.input,
-                x = 0,
-                y = 0,
-                x2 = 0,
-                y2 = 0,
-                s = false;
+            var input = this.input;
 
-            var _iteratorNormalCompletion13 = true;
-            var _didIteratorError13 = false;
-            var _iteratorError13 = undefined;
+            // new abstraction
+            ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * input.acceleration;
+            ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.angularAcceleration;
+            ship.relative_shoot_angle = input.shootAngle;
+            if (input.shoot) if (ship.canShoot()) this.addBullet(ship);
 
-            try {
-              for (var _iterator13 = input[Symbol.iterator](), _step13; !(_iteratorNormalCompletion13 = (_step13 = _iterator13.next()).done); _iteratorNormalCompletion13 = true) {
-                var prop = _step13.value;
-
-                switch (prop) {
-                  case 'up':
-                    y = 1;
-                    // y = -1;
-                    break;
-                  case 'dn':
-                    y = -1;
-                    // y = 1;
-                    break;
-                  case 'lt':
-                    x = -1;
-                    break;
-                  case 'rt':
-                    x = 1;
-                    break;
-                  case 'up2':
-                    y2 = -1;
-                    break;
-                  case 'dn2':
-                    y2 = 1;
-                    break;
-                  case 'lt2':
-                    x2 = -1;
-                    break;
-                  case 'rt2':
-                    x2 = 1;
-                    break;
-                  case 'sub':
-                    // if(!ship.flag) ship.sub();
-                    if (ship.flag) {
-                      this.releaseFlag();
-                    } else {
-                      if (ship.canSub()) this.addSub(ship);
-                    }
-                    break;
-                  case 'block':
-                    if (ship.canBlock()) {
-                      while (ship.reachedBlockLimit) {
-                        this.removeBlock(ship.oldestBlockID());
-                      }this.addBlock(ship);
-                    }
-                    break;
-                  case 'shoot':
-                    s = true;
-                    break;
-                }
+            if (input.block) {
+              if (ship.canBlock()) {
+                while (ship.reachedBlockLimit) {
+                  this.removeBlock(ship.oldestBlockID());
+                }this.addBlock(ship);
               }
-
-              // ship.acceleration.set({x, y})
-              // if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
-              //
-              // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
-              // if (ship.velocity.length) ship.angle = ship.velocity.angle;
-            } catch (err) {
-              _didIteratorError13 = true;
-              _iteratorError13 = err;
-            } finally {
-              try {
-                if (!_iteratorNormalCompletion13 && _iterator13.return) {
-                  _iterator13.return();
-                }
-              } finally {
-                if (_didIteratorError13) {
-                  throw _iteratorError13;
-                }
+            }
+            if (input.sub) {
+              if (ship.flag) {
+                this.releaseFlag();
+              } else {
+                if (ship.canSub()) this.addSub(ship);
               }
             }
 
-            var direction_v = new V2D(x2, y2);
-            ship.relative_shoot_angle = direction_v.length ? direction_v.angle + Math.PI / 2 : 0;
-
-            // new ship controls
-            ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * y;
-            ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * x;
-
-            // if(direction_v.length) ship.shoot();
-
-
-            if (s || direction_v.length) if (ship.canShoot()) this.addBullet(ship);
+            // var input = ship.owner.input,
+            //   x = 0, y = 0, x2 = 0, y2 = 0,
+            //   s = false;
+            //
+            // for (var prop of input) {
+            //   switch (prop) {
+            //     case 'up':
+            //       y = 1;
+            //       // y = -1;
+            //       break;
+            //     case 'dn':
+            //       y = -1;
+            //       // y = 1;
+            //       break;
+            //     case 'lt':
+            //       x = -1;
+            //       break;
+            //     case 'rt':
+            //       x = 1;
+            //       break;
+            //     case 'up2':
+            //       y2 = -1;
+            //       break;
+            //     case 'dn2':
+            //       y2 = 1;
+            //       break;
+            //     case 'lt2':
+            //       x2 = -1;
+            //       break;
+            //     case 'rt2':
+            //       x2 = 1;
+            //       break;
+            //     case 'sub':
+            //       // if(!ship.flag) ship.sub();
+            //       if(ship.flag) {
+            //         this.releaseFlag()
+            //       } else {
+            //         if(ship.canSub())
+            //           this.addSub(ship);
+            //       }
+            //       break;
+            //     case 'block':
+            //       if(ship.canBlock()) {
+            //         while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
+            //         this.addBlock(ship)
+            //       }
+            //       break;
+            //     case 'shoot':
+            //       s = true;
+            //       break;
+            //   }
+            // }
+            //
+            // // ship.acceleration.set({x, y})
+            // // if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
+            // //
+            // // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
+            // // if (ship.velocity.length) ship.angle = ship.velocity.angle;
+            //
+            // var direction_v = new V2D(x2, y2)
+            // ship.relative_shoot_angle = direction_v.length ? direction_v.angle + (Math.PI/2) : 0;
+            //
+            //
+            // // new ship controls
+            // ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * y;
+            // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * x;
+            //
+            //
+            // // if(direction_v.length) ship.shoot();
+            //
+            //
+            // if (s || direction_v.length)
+            //   if (ship.canShoot())
+            //     this.addBullet(ship);
           }
 
           // validate new position TODO (revise)
@@ -2157,16 +2417,16 @@ var DeepSpaceGame = function () {
           // if(ship.position.y > this.mapInfo.height) ship.position.y = 0;
         }
       } catch (err) {
-        _didIteratorError12 = true;
-        _iteratorError12 = err;
+        _didIteratorError14 = true;
+        _iteratorError14 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion12 && _iterator12.return) {
-            _iterator12.return();
+          if (!_iteratorNormalCompletion14 && _iterator14.return) {
+            _iterator14.return();
           }
         } finally {
-          if (_didIteratorError12) {
-            throw _iteratorError12;
+          if (_didIteratorError14) {
+            throw _iteratorError14;
           }
         }
       }
@@ -2324,99 +2584,99 @@ var DeepSpaceGame = function () {
       // created. though in practice, perhaps
       // just it's attack moves. e.g. bullets
 
-      var _iteratorNormalCompletion14 = true;
-      var _didIteratorError14 = false;
-      var _iteratorError14 = undefined;
+      var _iteratorNormalCompletion15 = true;
+      var _didIteratorError15 = false;
+      var _iteratorError15 = undefined;
 
       try {
-        for (var _iterator14 = this.physics.divisions[Symbol.iterator](), _step14; !(_iteratorNormalCompletion14 = (_step14 = _iterator14.next()).done); _iteratorNormalCompletion14 = true) {
-          var div = _step14.value;
-          var _iteratorNormalCompletion15 = true;
-          var _didIteratorError15 = false;
-          var _iteratorError15 = undefined;
+        for (var _iterator15 = this.physics.divisions[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
+          var div = _step15.value;
+          var _iteratorNormalCompletion16 = true;
+          var _didIteratorError16 = false;
+          var _iteratorError16 = undefined;
 
           try {
-            for (var _iterator15 = this.physics.collision_checks[Symbol.iterator](), _step15; !(_iteratorNormalCompletion15 = (_step15 = _iterator15.next()).done); _iteratorNormalCompletion15 = true) {
-              var _ref6 = _step15.value;
+            for (var _iterator16 = this.physics.collision_checks[Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
+              var _ref8 = _step16.value;
 
-              var _ref7 = _slicedToArray(_ref6, 3);
+              var _ref9 = _slicedToArray(_ref8, 3);
 
-              var a_type = _ref7[0];
-              var b_type = _ref7[1];
-              var check = _ref7[2];
-              var _iteratorNormalCompletion16 = true;
-              var _didIteratorError16 = false;
-              var _iteratorError16 = undefined;
+              var a_type = _ref9[0];
+              var b_type = _ref9[1];
+              var check = _ref9[2];
+              var _iteratorNormalCompletion17 = true;
+              var _didIteratorError17 = false;
+              var _iteratorError17 = undefined;
 
               try {
-                for (var _iterator16 = div[a_type][Symbol.iterator](), _step16; !(_iteratorNormalCompletion16 = (_step16 = _iterator16.next()).done); _iteratorNormalCompletion16 = true) {
-                  var body_a = _step16.value;
-                  var _iteratorNormalCompletion17 = true;
-                  var _didIteratorError17 = false;
-                  var _iteratorError17 = undefined;
+                for (var _iterator17 = div[a_type][Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
+                  var body_a = _step17.value;
+                  var _iteratorNormalCompletion18 = true;
+                  var _didIteratorError18 = false;
+                  var _iteratorError18 = undefined;
 
                   try {
-                    for (var _iterator17 = div[b_type][Symbol.iterator](), _step17; !(_iteratorNormalCompletion17 = (_step17 = _iterator17.next()).done); _iteratorNormalCompletion17 = true) {
-                      var body_b = _step17.value;
+                    for (var _iterator18 = div[b_type][Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
+                      var body_b = _step18.value;
 
                       if (Physics.doTouch(body_a, body_b)) check(body_a, body_b);
                     }
                   } catch (err) {
-                    _didIteratorError17 = true;
-                    _iteratorError17 = err;
+                    _didIteratorError18 = true;
+                    _iteratorError18 = err;
                   } finally {
                     try {
-                      if (!_iteratorNormalCompletion17 && _iterator17.return) {
-                        _iterator17.return();
+                      if (!_iteratorNormalCompletion18 && _iterator18.return) {
+                        _iterator18.return();
                       }
                     } finally {
-                      if (_didIteratorError17) {
-                        throw _iteratorError17;
+                      if (_didIteratorError18) {
+                        throw _iteratorError18;
                       }
                     }
                   }
                 }
               } catch (err) {
-                _didIteratorError16 = true;
-                _iteratorError16 = err;
+                _didIteratorError17 = true;
+                _iteratorError17 = err;
               } finally {
                 try {
-                  if (!_iteratorNormalCompletion16 && _iterator16.return) {
-                    _iterator16.return();
+                  if (!_iteratorNormalCompletion17 && _iterator17.return) {
+                    _iterator17.return();
                   }
                 } finally {
-                  if (_didIteratorError16) {
-                    throw _iteratorError16;
+                  if (_didIteratorError17) {
+                    throw _iteratorError17;
                   }
                 }
               }
             }
           } catch (err) {
-            _didIteratorError15 = true;
-            _iteratorError15 = err;
+            _didIteratorError16 = true;
+            _iteratorError16 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion15 && _iterator15.return) {
-                _iterator15.return();
+              if (!_iteratorNormalCompletion16 && _iterator16.return) {
+                _iterator16.return();
               }
             } finally {
-              if (_didIteratorError15) {
-                throw _iteratorError15;
+              if (_didIteratorError16) {
+                throw _iteratorError16;
               }
             }
           }
         }
       } catch (err) {
-        _didIteratorError14 = true;
-        _iteratorError14 = err;
+        _didIteratorError15 = true;
+        _iteratorError15 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion14 && _iterator14.return) {
-            _iterator14.return();
+          if (!_iteratorNormalCompletion15 && _iterator15.return) {
+            _iterator15.return();
           }
         } finally {
-          if (_didIteratorError14) {
-            throw _iteratorError14;
+          if (_didIteratorError15) {
+            throw _iteratorError15;
           }
         }
       }
@@ -2749,29 +3009,29 @@ var DeepSpaceGame = function () {
         case 0:
           // ctf
 
-          var _iteratorNormalCompletion18 = true;
-          var _didIteratorError18 = false;
-          var _iteratorError18 = undefined;
+          var _iteratorNormalCompletion19 = true;
+          var _didIteratorError19 = false;
+          var _iteratorError19 = undefined;
 
           try {
-            for (var _iterator18 = this.teams[Symbol.iterator](), _step18; !(_iteratorNormalCompletion18 = (_step18 = _iterator18.next()).done); _iteratorNormalCompletion18 = true) {
-              var team = _step18.value;
+            for (var _iterator19 = this.teams[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
+              var team = _step19.value;
 
               list.push(team.players.map(function (p) {
                 return p.id;
               }).indexOf(this.game.flag.holderID) != -1);
             }
           } catch (err) {
-            _didIteratorError18 = true;
-            _iteratorError18 = err;
+            _didIteratorError19 = true;
+            _iteratorError19 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion18 && _iterator18.return) {
-                _iterator18.return();
+              if (!_iteratorNormalCompletion19 && _iterator19.return) {
+                _iterator19.return();
               }
             } finally {
-              if (_didIteratorError18) {
-                throw _iteratorError18;
+              if (_didIteratorError19) {
+                throw _iteratorError19;
               }
             }
           }
@@ -2869,18 +3129,18 @@ var DeepSpaceGame = function () {
       var slowest = 0.1;var fastest = 0.02;
       var defaultMinAngle = 150;var defaultMaxAngle = 210;
 
-      var _iteratorNormalCompletion19 = true;
-      var _didIteratorError19 = false;
-      var _iteratorError19 = undefined;
+      var _iteratorNormalCompletion20 = true;
+      var _didIteratorError20 = false;
+      var _iteratorError20 = undefined;
 
       try {
-        for (var _iterator19 = this.view.proton.emitters[Symbol.iterator](), _step19; !(_iteratorNormalCompletion19 = (_step19 = _iterator19.next()).done); _iteratorNormalCompletion19 = true) {
-          var _ref8 = _step19.value;
+        for (var _iterator20 = this.view.proton.emitters[Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
+          var _ref10 = _step20.value;
 
-          var _ref9 = _slicedToArray(_ref8, 2);
+          var _ref11 = _slicedToArray(_ref10, 2);
 
-          var ship = _ref9[0];
-          var emitter = _ref9[1];
+          var ship = _ref11[0];
+          var emitter = _ref11[1];
 
 
           if (ship.disabled) {
@@ -2913,16 +3173,16 @@ var DeepSpaceGame = function () {
 
         // refresh proton
       } catch (err) {
-        _didIteratorError19 = true;
-        _iteratorError19 = err;
+        _didIteratorError20 = true;
+        _iteratorError20 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion19 && _iterator19.return) {
-            _iterator19.return();
+          if (!_iteratorNormalCompletion20 && _iterator20.return) {
+            _iterator20.return();
           }
         } finally {
-          if (_didIteratorError19) {
-            throw _iteratorError19;
+          if (_didIteratorError20) {
+            throw _iteratorError20;
           }
         }
       }
@@ -3037,11 +3297,11 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'adjustShipHP',
-    value: function adjustShipHP(_ref10) {
-      var _ref11 = _slicedToArray(_ref10, 3),
-          toID = _ref11[0],
-          hp = _ref11[1],
-          fromID = _ref11[2];
+    value: function adjustShipHP(_ref12) {
+      var _ref13 = _slicedToArray(_ref12, 3),
+          toID = _ref13[0],
+          hp = _ref13[1],
+          fromID = _ref13[2];
 
       // health on a player can only be adjusted by own player
       if (toID !== this.player.id) return;
@@ -3061,10 +3321,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'deathOccurrence',
-    value: function deathOccurrence(_ref12) {
-      var _ref13 = _slicedToArray(_ref12, 2),
-          toID = _ref13[0],
-          fromID = _ref13[1];
+    value: function deathOccurrence(_ref14) {
+      var _ref15 = _slicedToArray(_ref14, 2),
+          toID = _ref15[0],
+          fromID = _ref15[1];
 
       var t = this.players.get(toID);
       var g = this.players.get(fromID);
@@ -3232,10 +3492,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'adjustBlockHP',
-    value: function adjustBlockHP(_ref14) {
-      var _ref15 = _slicedToArray(_ref14, 2),
-          id = _ref15[0],
-          hp = _ref15[1];
+    value: function adjustBlockHP(_ref16) {
+      var _ref17 = _slicedToArray(_ref16, 2),
+          id = _ref17[0],
+          hp = _ref17[1];
 
       var block = ENV.game.model.blocks.get(id);
       if (block) block.damage(hp);
@@ -3255,10 +3515,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'setBlockTeam',
-    value: function setBlockTeam(_ref16) {
-      var _ref17 = _slicedToArray(_ref16, 2),
-          id = _ref17[0],
-          team = _ref17[1];
+    value: function setBlockTeam(_ref18) {
+      var _ref19 = _slicedToArray(_ref18, 2),
+          id = _ref19[0],
+          team = _ref19[1];
 
       // retrieve and store block
       var b = this.model.blocks.get(id);
@@ -3537,10 +3797,10 @@ var DeepSpaceGame = function () {
     }
   }, {
     key: 'flagProgress',
-    value: function flagProgress(_ref18) {
-      var _ref19 = _slicedToArray(_ref18, 2),
-          team = _ref19[0],
-          score = _ref19[1];
+    value: function flagProgress(_ref20) {
+      var _ref21 = _slicedToArray(_ref20, 2),
+          team = _ref21[0],
+          score = _ref21[1];
 
       // update local registry w/ server score
       this.game.scores[team] = score;
@@ -3756,32 +4016,32 @@ var DeepSpaceGame = function () {
   }, {
     key: 'deinitListeners',
     value: function deinitListeners() {
-      var _iteratorNormalCompletion20 = true;
-      var _didIteratorError20 = false;
-      var _iteratorError20 = undefined;
+      var _iteratorNormalCompletion21 = true;
+      var _didIteratorError21 = false;
+      var _iteratorError21 = undefined;
 
       try {
-        for (var _iterator20 = this.inputHandlers[Symbol.iterator](), _step20; !(_iteratorNormalCompletion20 = (_step20 = _iterator20.next()).done); _iteratorNormalCompletion20 = true) {
-          var _ref20 = _step20.value;
+        for (var _iterator21 = this.inputHandlers[Symbol.iterator](), _step21; !(_iteratorNormalCompletion21 = (_step21 = _iterator21.next()).done); _iteratorNormalCompletion21 = true) {
+          var _ref22 = _step21.value;
 
-          var _ref21 = _slicedToArray(_ref20, 2);
+          var _ref23 = _slicedToArray(_ref22, 2);
 
-          var handler = _ref21[1];
+          var handler = _ref23[1];
 
           window.removeEventListener('keydown', handler); // onkeydown
           window.removeEventListener('keyup', handler); // onkeyup
         }
       } catch (err) {
-        _didIteratorError20 = true;
-        _iteratorError20 = err;
+        _didIteratorError21 = true;
+        _iteratorError21 = err;
       } finally {
         try {
-          if (!_iteratorNormalCompletion20 && _iterator20.return) {
-            _iterator20.return();
+          if (!_iteratorNormalCompletion21 && _iterator21.return) {
+            _iterator21.return();
           }
         } finally {
-          if (_didIteratorError20) {
-            throw _iteratorError20;
+          if (_didIteratorError21) {
+            throw _iteratorError21;
           }
         }
       }
