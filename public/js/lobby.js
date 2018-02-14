@@ -210,7 +210,7 @@ let LOBBY = {
     $('#clock').text(str);
   },
 
-  refreshClock() {return
+  refreshClock() {
     ENV.game.game.overtime ? LOBBY.writeClock('OVERTIME') : LOBBY.setClock(ENV.game.timer.timeLeft);
     // LOBBY.setClock(ENV.game.timer.timeLeft);
     if(!ENV.game.game.disabled) setTimeout(()=>{ LOBBY.refreshClock() }, 1000);
