@@ -292,7 +292,7 @@ class DeepSpaceGame {
 
   createViews() {
     this.view = {
-      grid: {width: 48, height: 48},
+      grid: {width: 100, height: 100},
     };
     this.window = {
       width: this.stage.canvas.width * this.HDPScale,
@@ -824,6 +824,7 @@ class DeepSpaceGame {
       const inputs = this.input = {
         acceleration: 0,
         angularAcceleration: 0,
+        angularVelocity: null,
         shoot: false,
         shootAngle: 0,
         block: false,
@@ -878,37 +879,45 @@ class DeepSpaceGame {
         // setup
         inputs.acceleration = 0;
         inputs.angularAcceleration = 0;
-        var x2 = 0, y2 = 0, shoot = false, block = false, sub = false;
+        inputs.angularVelocity = null;
+        let x2 = 0, y2 = 0, shoot = false, block = false, sub = false;
 
         // cycle through
-        for (let [input,] of stack.items) {
+        for (let [input, value] of stack.items) {
+          let noValue = typeof value === 'undefined';
           switch (input) {
             case 'up':
-              inputs.acceleration = buttonWeight;
+              inputs.acceleration = noValue ? buttonWeight : value;
               break;
             case 'dn':
-              inputs.acceleration =-buttonWeight;
-              break;
-            case 'lt':
-              inputs.angularAcceleration =-buttonWeight;
+              inputs.acceleration = noValue ? -buttonWeight : -value;
               break;
             case 'rt':
-              inputs.angularAcceleration = buttonWeight;
+              inputs.angularAcceleration = noValue ? buttonWeight : value;
+              break;
+            case 'lt':
+              inputs.angularAcceleration = noValue ? -buttonWeight : -value;
+              break;
+            case 'rt+':
+              inputs.angularVelocity = noValue ? buttonWeight : value;
+              break;
+            case 'lt+':
+              inputs.angularVelocity = noValue ? -buttonWeight : -value;
               break;
             case 'up2':
-              y2 = -1;
+              x2 = 1;
               shoot = true;
               break;
             case 'dn2':
-              y2 = 1;
-              shoot = true;
-              break;
-            case 'lt2':
               x2 = -1;
               shoot = true;
               break;
+            case 'lt2':
+              y2 = -1;
+              shoot = true;
+              break;
             case 'rt2':
-              x2 = 1;
+              y2 = 1;
               shoot = true;
               break;
             case 'shoot':
@@ -924,14 +933,14 @@ class DeepSpaceGame {
         }
 
         // evaluate
-        var directionV = new V2D(x2, y2);
-        inputs.shootAngle = directionV.angle + (Math.PI / 2);
+        const directionV = new V2D(x2, y2);
+        inputs.shootAngle = directionV.angle;
         inputs.shoot = shoot;
         inputs.block = block;
         inputs.sub = sub;
 
       };
-
+window.flatten = flattenStack;
       // let keyHandler = (e) => {
       //   var type = e.type;
       //
@@ -1120,7 +1129,7 @@ class DeepSpaceGame {
         };
       */
 
-      // NEWER :D
+      // newer :D
 
       const gamepad = new GamepadInput();
 
@@ -1284,14 +1293,63 @@ class DeepSpaceGame {
 
 
       // MOBILE
+
+      const mobile = new MobileInput();
+      window.mobile = mobile;
+
+      const left = document.querySelector('#touch_layer > .left');
+      const rightTop = document.querySelector('#touch_layer > .right > .top');
+      const rightBottom = document.querySelector('#touch_layer > .right > .bottom');
+
+      const deadzone1 = 10;
+      const max1 = 110;
+      const diff1 = max1 - deadzone1;
+
+      // mobile.createButton('whole-screen', whole);
+      mobile.createButton('left-screen', left);
+      mobile.createButton('right-top', rightTop);
+      mobile.createButton('right-bottom', rightBottom);
+      mobile.createVerticalAxis('leftY', left);
+
+
+      keyboardStack.addItemWhen('up', mobile.button('left-screen').ontrue);
+      keyboardStack.removeItemWhen('up', mobile.button('left-screen').onfalse);
+      keyboardStack.addItemWhen('lt+', mobile.axis('leftY').onlessthan(-deadzone1), n => (diff1 - (max1 + n)) / diff1);
+      keyboardStack.removeItemWhen('lt+', mobile.axis('leftY').onmorethan(-deadzone1));
+      keyboardStack.addItemWhen('rt+', mobile.axis('leftY').onmorethan(deadzone1), n => (diff1 - (max1 - n)) / diff1);
+      keyboardStack.removeItemWhen('rt+', mobile.axis('leftY').onlessthan(deadzone1));
+
+      keyboardStack.addItemWhen('sub', mobile.button('right-top').ontrue);
+      keyboardStack.removeItemWhen('sub', mobile.button('right-top').onfalse);
+      keyboardStack.addItemWhen('shoot', mobile.button('right-bottom').ontrue);
+      keyboardStack.removeItemWhen('shoot', mobile.button('right-bottom').onfalse);
+
+      // gamepad.axis('leftY').onlessthan(0)((value)=>{
+      //   $('#clock').text(`value: ${value}`);
+      // })
+
+      // const mobile = new MobileInput({
+      //   draggableAxes: true,
+      // });
+      // mobile.accelerometer.start();
+      // mobile.accelerometer.stop();
+      // mobile.accelerometer.reset();
+      // mobile.axis('tiltX').onlessthan(3);
+      // mobile.addSurface('left-screen', 890);
+      // mobile.addSurface('right-bottom', 891);
+      //
+      //
+      // keyboardStack.addItemWhen('rt2', mobile.axis('left-screen').onmorethan(deadzone), n => (max - n / diff));
+      // keyboardStack.removeItemWhen('rt2', mobile.axis('left-screen').onmorethan(deadzone));
+
       let raw_acc_data = [0, 0], applied_acc_data = [0, 0]; // [x, y]
       let threshold = 1, bias = [0, 0]; // deadzone
       const minThreshhold = 1;
-      const maxThreshhold = 4;
+      const maxThreshhold = 7;
       const thresholdSpan = maxThreshhold - minThreshhold;
       bias = ENV.storage.calibration = (ENV.storage.calibration) ? ENV.storage.calibration.split(",").map(Number) : [0, 0];
       // let origin = [0, bias];
-      if (ENV.mobile && window.DeviceMotionEvent != undefined) {
+      if (ENV.mobile && false && window.DeviceMotionEvent != undefined) {
         window.ondevicemotion = function (e) {
           raw_acc_data = [e.accelerationIncludingGravity.x, e.accelerationIncludingGravity.y];
           // if ( e.rotationRate )  {
@@ -1373,68 +1431,86 @@ class DeepSpaceGame {
         };
       }
 
-      var left = document.querySelector('#touch_layer > .left');
-      left.addEventListener('touchstart', e => {
-        inputStack.add('block')
-      });
-      left.addEventListener('touchend', e => {
-        inputStack.delete('block')
-      });
-
-      let joystick = new V2D(), joystick_deadzone_radius = 30;
-      var right = document.querySelector('#touch_layer > .right');
-      right.addEventListener('touchstart', e => {
-        inputStack.add('shoot')
-      });
-      right.addEventListener('touchend', e => {
-        inputStack.delete('shoot');
-        inputStack.delete('up2');
-        inputStack.delete('dn2');
-        inputStack.delete('lt2');
-        inputStack.delete('rt2');
-      });
-      var right_hammer = new Hammer(right);
-      right_hammer.on('panmove', function (e) {
-        var v = new V2D(e.deltaX, e.deltaY), a = v.angle;
-        if (v.length > joystick_deadzone_radius) {
-          if (a < -0.39 && a > -2.74) {
-            inputStack.add('up2')
-          } else {
-            inputStack.delete('up2')
-          }
-          if (a > 0.39 && a < 2.74) {
-            inputStack.add('dn2')
-          } else {
-            inputStack.delete('dn2')
-          }
-          if (a > 1.96 || a < -1.96) {
-            inputStack.add('lt2')
-          } else {
-            inputStack.delete('lt2')
-          }
-          if (a > -1.18 && a < 1.18) {
-            inputStack.add('rt2')
-          } else {
-            inputStack.delete('rt2')
-          }
-        } else {
-
-        }
-        // console.log(e)
-      });
-
-      var hammertime = new Hammer(document.querySelector('#touch_layer'));
-      hammertime.get('tap').set({taps: 2})
-      hammertime.get('swipe').set({direction: Hammer.DIRECTION_LEFT})
-      hammertime.on('tap', function (ev) {
-        inputStack.add('sub');
-        ( () => inputStack.delete('sub') ).wait(200);
-      });
-      hammertime.on('swipe', function (e) {
-        // calibrate
-        bias = applied_acc_data;
-        ENV.storage.calibration = bias;
-      });
+      // var left = document.querySelector('#touch_layer > .left');
+      // left.addEventListener('touchstart', e => {
+      //   keyboardStack.setItem('block')
+      //   // inputStack.add('block')
+      // });
+      // left.addEventListener('touchend', e => {
+      //   keyboardStack.clearItem('block')
+      //   // inputStack.delete('block')
+      // });
+      //
+      // let joystick = new V2D(), joystick_deadzone_radius = 30;
+      // var right = document.querySelector('#touch_layer > .right');
+      // right.addEventListener('touchstart', e => {
+      //   keyboardStack.setItem('shoot')
+      //   // inputStack.add('shoot')
+      // });
+      // right.addEventListener('touchend', e => {
+      //   keyboardStack.clearItem('shoot');
+      //   keyboardStack.clearItem('up2');
+      //   keyboardStack.clearItem('dn2');
+      //   keyboardStack.clearItem('lt2');
+      //   keyboardStack.clearItem('rt2');
+      //   // inputStack.delete('shoot');
+      //   // inputStack.delete('up2');
+      //   // inputStack.delete('dn2');
+      //   // inputStack.delete('lt2');
+      //   // inputStack.delete('rt2');
+      // });
+      // var right_hammer = new Hammer(right);
+      // right_hammer.on('panmove', function (e) {
+      //   var v = new V2D(e.deltaX, e.deltaY), a = v.angle;
+      //   if (v.length > joystick_deadzone_radius) {
+      //     if (a < -0.39 && a > -2.74) {
+      //       keyboardStack.setItem('up2')
+      //       // inputStack.add('up2')
+      //     } else {
+      //       keyboardStack.clearItem('up2')
+      //       // inputStack.delete('up2')
+      //     }
+      //     if (a > 0.39 && a < 2.74) {
+      //       keyboardStack.setItem('dn2')
+      //       // inputStack.add('dn2')
+      //     } else {
+      //       keyboardStack.clearItem('dn2')
+      //       // inputStack.delete('dn2')
+      //     }
+      //     if (a > 1.96 || a < -1.96) {
+      //       keyboardStack.setItem('lt2')
+      //       // inputStack.add('lt2')
+      //     } else {
+      //       keyboardStack.clearItem('lt2')
+      //       // inputStack.delete('lt2')
+      //     }
+      //     if (a > -1.18 && a < 1.18) {
+      //       keyboardStack.setItem('rt2')
+      //       // inputStack.add('rt2')
+      //     } else {
+      //       keyboardStack.clearItem('rt2')
+      //       // inputStack.delete('rt2')
+      //     }
+      //   } else {
+      //
+      //   }
+      //   // console.log(e)
+      // });
+      //
+      // var hammertime = new Hammer(document.querySelector('#touch_layer'));
+      // hammertime.get('tap').set({taps: 2})
+      // hammertime.get('swipe').set({direction: Hammer.DIRECTION_LEFT})
+      // hammertime.on('tap', function (ev) {
+      //   keyboardStack.setItem('sub');
+      //   // inputStack.add('sub');
+      //   ( () => keyboardStack.clearItem('sub') ).wait(200);
+      //   // ( () => inputStack.delete('sub') ).wait(200);
+      // });
+      // hammertime.on('swipe', function (e) {
+      //   // calibrate
+      //   bias = applied_acc_data;
+      //   ENV.storage.calibration = bias;
+      // });
 
 
     }
@@ -1597,6 +1673,18 @@ class DeepSpaceGame {
         }]
       );
 
+      // MY BULLET <-> ENEMY BULLETS
+      checks.push([
+        groups.MY_BULLETS,
+        groups.ENEMY_BULLETS,
+        (bulletA, bulletB) => {
+          if (!bulletA.disabled && !bulletB.disabled) {
+            this.removeBullet(bulletA.id);
+            this.removeBullet(bulletB.id);
+          }
+        }]
+      );
+
       // OUR BULLET <-> IMPERMEABLES
       // checks.push([
       //   groups.OUR_BULLETS,
@@ -1692,7 +1780,7 @@ class DeepSpaceGame {
       (ship, refuge) => {
         if (!ship.disabled) {
           if (ship.owner.team.number != refuge.team) {
-            Physics.bounce(ship, refuge);
+            // Physics.bounce(ship, refuge);
           } else {
             ship.charging = true;
           }
@@ -1836,13 +1924,17 @@ class DeepSpaceGame {
       let radius = Bullet.stats.MAX_RADIUS;
 
       let v = new createjs.Shape(
-        DeepSpaceGame.graphics.particle(this.teams[team.number].color, radius)
+        DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius)
       );
 
       var s = radius * 1.2;
-      v.cache(-s, -s, s * 2, s * 2);
+      let c = new createjs.Container();
+      v.alpha = 0.5;
+      c.addChild(v);
+      c.cache(-s, -s, s * 2, s * 2);
+      // v.cache(-s, -s, s * 2, s * 2);
 
-      gc.bullets[team.number] = v.cacheCanvas;
+      gc.bullets[team.number] = c.cacheCanvas;
     });
 
     // blocks
@@ -1996,6 +2088,9 @@ class DeepSpaceGame {
         ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * input.acceleration;
         ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.angularAcceleration;
         ship.relative_shoot_angle = input.shootAngle;
+        if(input.angularVelocity !== null)
+          ship.angular_velocity = ship.ANGULAR_VELOCITY_LIMIT_MIN * input.angularVelocity;
+
         if(input.shoot)
           if(ship.canShoot())
             this.addBullet(ship);
@@ -2129,7 +2224,7 @@ class DeepSpaceGame {
 
   broadcastShip() {
     var ship, input;
-    if ((ship = this.ships.main) && (input = ship.owner.input)) {
+    if ((ship = this.ships.main) && (input = this.input)) {
       if (input.changed) {
         // log(Array.from(input));
         // NetworkHelper.out_input_stack(Array.from(input));
@@ -3671,7 +3766,7 @@ DeepSpaceGame.localizationStrings = {
       en: () => `We lost the lead!`
     },
     teamMemberDisconnects: {
-      en: (name) => `Your teammate ${name} has disconnected`
+      en: (name) => `Teammate ${name} disconnected`
     }
   },
   colors: {

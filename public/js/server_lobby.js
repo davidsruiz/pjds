@@ -53,8 +53,8 @@ class Lobby {
     this.gameVars = null; // set during this.startGame
     this.options = {
       // settable
-      map: 0,
-      mode: 1,
+      map: 3,
+      mode: 0,
       stock: 0,
 
       // non-settable

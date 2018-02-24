@@ -13,4 +13,7 @@ $(() => {
   if(ENV.storage.ongoing == 'true') { ENV.user.updateRank(); ENV.storage.ongoing = 'false' }
 
   document.querySelector('#home_icon').addEventListener('click', () => { window.location.reset() });
+
+  // TODO fix..!
+  if(ENV.mobile) document.querySelector('#touch_layer').remove();
 });

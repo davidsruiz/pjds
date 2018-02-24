@@ -314,7 +314,71 @@ class GamepadInput extends Input {
 
 class MobileInput extends Input {
 
-  // initial support is only for accelerometer data
+  // initial support excludes accelerometer data
+
+  constructor() {
+    super();
+
+    this._buttonNodes = new Map();
+    this._verticalAxisNodes = new Map();
+    this._horizontalAxisNodes = new Map();
+
+  }
+
+  createButton(id, node) {
+    let startHandler = e => {
+      this.button(id).setState(true);
+    };
+    let endHandler = e => {
+      this.button(id).setState(false);
+    };
+    node.addEventListener('touchstart', startHandler);
+    node.addEventListener('touchend', endHandler);
+    this._buttonNodes.set(id, [node, startHandler, endHandler]);
+  }
+
+  deleteButton(id) {
+    let [node, startHandler, endHandler] = this._buttonNodes.get(id);
+    node.removeEventListener('touchstart', startHandler);
+    node.removeEventListener('touchend', endHandler);
+    this._buttonNodes.delete(id);
+  }
+
+  createVerticalAxis(id, node) {
+    const gestureRecognizer = new Hammer(node);
+    gestureRecognizer.get('pan').set({ direction: Hammer.DIRECTION_VERTICAL });
+    gestureRecognizer.on('panmove', e => {
+      this.axis(id).setState(e.deltaY);
+    });
+    gestureRecognizer.on('panend', e => {
+      this.axis(id).setState(0);
+    });
+    this._verticalAxisNodes.set(id, [node, gestureRecognizer]);
+  }
+
+  deleteVerticalAxis(id) {
+    const [, gestureRecognizer] =  this._verticalAxisNodes.get(id);
+    gestureRecognizer.destroy();
+    this._verticalAxisNodes.delete(id);
+  }
+
+  createHorizontalAxis(id, node) {
+    const gestureRecognizer = new Hammer(node);
+    gestureRecognizer.get('pan').set({ direction: Hammer.DIRECTION_HORIZONTAL });
+    gestureRecognizer.on('panmove', e => {
+      this.axis(id).setState(e.deltaX);
+    });
+    gestureRecognizer.on('panend', e => {
+      this.axis(id).setState(0);
+    });
+    this._horizontalAxisNodes.set(id, [node, gestureRecognizer]);
+  }
+
+  deleteHorizontalAxis(id) {
+    const [, gestureRecognizer] =  this._horizontalAxisNodes.get(id);
+    gestureRecognizer.destroy();
+    this._horizontalAxisNodes.delete(id);
+  }
 
 
 
@@ -336,7 +400,10 @@ class InputStack extends EventProtocol {
 
   setItem(item, value) {
 
-    const changeOccurring = typeof this.items.get(item) === 'undefined'; // if item not already present
+    const itemIsNotAlreadyPresent = !this.items.has(item);
+    const valueHasChanged = (this.items.get(item) !== value);
+    const changeOccurring = itemIsNotAlreadyPresent || valueHasChanged;
+
     this.items.set(item, value);
 
     if(changeOccurring) {
@@ -348,7 +415,7 @@ class InputStack extends EventProtocol {
 
   clearItem(item) {
 
-    const changeOccurring = typeof this.items.get(item) !== 'undefined'; // if item not already removed
+    const changeOccurring = this.items.has(item); // if item not already removed
     this.items.delete(item);
 
     if(changeOccurring) {
@@ -439,27 +506,27 @@ class InputStack extends EventProtocol {
 
 
 
-var keyboard = new KeyboardInput();
-var gamepad = new GamepadInput();
-
-var stack = new InputStack();
-
-stack.addItemWhen('shoot', keyboard.button(32).ontrue);
-stack.removeItemWhen('shoot', keyboard.button(32).onfalse);
-
-stack.addItemWhen('left', gamepad.axis(0).onlessthan(-0.2));
-stack.removeItemWhen('left', gamepad.axis(0).onmorethan(-0.2));
-stack.addItemWhen('right', gamepad.axis(0).onmorethan(0.2));
-stack.removeItemWhen('right', gamepad.axis(0).onlessthan(0.2));
-
-stack.onadd('shoot', () => console.log('shoot added'));
-stack.onremove('shoot', () => console.log('shoot removed'));
-
-stack.onadd('left', () => console.log('left added'));
-stack.onremove('left', () => console.log('left removed'));
-
-stack.onadd('right', () => console.log('right added'));
-stack.onremove('right', () => console.log('right removed'));
+// var keyboard = new KeyboardInput();
+// var gamepad = new GamepadInput();
+//
+// var stack = new InputStack();
+//
+// stack.addItemWhen('shoot', keyboard.button(32).ontrue);
+// stack.removeItemWhen('shoot', keyboard.button(32).onfalse);
+//
+// stack.addItemWhen('left', gamepad.axis(0).onlessthan(-0.2));
+// stack.removeItemWhen('left', gamepad.axis(0).onmorethan(-0.2));
+// stack.addItemWhen('right', gamepad.axis(0).onmorethan(0.2));
+// stack.removeItemWhen('right', gamepad.axis(0).onlessthan(0.2));
+//
+// stack.onadd('shoot', () => console.log('shoot added'));
+// stack.onremove('shoot', () => console.log('shoot removed'));
+//
+// stack.onadd('left', () => console.log('left added'));
+// stack.onremove('left', () => console.log('left removed'));
+//
+// stack.onadd('right', () => console.log('right added'));
+// stack.onremove('right', () => console.log('right removed'));
 
 
 (() => {

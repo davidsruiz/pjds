@@ -437,10 +437,10 @@ var GamepadInput = function (_Input2) {
 
         try {
           for (var _iterator6 = gamepads[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-            var _gamepad = _step6.value;
+            var gamepad = _step6.value;
 
-            if (_gamepad) {
-              this.setGamepad(_gamepad);
+            if (gamepad) {
+              this.setGamepad(gamepad);
               break;
             }
           }
@@ -524,11 +524,99 @@ var GamepadInput = function (_Input2) {
 var MobileInput = function (_Input3) {
   _inherits(MobileInput, _Input3);
 
+  // initial support excludes accelerometer data
+
   function MobileInput() {
     _classCallCheck(this, MobileInput);
 
-    return _possibleConstructorReturn(this, (MobileInput.__proto__ || Object.getPrototypeOf(MobileInput)).apply(this, arguments));
+    var _this7 = _possibleConstructorReturn(this, (MobileInput.__proto__ || Object.getPrototypeOf(MobileInput)).call(this));
+
+    _this7._buttonNodes = new Map();
+    _this7._verticalAxisNodes = new Map();
+    _this7._horizontalAxisNodes = new Map();
+
+    return _this7;
   }
+
+  _createClass(MobileInput, [{
+    key: 'createButton',
+    value: function createButton(id, node) {
+      var _this8 = this;
+
+      var startHandler = function startHandler(e) {
+        _this8.button(id).setState(true);
+      };
+      var endHandler = function endHandler(e) {
+        _this8.button(id).setState(false);
+      };
+      node.addEventListener('touchstart', startHandler);
+      node.addEventListener('touchend', endHandler);
+      this._buttonNodes.set(id, [node, startHandler, endHandler]);
+    }
+  }, {
+    key: 'deleteButton',
+    value: function deleteButton(id) {
+      var _buttonNodes$get = this._buttonNodes.get(id),
+          _buttonNodes$get2 = _slicedToArray(_buttonNodes$get, 3),
+          node = _buttonNodes$get2[0],
+          startHandler = _buttonNodes$get2[1],
+          endHandler = _buttonNodes$get2[2];
+
+      node.removeEventListener('touchstart', startHandler);
+      node.removeEventListener('touchend', endHandler);
+      this._buttonNodes.delete(id);
+    }
+  }, {
+    key: 'createVerticalAxis',
+    value: function createVerticalAxis(id, node) {
+      var _this9 = this;
+
+      var gestureRecognizer = new Hammer(node);
+      gestureRecognizer.get('pan').set({ direction: Hammer.DIRECTION_VERTICAL });
+      gestureRecognizer.on('panmove', function (e) {
+        _this9.axis(id).setState(e.deltaY);
+      });
+      gestureRecognizer.on('panend', function (e) {
+        _this9.axis(id).setState(0);
+      });
+      this._verticalAxisNodes.set(id, [node, gestureRecognizer]);
+    }
+  }, {
+    key: 'deleteVerticalAxis',
+    value: function deleteVerticalAxis(id) {
+      var _verticalAxisNodes$ge = this._verticalAxisNodes.get(id),
+          _verticalAxisNodes$ge2 = _slicedToArray(_verticalAxisNodes$ge, 2),
+          gestureRecognizer = _verticalAxisNodes$ge2[1];
+
+      gestureRecognizer.destroy();
+      this._verticalAxisNodes.delete(id);
+    }
+  }, {
+    key: 'createHorizontalAxis',
+    value: function createHorizontalAxis(id, node) {
+      var _this10 = this;
+
+      var gestureRecognizer = new Hammer(node);
+      gestureRecognizer.get('pan').set({ direction: Hammer.DIRECTION_HORIZONTAL });
+      gestureRecognizer.on('panmove', function (e) {
+        _this10.axis(id).setState(e.deltaX);
+      });
+      gestureRecognizer.on('panend', function (e) {
+        _this10.axis(id).setState(0);
+      });
+      this._horizontalAxisNodes.set(id, [node, gestureRecognizer]);
+    }
+  }, {
+    key: 'deleteHorizontalAxis',
+    value: function deleteHorizontalAxis(id) {
+      var _horizontalAxisNodes$ = this._horizontalAxisNodes.get(id),
+          _horizontalAxisNodes$2 = _slicedToArray(_horizontalAxisNodes$, 2),
+          gestureRecognizer = _horizontalAxisNodes$2[1];
+
+      gestureRecognizer.destroy();
+      this._horizontalAxisNodes.delete(id);
+    }
+  }]);
 
   return MobileInput;
 }(Input);
@@ -539,21 +627,24 @@ var InputStack = function (_EventProtocol2) {
   function InputStack() {
     _classCallCheck(this, InputStack);
 
-    var _this8 = _possibleConstructorReturn(this, (InputStack.__proto__ || Object.getPrototypeOf(InputStack)).call(this));
+    var _this11 = _possibleConstructorReturn(this, (InputStack.__proto__ || Object.getPrototypeOf(InputStack)).call(this));
 
-    _this8.items = new Map();
-    _this8.reference = new Map();
-    _this8.addHandlers = new Map();
-    _this8.removeHandlers = new Map();
+    _this11.items = new Map();
+    _this11.reference = new Map();
+    _this11.addHandlers = new Map();
+    _this11.removeHandlers = new Map();
 
-    return _this8;
+    return _this11;
   }
 
   _createClass(InputStack, [{
     key: 'setItem',
     value: function setItem(item, value) {
 
-      var changeOccurring = typeof this.items.get(item) === 'undefined'; // if item not already present
+      var itemIsNotAlreadyPresent = !this.items.has(item);
+      var valueHasChanged = this.items.get(item) !== value;
+      var changeOccurring = itemIsNotAlreadyPresent || valueHasChanged;
+
       this.items.set(item, value);
 
       if (changeOccurring) {
@@ -565,7 +656,7 @@ var InputStack = function (_EventProtocol2) {
     key: 'clearItem',
     value: function clearItem(item) {
 
-      var changeOccurring = typeof this.items.get(item) !== 'undefined'; // if item not already removed
+      var changeOccurring = this.items.has(item); // if item not already removed
       this.items.delete(item);
 
       if (changeOccurring) {
@@ -594,7 +685,7 @@ var InputStack = function (_EventProtocol2) {
   }, {
     key: 'addItemWhen',
     value: function addItemWhen(item, expectingHandler) {
-      var _this9 = this;
+      var _this12 = this;
 
       var valueInterpreter = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : function (a) {
         return a;
@@ -605,17 +696,17 @@ var InputStack = function (_EventProtocol2) {
         var value = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 1;
 
 
-        _this9.setItem(item, valueInterpreter(value));
+        _this12.setItem(item, valueInterpreter(value));
       });
     }
   }, {
     key: 'removeItemWhen',
     value: function removeItemWhen(item, expectingHandler) {
-      var _this10 = this;
+      var _this13 = this;
 
       expectingHandler(function () {
 
-        _this10.clearItem(item);
+        _this13.clearItem(item);
       });
     }
   }, {
@@ -709,39 +800,28 @@ var InputStack = function (_EventProtocol2) {
   return InputStack;
 }(EventProtocol);
 
-var keyboard = new KeyboardInput();
-var gamepad = new GamepadInput();
+// var keyboard = new KeyboardInput();
+// var gamepad = new GamepadInput();
+//
+// var stack = new InputStack();
+//
+// stack.addItemWhen('shoot', keyboard.button(32).ontrue);
+// stack.removeItemWhen('shoot', keyboard.button(32).onfalse);
+//
+// stack.addItemWhen('left', gamepad.axis(0).onlessthan(-0.2));
+// stack.removeItemWhen('left', gamepad.axis(0).onmorethan(-0.2));
+// stack.addItemWhen('right', gamepad.axis(0).onmorethan(0.2));
+// stack.removeItemWhen('right', gamepad.axis(0).onlessthan(0.2));
+//
+// stack.onadd('shoot', () => console.log('shoot added'));
+// stack.onremove('shoot', () => console.log('shoot removed'));
+//
+// stack.onadd('left', () => console.log('left added'));
+// stack.onremove('left', () => console.log('left removed'));
+//
+// stack.onadd('right', () => console.log('right added'));
+// stack.onremove('right', () => console.log('right removed'));
 
-var stack = new InputStack();
-
-stack.addItemWhen('shoot', keyboard.button(32).ontrue);
-stack.removeItemWhen('shoot', keyboard.button(32).onfalse);
-
-stack.addItemWhen('left', gamepad.axis(0).onlessthan(-0.2));
-stack.removeItemWhen('left', gamepad.axis(0).onmorethan(-0.2));
-stack.addItemWhen('right', gamepad.axis(0).onmorethan(0.2));
-stack.removeItemWhen('right', gamepad.axis(0).onlessthan(0.2));
-
-stack.onadd('shoot', function () {
-  return console.log('shoot added');
-});
-stack.onremove('shoot', function () {
-  return console.log('shoot removed');
-});
-
-stack.onadd('left', function () {
-  return console.log('left added');
-});
-stack.onremove('left', function () {
-  return console.log('left removed');
-});
-
-stack.onadd('right', function () {
-  return console.log('right added');
-});
-stack.onremove('right', function () {
-  return console.log('right removed');
-});
 
 (function () {
   //

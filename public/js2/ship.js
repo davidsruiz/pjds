@@ -526,13 +526,13 @@ Ship.type = [{
 Ship.baseStats = {
   type: 'base',
 
-  HP_CAPACITY: 20, //hp
+  HP_CAPACITY: 40, //hp
   ANGULAR_FRICTION: 0.9, //%
-  ANGULAR_VELOCITY_LIMIT_MIN: Math.radians(90), //deg/s
-  ANGULAR_VELOCITY_LIMIT_MAX: Math.radians(120), //deg/s
+  ANGULAR_VELOCITY_LIMIT_MIN: Math.radians(150), //deg/s
+  ANGULAR_VELOCITY_LIMIT_MAX: Math.radians(180), //deg/s
   ANGULAR_ACCELERATION_LIMIT: Math.radians(8), //deg/s*s
   LINEAR_FRICTION: 0.9, //%
-  LINEAR_VELOCITY_LIMIT: 120, //188 //px/s (3px/f)
+  LINEAR_VELOCITY_LIMIT: 240, //188 //px/s (3px/f)
   LINEAR_ACCELERATION_LIMIT: 10, //px/s*s (0.26px/f*f)
   LINEAR_VELOCITY_LIMIT_EXTENDED: 50, //px/s
   LINEAR_VELOCITY_LIMIT_BACKWARD: 60, //px/s
@@ -552,11 +552,11 @@ Ship.baseStats = {
 
   ATTACK_HP: 8, //hp
   ATTACK_RECOIL_DELAY: 1 / 4, //8 //b/s (8f == 7.5b/s)
-  ATTACK_RADIUS: 8, //px
+  ATTACK_RADIUS: 24, //px
   ATTACK_SPREAD: 2 * Math.PI * 0.01, // (1%) angle sweep in radians,
   ATTACK_LIFESPAN: 1.6, //0.5 //s,
   ATTACK_ENERGY_FRACTION_HP: 0.3, //%
-  ATTACK_SPEED: 200, //px/s
+  ATTACK_SPEED: 400, //px/s
 
   REGEN_DELAY: 3, //s (180f)
   REGEN_RATE: 24, //hp/s (0.4hp/f)
@@ -564,7 +564,7 @@ Ship.baseStats = {
   BLOCK_CAPACITY: 500, //#
   BLOCK_HP_CAPACITY: 20, //hp
   BLOCK_SPREAD: 2 * Math.PI * 0.1, // 0.2 (30%) angle sweep in radians.
-  BLOCK_RECOIL_DELAY: 1 / 6, //b/s (8f == 7.5b/s)
+  BLOCK_RECOIL_DELAY: 1 / 4, //b/s (8f == 7.5b/s)
   BLOCK_ENERGY_COST: 8, //ep
 
   SUB_TYPE: 'block_bomb',

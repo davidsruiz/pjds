@@ -18,4 +18,8 @@ $(function () {
   document.querySelector('#home_icon').addEventListener('click', function () {
     window.location.reset();
   });
+
+  // TODO fix..!
+  if (ENV.mobile) document.querySelector('#touch_layer').remove();
 });
+//# sourceMappingURL=game.js.map
