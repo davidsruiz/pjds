@@ -820,3 +820,4 @@ var NetworkHelper = function () {
   return NetworkHelper;
 }();
 // NetworkHelper.messages = [];
+//# sourceMappingURL=network2.js.map

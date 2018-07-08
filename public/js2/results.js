@@ -483,3 +483,4 @@ var fake_data = [{
   players: [['shakespear', 12, 15, 123]]
 }];
 // RESULTS.load(fake_data);
+//# sourceMappingURL=results.js.map

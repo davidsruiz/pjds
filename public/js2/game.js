@@ -19,3 +19,4 @@ $(function () {
     window.location.reset();
   });
 });
+//# sourceMappingURL=game.js.map

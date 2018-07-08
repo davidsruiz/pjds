@@ -721,3 +721,4 @@ sio.sockets.on('connection', function (client) {
 
   this.onFinish = function () {};
 }); //sio.sockets.on connection
+//# sourceMappingURL=index.js.map

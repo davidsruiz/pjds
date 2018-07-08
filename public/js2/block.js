@@ -85,3 +85,4 @@ Block.stats = {
 
   DISRUPTIVE_FRICTION: 0.1
 };
+//# sourceMappingURL=block.js.map
