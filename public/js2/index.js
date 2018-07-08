@@ -109,17 +109,17 @@ var path = require('path');
 app.use(express.static(path.resolve('public')));
 
 //Tell the server to listen for incoming connections
-// server.listen(80);
+server.listen(80);
 server.listen(gameport);
 //Log something so we know that it succeeded.
 console.log('\t :: Express :: Listening on port ' + gameport);
 
 app.get('/', function (req, res) {
 
-  res.sendFile(path.resolve('public/home.html'));
+  res.sendfile(path.resolve('public/home.html'));
 });
 
-// app.get( '/play', function( req, res ){ res.sendFile("play.html")
+// app.get( '/play', function( req, res ){ res.sendfile("play.html")
 
 app.post('/:type', function (req, res) {
 
@@ -330,7 +330,7 @@ app.post('/:type', function (req, res) {
 
 app.get('/friends', function (req, res, next) {
 
-  res.sendFile(path.resolve('public/friends.html'));
+  res.sendfile(path.resolve('public/friends.html'));
 }); //app.get /friends
 
 // routing to lobby
@@ -338,7 +338,7 @@ app.get('/*', function (req, res, next) {
 
   var lobbyID = req.params[0];
   if (LM.exists(lobbyID)) {
-    res.sendFile(path.resolve('public/game.html'));
+    res.sendfile(path.resolve('public/game.html'));
   } else {
     res.redirect('/');
   }
@@ -721,3 +721,4 @@ sio.sockets.on('connection', function (client) {
 
   this.onFinish = function () {};
 }); //sio.sockets.on connection
+//# sourceMappingURL=index.js.map

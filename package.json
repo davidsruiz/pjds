@@ -3,9 +3,10 @@
   "author": "David Ruiz",
   "description": "A real time online multiplayer game",
   "license": "MIT",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "dependencies": {
     "babelify": "^7.3.0",
+    "body-parser": "^1.18.3",
     "classnames": "^2.2.5",
     "express": "3.3.x",
     "node-uuid": "1.3.3",
