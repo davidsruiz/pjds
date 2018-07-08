@@ -283,7 +283,13 @@ class LobbyActions extends React.Component {
   
   handleShareClick() {
 
-    window.prompt(`copy to share this link:`, window.location.href)
+    if(ENV.isIOS) {
+      window.location = `sms:&body=` + encodeURIComponent(window.location);
+    } else if(ENV.isAndroid) {
+      window.location = `sms:?body=` + encodeURIComponent(window.location);
+    } else {
+      window.prompt(`copy to share this link:`, window.location.href)
+    }
 
   }
 

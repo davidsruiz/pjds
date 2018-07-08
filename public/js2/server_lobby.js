@@ -1133,6 +1133,12 @@ var Lobby = function () {
       this.gameVars.modeLogic.playerRecordsHPGivenIncrement(fromID, hp);
     }
   }, {
+    key: 'bubbleHPAdjusted',
+    value: function bubbleHPAdjusted(data, client) {
+      // reflect message
+      this.broadcast('bubbleHPAdjusted', data, client);
+    }
+  }, {
     key: 'bulletCreated',
     value: function bulletCreated(data, client) {
       // reflect message
@@ -1391,19 +1397,89 @@ var GameLogic = function () {
   return GameLogic;
 }();
 
-var CTFModeLogic = function (_GameLogic) {
-  _inherits(CTFModeLogic, _GameLogic);
+var BubbleMode = function (_GameLogic) {
+  _inherits(BubbleMode, _GameLogic);
 
-  function CTFModeLogic(endCallback, numberOfTeams, players) {
-    _classCallCheck(this, CTFModeLogic);
+  function BubbleMode(endCallback, numberOfTeams, players) {
+    _classCallCheck(this, BubbleMode);
 
-    var _this8 = _possibleConstructorReturn(this, (CTFModeLogic.__proto__ || Object.getPrototypeOf(CTFModeLogic)).apply(this, arguments));
+    var _this8 = _possibleConstructorReturn(this, (BubbleMode.__proto__ || Object.getPrototypeOf(BubbleMode)).apply(this, arguments));
 
-    _this8.scores = new Array(numberOfTeams).fill(100);
+    _this8.scores = new Array(numberOfTeams).fill(0);
     _this8.playerWithFlag = null;
 
     _this8.updates = 0;
     return _this8;
+  }
+
+  _createClass(BubbleMode, [{
+    key: 'flagCaptured',
+    value: function flagCaptured(playersID) {
+      this.playerWithFlag = playersID;this.updates = 0;
+    }
+  }, {
+    key: 'flagDropped',
+    value: function flagDropped() {
+      this.playerWithFlag = null;this.updates = 0;
+    }
+  }, {
+    key: 'flagIsHeldBy',
+    value: function flagIsHeldBy(playersID) {
+      return this.playerWithFlag === playersID;
+    }
+  }, {
+    key: 'updateTeamScore',
+    value: function updateTeamScore(team, score) {
+
+      // only one update per flag capture
+      // note: doesn't exactly validate appropriately
+      if (++this.updates > 2) {
+        console.log('update limit exceeded!');
+        return;
+      }
+
+      // update registry
+      if (score > 100) score = 100;
+      if (typeof this.scores[team] !== 'undefined') this.scores[team] = score;
+
+      console.log('team score updated: TEAM(' + team + ') SCORE(' + score + ')');
+
+      // check for winner
+      if (score > 99 && !this.flagAvailable) this.end();
+    }
+  }, {
+    key: 'scoreForTeam',
+    value: function scoreForTeam(number) {
+      return this.scores[number];
+    }
+  }, {
+    key: 'formatScores',
+    value: function formatScores() {
+      return this.scores;
+    }
+  }, {
+    key: 'flagAvailable',
+    get: function get() {
+      return !this.playerWithFlag;
+    }
+  }]);
+
+  return BubbleMode;
+}(GameLogic);
+
+var CTFModeLogic = function (_GameLogic2) {
+  _inherits(CTFModeLogic, _GameLogic2);
+
+  function CTFModeLogic(endCallback, numberOfTeams, players) {
+    _classCallCheck(this, CTFModeLogic);
+
+    var _this9 = _possibleConstructorReturn(this, (CTFModeLogic.__proto__ || Object.getPrototypeOf(CTFModeLogic)).apply(this, arguments));
+
+    _this9.scores = new Array(numberOfTeams).fill(100);
+    _this9.playerWithFlag = null;
+
+    _this9.updates = 0;
+    return _this9;
   }
 
   _createClass(CTFModeLogic, [{
@@ -1461,19 +1537,19 @@ var CTFModeLogic = function (_GameLogic) {
   return CTFModeLogic;
 }(GameLogic);
 
-var TerritorialModeLogic = function (_GameLogic2) {
-  _inherits(TerritorialModeLogic, _GameLogic2);
+var TerritorialModeLogic = function (_GameLogic3) {
+  _inherits(TerritorialModeLogic, _GameLogic3);
 
   function TerritorialModeLogic(endCallback, numberOfTeams, players) {
     _classCallCheck(this, TerritorialModeLogic);
 
-    var _this9 = _possibleConstructorReturn(this, (TerritorialModeLogic.__proto__ || Object.getPrototypeOf(TerritorialModeLogic)).apply(this, arguments));
+    var _this10 = _possibleConstructorReturn(this, (TerritorialModeLogic.__proto__ || Object.getPrototypeOf(TerritorialModeLogic)).apply(this, arguments));
 
-    _this9.blocks = Array.new(numberOfTeams, function () {
+    _this10.blocks = Array.new(numberOfTeams, function () {
       return new Set();
     });
 
-    return _this9;
+    return _this10;
   }
 
   _createClass(TerritorialModeLogic, [{
@@ -1551,7 +1627,7 @@ var TerritorialModeLogic = function (_GameLogic2) {
   return TerritorialModeLogic;
 }(GameLogic);
 
-var MODES = [CTFModeLogic, TerritorialModeLogic];
+var MODES = [BubbleMode, TerritorialModeLogic];
 
 // GAME PREF to be sent at start
 

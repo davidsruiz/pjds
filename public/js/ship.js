@@ -101,15 +101,28 @@ class BasicShip {
     this.disabled = data.disabled;
     // this.acceleration.set(data.acceleration);
     this.acceleration = data.acceleration;
-    this.angular_acceleration = data.angular_acceleration;
+    this.angular_velocity = data.angular_velocity;
     this.angle = data.angle;
     this.health = data.health;
+
+    this.bubble.radius = data.bubbleRadius;
+    this.bubble.locked = data.bubbleLocked;
+    this.bubble.complete = data.bubbleComplete;
+    this.bubble.disabled = data.bubbleDisabled;
+    this.bubble.position.set(data.bubblePosition);
+
   }
   // replaces the state of the ship
   override(data) {
     this.position.set(data.position);
     this.last_known_position.set(data.position);
     // this.angle = data.angle;
+
+    // this.disabled = data.disabled;
+    // this.acceleration = data.acceleration;
+    // this.angular_acceleration = data.angular_acceleration;
+    // this.angle = data.angle;
+    // this.health = data.health;
   }
 
   // update(data) {
@@ -178,16 +191,28 @@ class Ship extends BasicShip {
     return {
       disabled: this.disabled,
       acceleration: this.acceleration,
-      angular_acceleration: this.angular_acceleration,
+      angular_velocity: this.angular_velocity,
       angle: this.angle,
-      health: this.health
+      health: this.health,
+
+      bubbleRadius: this.bubble.radius,
+      bubbleLocked: this.bubble.locked,
+      bubbleComplete: this.bubble.complete,
+      bubbleDisabled: this.bubble.disabled,
+      bubblePosition: this.bubble.position,
     }
   }
 
   export_override() {
     return {
-      position: this.position//,
+      position: this.position,
       // angle: this.angle
+
+      // disabled: this.disabled,
+      // acceleration: this.acceleration,
+      // angular_acceleration: this.angular_acceleration,
+      // angle: this.angle,
+      // health: this.health,
     }
   }
 
@@ -356,13 +381,23 @@ class Ship extends BasicShip {
   canPickupFlag() {
 
     const recoilHasPassed = this.flag_recoil_counter > this.FLAG_RECOIL_DELAY;
+    const notCarryingBubble = this.bubble.locked;
 
-    return recoilHasPassed
+    return recoilHasPassed && notCarryingBubble
 
   }
 
   didPickupFlag() {
     this.flag_recoil_counter = 0;
+  }
+
+  canPickupBubble() {
+
+    const cooldownHasPast = this.bubble.ready;
+    const notComplete = !this.bubble.complete;
+    const notCarryingFlag = !this.flag;
+
+    return cooldownHasPast && notComplete && notCarryingFlag;
   }
 
 }
@@ -383,10 +418,10 @@ Ship.type = [
 
     ATTACK_HP: 6, // 8
     ATTACK_RECOIL_DELAY: (1/6), // (1/4)
-    ATTACK_RADIUS: 6, // 8
+    ATTACK_RADIUS: 20, // 24
 
     // BLOCK_HP_CAPACITY: 6, // 8
-    BLOCK_RECOIL_DELAY: (1/5), // (1/6)
+    BLOCK_RECOIL_DELAY: (1/3), // (1/4)
 
     SUB_TYPE: 'missile',
     SUB_RECOIL_DELAY: 1, //s 2
@@ -397,13 +432,13 @@ Ship.type = [
   {
     type: 'speed',
 
-    HP_CAPACITY: 18, // 20
+    HP_CAPACITY: 32, // 40
 
-    LINEAR_VELOCITY_LIMIT: 140, // 120
+    LINEAR_VELOCITY_LIMIT: 300, // 240
     // LINEAR_ACCELERATION_LIMIT: ,
 
     ATTACK_HP: 7, // 8
-    ATTACK_RADIUS: 10, // 8
+    ATTACK_RADIUS: 30, // 24
     ATTACK_SPREAD: (2 * Math.PI) * (0.02), // (0.01)
     ATTACK_LIFESPAN: 1, // 1.6
 
@@ -417,9 +452,9 @@ Ship.type = [
   {
     type: 'defense',
 
-    HP_CAPACITY: 32, // 20
+    HP_CAPACITY: 50, // 40
 
-    LINEAR_VELOCITY_LIMIT: 100, // 120
+    LINEAR_VELOCITY_LIMIT: 200, // 240
 
     ATTACK_HP: 8, // 8
     ATTACK_RECOIL_DELAY: (1/3), // (1/4)
@@ -439,15 +474,15 @@ Ship.type = [
   {
     type: 'damage',
 
-    HP_CAPACITY: 22, // 20
+    HP_CAPACITY: 44, // 40
 
     LINEAR_VELOCITY_LIMIT: 100, // 120
 
     ATTACK_HP: 24, // 8
     ATTACK_RECOIL_DELAY: (1/1.2), // (1/4)
-    ATTACK_RADIUS: 12, // 8
+    ATTACK_RADIUS: 30, // 24
     ATTACK_LIFESPAN: 1.6, // 2.2
-    ATTACK_SPEED: 140, // 200
+    ATTACK_SPEED: 320, // 400
 
     SUB_TYPE: 'block_bomb',
     SUB_RECOIL_DELAY: 0.5, //s
@@ -511,10 +546,10 @@ Ship.baseStats = {
   SUB_ENERGY_COST: 40, //ep
 
   ENERGY_CAPACITY: 100, // (ep)
-  IDLE_ENERGY_REGEN_RATE: 4.2, // of automatic energy per second (ep/s)
+  IDLE_ENERGY_REGEN_RATE: 0, // of automatic energy per second (ep/s)
   ACTIVE_ENERGY_REGEN_RATE: 24, // while charging energy per second (ep/s)
 
-  FLAG_RECOIL_DELAY: 1 // s
+  FLAG_RECOIL_DELAY: 1, // s
 };
 
 // SPECIALS??? LARGE HEAVY BLOCK, or INTEL
