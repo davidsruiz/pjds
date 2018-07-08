@@ -164,13 +164,15 @@ BlockBomb.stats = {
   SPEED: 360, //px/s
   FRICTION: 0.99,
 
-  EXPLOSION_RANGE: 120,
+  RANGE: 500,
+
+  EXPLOSION_RANGE: 500, // 120,
   EXPLOSION_DAMAGE_FUNCTION: x => ((8000/((BlockBomb.stats._A * x)+100))-20)*3, // 60hp at contact and 0hp at range px
 
   LIFESPAN: 2.4 //s
 }
 
-BlockBomb.stats._A = 300 / Repulsor.stats.RANGE;
+BlockBomb.stats._A = 300 / BlockBomb.stats.RANGE;
 
 class StealthCloak {
 

@@ -63,12 +63,20 @@ class Carousel {
 }
 
 window.addEventListener('load', ()=>{
-  var carousel = ENV.help.carousel = new Carousel();
-  carousel.set(['images/', 'help-a.png', 'help-b.png', 'help-c.png', 'help-d.png']);
-  document.querySelector('.carousel .right').onclick = () => { carousel.next() }
-  document.querySelector('.carousel .middle').onclick = () => { carousel.next() }
-  document.querySelector('.carousel .left').onclick = () => { carousel.prev() }
-  document.querySelector('.drawer .close').addEventListener('click', () => { carousel.autoplay = false });
+  // var carousel = ENV.help.carousel = new Carousel();
+  // carousel.set(['images/', 'help-a.png', 'help-b.png', 'help-c.png', 'help-d.png']);
+  // document.querySelector('.carousel .right').onclick = () => { carousel.next() }
+  // document.querySelector('.carousel .middle').onclick = () => { carousel.next() }
+  // document.querySelector('.carousel .left').onclick = () => { carousel.prev() }
+  // document.querySelector('.drawer .close').addEventListener('click', () => { carousel.autoplay = false });
+  //
+  // document.querySelector('#help_icon').addEventListener('click', () => { ENV.help.drawer.toggle(); document.querySelector('#help_icon').blur() });
 
-  document.querySelector('#help_icon').addEventListener('click', () => { ENV.help.drawer.toggle(); document.querySelector('#help_icon').blur() });
+
+  if(ENV.mobile) {
+    const node = $('#control_icons > img')[0];
+    node.src = 'images/mobile_input.png';
+    node.style.height = '51px';
+  }
+
 });

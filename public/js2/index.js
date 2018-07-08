@@ -101,7 +101,7 @@ verbose = false,
 // shortid.characters("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 // const UUID = () => shortid.generate();
 
-var colors = require('colors');
+// const colors = require('colors');
 var bodyParser = require('body-parser');
 app.use(bodyParser.json());
 var path = require('path');
@@ -109,17 +109,17 @@ var path = require('path');
 app.use(express.static(path.resolve('public')));
 
 //Tell the server to listen for incoming connections
-server.listen(80);
+// server.listen(80);
 server.listen(gameport);
 //Log something so we know that it succeeded.
 console.log('\t :: Express :: Listening on port ' + gameport);
 
 app.get('/', function (req, res) {
 
-  res.sendfile(path.resolve('public/home.html'));
+  res.sendFile(path.resolve('public/home.html'));
 });
 
-// app.get( '/play', function( req, res ){ res.sendfile("play.html")
+// app.get( '/play', function( req, res ){ res.sendFile("play.html")
 
 app.post('/:type', function (req, res) {
 
@@ -330,7 +330,7 @@ app.post('/:type', function (req, res) {
 
 app.get('/friends', function (req, res, next) {
 
-  res.sendfile(path.resolve('public/friends.html'));
+  res.sendFile(path.resolve('public/friends.html'));
 }); //app.get /friends
 
 // routing to lobby
@@ -338,7 +338,7 @@ app.get('/*', function (req, res, next) {
 
   var lobbyID = req.params[0];
   if (LM.exists(lobbyID)) {
-    res.sendfile(path.resolve('public/game.html'));
+    res.sendFile(path.resolve('public/game.html'));
   } else {
     res.redirect('/');
   }
@@ -349,12 +349,12 @@ var sio = io.listen(server);
 
 //Configure the socket.io connection settings.
 //See http://socket.io/
-sio.configure(function () {
-  sio.set('log level', 0);
-  sio.set('authorization', function (handshakeData, callback) {
-    callback(null, true); // error first callback style
-  });
-});
+// sio.configure(function (){
+//   sio.set('log level', 0);
+//   sio.set('authorization', function (handshakeData, callback) {
+//     callback(null, true); // error first callback style
+//   });
+// });
 
 //Enter the game server code. The game server handles
 //client connections looking for a game, creating games,
@@ -688,7 +688,7 @@ sio.sockets.on('connection', function (client) {
     });
   };
 
-  var incomingMessages = ['shipUpdated', 'shipOverridden', 'shipHPAdjusted', 'bulletCreated', 'bulletDestroyed', 'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed', 'subCreated', 'subDestroyed', 'deathOccurrence', 'flagCaptured', 'flagDropped', 'flagProgress'];
+  var incomingMessages = ['shipUpdated', 'shipOverridden', 'shipHPAdjusted', 'bubbleHPAdjusted', 'bulletCreated', 'bulletDestroyed', 'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed', 'subCreated', 'subDestroyed', 'deathOccurrence', 'flagCaptured', 'flagDropped', 'flagProgress'];
 
   addListenerList(incomingMessages);
 
@@ -721,4 +721,3 @@ sio.sockets.on('connection', function (client) {
 
   this.onFinish = function () {};
 }); //sio.sockets.on connection
-//# sourceMappingURL=index.js.map

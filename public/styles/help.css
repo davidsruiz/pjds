@@ -70,3 +70,13 @@
   right: 64px;
   transform: rotate(180deg);
 }
+
+
+/* temp controller icons */
+#control_icons {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+}

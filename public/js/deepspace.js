@@ -1,4080 +1,1 @@
-// deep space js by david ruiz.
-
-
-class DeepSpaceGame {
-
-  // at initialization we can assume the environment
-  // knows certain game parameters:
-  // - map
-  // - game mode
-  // - players: amount, names, ship types, indexes,
-  constructor(data, network) {
-    this.interpret(data, network);
-    this.setup();
-    // this.loop();
-  }
-
-  static create(data, network) {
-    if (DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();
-    return DeepSpaceGame.runningInstance = new DeepSpaceGame(data, network);
-  }
-
-  start() {
-    this.loop();
-    this.timer.start(() => {
-      this.timerExpire()
-    });
-  }
-
-  interpret(data, network) {
-    // anything pertaining to game
-    // object itself gets set
-    this.spectate = ENV.spectate;
-    this.isHost = data.host;
-    this.mapInfo = DeepSpaceGame.maps[data.options.map];
-    this.gameMode = data.options.mode;
-    this.game = {}
-    this.language = 'en';
-    this.timer = new Timer(data.duration - TIME.sec(1.5));
-
-    this.network = network;
-    this.network.game = this;
-
-
-    // SoundHelper.start(); // new
-    // this.soundHelper = SoundHelper.start(); // olc
-
-    try {
-      // if (TINT) TINT.load(...data.colors[1])
-      if (TINT) {
-        if(this.mapInfo.tint) { TINT.load(...this.mapInfo.tint) }
-        else { TINT.load(...data.colors[1]) }
-      }
-    } catch (e) {
-      log('tint load failed')
-    }
-
-    // everything else:
-    this.setupData = data;
-  }
-
-  setup() {
-    this.setupPhysics();
-    this.setupModel();
-    this.setupView();
-    this.setupListeners();
-    this.setupLoop();
-    this.setupReferences();
-
-    // if (this.spectate) this.actualize();
-  }
-
-  setupModel() {
-    this.setupTeams();
-    this.setupPlayers();
-    this.setupShips();
-    this.setupObjectPools();
-
-    this.setupGame();
-    this.setupMap();
-  }
-
-  setupTeams() {
-    this.teams = [];
-    let teamCount = this.setupData.teams.length;
-    teamCount.times((i) => {
-      this.teams.push(new Team(this, i))
-    });
-
-    this.setupSpawnCamps();
-  }
-
-  setupSpawnCamps() {
-    this.teams.forEach(team => {
-      team.spawn_camp = {
-        position: V2D.new(this.mapInfo.spawn[team.game.teams.length - 1][team.number]),
-        radius: 64,
-        team: team.number
-      }
-    });
-  }
-
-  setupPlayers() {
-    this.players = new Map();
-    this.teams.forEach((team, i) => {
-      this.setupData.teams[i].forEach((playerIndex)=>{
-        var [id, name, , , , type] = this.setupData.players[playerIndex];
-        team.createPlayer(id, name, type);
-      });
-    });
-  }
-
-  setupShips() {
-    this.ships = [];
-    this.players.forEach((player) => {
-      var ship;
-      if (localIDMatches(player.id) && !this.spectate) {
-        ship = new Ship(player);
-        ship.isMain = true;
-        this.ships.main = ship;
-      } else {
-        ship = new BasicShip(player);
-      }
-      this.ships.push(ship);
-      player.ship = ship;
-    });
-  }
-
-  setupObjectPools() {
-    var model = {};
-    model.bullets = new Map();
-    model.blocks = new Map();
-    model.subs = new Map();
-
-    this.model = model;
-  }
-
-  setupGame() {
-    this.game = {};
-    this.game.disabled = false; // interaction disabled
-    this.game.ended = false; // game over happened
-    this.game.overtime = false; // game overtime happened
-
-    this.game.scores = new Array(this.teams.length);
-
-    // this.timer = DeepSpaceGame.modes[this.gameMode];
-    switch (this.gameMode) {
-      case 0: // ctf
-
-        // flag whatevers
-        var centerX = this.mapInfo.width / 2;
-        var centerY = this.mapInfo.height / 2;
-        let flag = new Flag(new V2D(centerX, centerY));
-        flag.collision_groups = [this.physics.collision_groups.FLAG];
-        this.setCollisionDivisions(flag);
-        this.game.flag = flag;
-
-        // actual game stats
-        this.game.scores.fill(100);
-        this.game.max = Physics.distance(this.teams[0].spawn_camp.position, {x: centerX, y: centerY});
-        this.game.lead = undefined; // team in the lead
-
-        break;
-
-      case 1:
-
-        this.game.scores.fill(0);
-
-        break;
-    }
-  }
-
-  setupMap() {
-    let map = this.model.map = {},
-      info = this.mapInfo;
-
-    let cX = info.width / 2,
-      cY = info.height / 2;
-
-
-    // IMPERMEABLES
-    let initial_impermeables = [], radii = new Set();
-    for (let radius_size_group of info.impermeables.bodies) {
-      let list = radius_size_group.slice(),
-        radius = list.shift();
-      for (let [x, y] of list) {
-        initial_impermeables.push({
-          radius: radius,
-          position: {x, y}
-        })
-      }
-      radii.add(radius);
-    }
-
-    map.impermeables = [];
-    map.impermeables.radii = radii;
-    // in the future use the 'copies' variable on impermeables
-    // and make it odd symmetry
-    map.impermeables.push(...initial_impermeables)
-    if (info.impermeables.copies >= 2) {
-
-      map.impermeables.push(...(initial_impermeables.map(obj => {
-        return {
-          radius: obj.radius,
-          position: {x: info.width - obj.position.x, y: info.width - obj.position.y}
-        }
-      })));
-
-      if (info.impermeables.copies == 4) {
-
-        map.impermeables.push(...(initial_impermeables.map(obj => {
-          return {
-            radius: obj.radius,
-            position: {x: info.width - obj.position.y, y: obj.position.x}
-          }
-        })));
-
-        map.impermeables.push(...(initial_impermeables.map(obj => {
-          return {
-            radius: obj.radius,
-            position: {x: obj.position.y, y: info.width - obj.position.x}
-          }
-        })));
-
-      }
-
-    }
-
-    for (let imp of map.impermeables) {
-      imp.collision_groups = [this.physics.collision_groups.IMPERMEABLES]
-      this.setCollisionDivisions(imp);
-    }
-
-  }
-
-  setupView() {
-    this.setupPalette();
-    this.configureCreateJS();
-    this.configureProton();
-    this.setupCamera();
-  }
-
-  setupPalette() {
-    this.colors = this.setupData.colors;
-  }
-
-  configureCreateJS() {
-    this.setupCanvas();
-    // populate stage
-    this.createViews();
-  }
-
-  setupCanvas() { // TODO: (revise)
-    var canvas = $('#canvas')[0];
-    canvas.width = document.body.clientWidth;
-    canvas.height = document.body.clientHeight;
-    // if (canvas.width > 1024) canvas.width = 1024;
-    // if (canvas.height > 768) canvas.height = 768;
-    
-    this.scale = Math.sqrt(canvas.width * canvas.height) / Math.sqrt(1024 * 768);
-    // this.scale ;
-
-    var stage = new createjs.Stage();
-    stage.canvas = canvas;
-    stage.snapToPixel = true;
-    // gui.add(stage, 'snapToPixel');
-
-    this.stage = stage;
-
-    this.HDPSupport();
-  }
-
-  HDPSupport() {
-    this.HDPScale = 1;
-    if (window.devicePixelRatio) {
-      const stage = this.stage;
-      const canvas = stage.canvas;
-
-      // grab the width and height from canvas
-      var height = canvas.getAttribute('height');
-      var width = canvas.getAttribute('width');
-      // reset the canvas width and height with window.devicePixelRatio applied
-      canvas.setAttribute('width', Math.round(width * window.devicePixelRatio));
-      canvas.setAttribute('height', Math.round( height * window.devicePixelRatio));
-      // force the canvas back to the original size using css
-      canvas.style.width = width+"px";
-      canvas.style.height = height+"px";
-      // set CreateJS to render scaled
-      stage.scaleX = stage.scaleY = window.devicePixelRatio;
-      this.HDPScale = 1/window.devicePixelRatio
-    }
-  }
-
-  createViews() {
-    this.view = {
-      grid: {width: 48, height: 48},
-    };
-    this.window = {
-      width: this.stage.canvas.width * this.HDPScale,
-      height: this.stage.canvas.height * this.HDPScale,
-    };
-
-    this.createLayers();
-    this.createBackgroundViews();
-    this.createGameModeSpecificViewsAction();
-    this.createSpawnCampViews()
-    this.createShipViews();
-    this.createPoolViews();
-    this.createOverlayViews();
-  }
-
-  snapToGrid(position) {
-    position.x = Math.round(position.x / this.view.grid.width) * this.view.grid.width
-    position.y = Math.round(position.y / this.view.grid.height) * this.view.grid.height
-  }
-
-  createLayers() {
-    var layer = {}
-
-    layer.background = new createjs.Container();
-    layer.action = new createjs.Container();
-    layer.overlay = new createjs.Container();
-
-    layer.action.back = new createjs.Container();
-    layer.action.front = new createjs.Container();
-    layer.action.addChild(layer.action.back);
-    layer.action.addChild(layer.action.front);
-
-    layer.action.scaleX = layer.action.scaleY = this.scale;
-
-    this.stage.addChild(layer.background);
-    this.stage.addChild(layer.action);
-    this.stage.addChild(layer.overlay);
-
-    this.view.layer = layer;
-  }
-
-  createBackgroundViews() {
-    // var canvas = this.stage.canvas, background = new createjs.Shape();
-    // // background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);
-    // // background.cache(0, 0, canvas.width, canvas.height);
-    // // this.view.layer.background.addChild(background);
-    // //
-    // // background = new createjs.Shape();
-    // background.graphics.beginFill('#455A64').drawRect(0, 0, canvas.width, canvas.height);
-    // background.cache(0, 0, canvas.width, canvas.height);
-    // this.view.layer.background.map_background = background;
-    // this.view.layer.background.addChild(background);
-
-
-    var canvas = this.stage.canvas, canvasBackground = new createjs.Shape(), mapBackground = new createjs.Shape();
-    canvasBackground.graphics.beginFill('#37474F').drawRect(0, 0, this.window.width, this.window.height);
-    canvasBackground.cache(0, 0, canvas.width, canvas.height);
-    this.view.layer.background.addChild(canvasBackground);
-
-    const background_width = this.window.width * 2
-    const background_height = this.window.width * 2
-    const hypotenuse = Math.sqrt(Math.sqr(this.window.width) + Math.sqr(this.window.height)) / this.scale;
-    mapBackground.graphics.beginFill('#455A64').drawRect(0, 0, hypotenuse, hypotenuse);
-    mapBackground.cache(0, 0, hypotenuse, hypotenuse);
-    mapBackground.regX = hypotenuse/2;
-    mapBackground.regY = hypotenuse/2;
-    this.view.layer.background.map_background = mapBackground;
-    this.view.layer.action.back.addChild(mapBackground);
-
-  }
-
-  createGameModeSpecificViewsAction() {
-    /*switch(this.gameMode) {
-     case "ctf":
-     // ring and flag
-
-     var centerX = this.mapInfo.width / 2;
-     var centerY = this.mapInfo.height / 2;
-
-     var r = DeepSpaceGame.modes["ctf"].ring_radius, s = r * 1.2;
-     var ring = new createjs.Shape(
-     DeepSpaceGame.graphics.ring(r)
-     );
-     ring.cache(-s, -s, s*2, s*2);
-
-     // var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;
-     // var flag = new createjs.Shape(
-     //   DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)
-     // );
-     // flag.shadow = DeepSpaceGame.graphics.flag_shadow();
-     // flag.cache(-s, -s, s*2, s*2);
-     //
-     ring.x = centerX; ring.y = centerY;
-     // flag.x = centerX; flag.y = centerY;
-
-
-     this.view.layer.action.back.addChild(ring);
-     // this.view.layer.action.back.addChild(flag);
-
-     // this.view.flag = flag;
-
-     // actual game things
-
-
-     break;
-     }*/
-
-    // create caches
-    var caches = new Map();
-    this.model.map.impermeables.radii.forEach(r => {
-      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r));
-      var s = r * 1.2;
-      view.cache(-s, -s, s * 2, s * 2);
-
-      caches.set(r, view.cacheCanvas);
-    })
-
-    // create views
-    this.view.map = {impermeables: []}
-    this.model.map.impermeables.forEach(block => {
-      var view = new createjs.Bitmap(caches.get(block.radius)),
-        pos = block.position;
-      view.x = pos.x - block.radius * 1.2;
-      view.y = pos.y - block.radius * 1.2;
-      this.view.map.impermeables.push(view)
-      this.view.layer.action.front.addChild(view);
-    });
-
-  }
-
-  createSpawnCampViews() {
-
-    // this.view.teams = { spawn_camp: []}
-
-    // DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number]
-    var s = 64 + 3; // radius + border-half
-    this.teams.forEach((team, i) => {
-      var group = new createjs.Container(),
-        camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),
-        fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),
-        pos = team.spawn_camp.position;
-      fill.alpha = 0.08;
-      group.x = pos.x;
-      group.y = pos.y;
-      group.addChild(fill);
-      group.addChild(camp);
-      group.cache(-s, -s, s * 2, s * 2);
-      team.spawn_camp.view = group;
-      this.view.layer.action.back.addChild(group);
-    });
-  }
-
-  createShipViews() {
-    let our_ship = this.ships.main, our_team;
-    if (our_ship) our_team = our_ship.owner.team;
-    this.ships.forEach((ship) => {
-      let container = new createjs.Container();
-      var hollow = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2)),
-        filled = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2)),
-        s = ship.radius * 1.2;
-      hollow.cache(-s, -s, s * 2, s * 2);
-      filled.cache(-s, -s, s * 2, s * 2);
-      var view = new createjs.Bitmap(hollow.cacheCanvas);
-      view.regX = view.regY = s;
-      view.hollow = hollow.cacheCanvas, view.filled = filled.cacheCanvas; // TODO cache ships with interchangable bitmap instead
-      container.ship = view;
-      container.addChild(view);
-
-      //text
-      if (ship.owner.team == our_team && ship != our_ship) {
-        var text = new createjs.Text(ship.owner.name, "14px Roboto", our_team.color);
-        text.textAlign = "center";
-        // text.cache(-50, -30, 100, 60)
-        container.text = text;
-        container.addChild(text);
-      }
-
-      // if(ship == our_ship) {
-      //   let color = this.ships.main.owner.team.color,
-      //     view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
-      //     shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
-      //     offset = { x: 22, y: -22 };
-      //
-      //   view.x = shadow.x = offset.x;
-      //   view.y = shadow.y = offset.y;
-      //
-      //   container.addChild(container.meter_shadow = view.shadow = shadow);
-      //   container.addChild(container.meter = view);
-      // }
-
-
-      this.view.layer.action.front.addChild(ship.view = container);
-    });
-
-    if (our_ship) {
-      let container = our_ship.view,
-        color = this.ships.main.owner.team.color,
-        innerRadius = 5 / this.scale,
-        outerRadius = 7 / this.scale,
-        meter = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1, this.scale)),
-        shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64', this.scale)),
-        offset = {x: 22, y: -22};
-
-      shadow.cache(-outerRadius, -outerRadius, outerRadius*2, outerRadius*2);
-
-      meter.x = shadow.x = offset.x;
-      meter.y = shadow.y = offset.y;
-
-      container.addChild(container.meter_shadow = meter.shadow = shadow);
-      container.addChild(container.meter = meter);
-    }
-  }
-
-  createPoolViews() {
-    this.view.bullets = new Map()
-    this.view.blocks = new Map()
-    this.view.subs = new Map()
-  }
-
-  createOverlayViews() {
-    var overlay = {};
-
-    overlay.score = new createjs.Container();
-    overlay.score.team = [];
-    var imagined_width = 120;
-    this.teams.forEach((team, i) => {
-      var text = new createjs.Text(this.game.scores[i].toString(), "48px Unica One", team.color);
-      text.x = (i * imagined_width) + (imagined_width / 2);
-      text.textAlign = "center";
-      text.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
-      overlay.score.addChild(text);
-      overlay.score.team.push(text);
-    });
-    overlay.score.x = (this.window.width / 2) - ((this.teams.length * imagined_width) / 2)
-    overlay.score.y = 12;
-
-    this.view.layer.overlay.addChild(overlay.score);
-
-
-
-    // energy meter
-    // if(!this.spectate) {
-    //   overlay.ship = {};
-    //   let color = this.ships.main.owner.team.color,
-    //       view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),
-    //       shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),
-    //       centerX = this.window.width / 2,
-    //       centerY = this.window.height / 2,
-    //       offset = { x: 22, y: -22 };
-    //
-    //   view.x = shadow.x = centerX + offset.x;
-    //   view.y = shadow.y = centerY + offset.y;
-    //
-    //   this.view.layer.overlay.addChild(view.shadow = shadow);
-    //   this.view.layer.overlay.addChild(overlay.ship.energyMeter = view);
-    // }
-
-    // MINI MAP
-    if (!this.spectate) this.createOverlayMinimapViews(overlay, this.view.layer.overlay);
-
-
-
-    // var imagined_width = 512;
-    overlay.message = new createjs.Text("", "24px Roboto Condensed");
-    overlay.message.textAlign = "center";
-    overlay.message.x = (this.window.width / 2);
-    overlay.message.y = 76;
-    overlay.message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
-
-    this.view.layer.overlay.addChild(overlay.message);
-
-    // var imagined_width = 512;
-    overlay.kill_message = new createjs.Text("", "24px Roboto Condensed");
-    overlay.kill_message.textAlign = "center";
-    overlay.kill_message.x = (this.window.width / 2);
-    overlay.kill_message.y = this.window.height - 76;
-    overlay.kill_message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);
-
-    this.view.layer.overlay.addChild(overlay.kill_message);
-
-    switch (this.gameMode) {
-      case 0: // ctf
-        // var centerX = this.mapInfo.width / 2;
-        // var centerY = this.mapInfo.height / 2;
-
-        var r = DeepSpaceGame.modes["ctf"].flag_radius * this.scale, s = r * 1.2;
-        var flag = new createjs.Shape(
-          DeepSpaceGame.graphics.flag(r)
-        );
-        flag.shadow = DeepSpaceGame.graphics.flag_shadow();
-        flag.cache(-s, -s, s * 2, s * 2);
-
-        // flag.x = centerX; flag.y = centerY;
-
-        this.view.layer.overlay.addChild(flag);
-        this.view.flag = flag;
-
-        break;
-    }
-
-
-    this.view.overlay = overlay;
-  }
-
-  createOverlayMinimapViews(overlay_model, overlay_view) {
-
-    let mini = overlay_model.minimap = new createjs.Container();
-
-    mini.width = mini.height = 168;
-    mini.scale = mini.width / this.mapInfo.width;
-    mini.regX = mini.width/2;
-    mini.regY = mini.height/2;
-    mini.rotation = Math.degrees(-this.ships.main.spawnRotation) - 90;
-
-    let padd = this.window.width < 600 ? 0 : 32;
-    mini.x = (padd) + mini.width/2;
-    mini.y = this.window.height - (padd + mini.height) + mini.height/2
-
-    // background
-    let background = mini.background = new createjs.Shape();
-    background.graphics.beginFill('#263238').drawRect(0, 0, mini.width, mini.height);
-    background.cache(0, 0, mini.width, mini.height);
-    mini.addChild(background);
-
-    // map obstacles
-    var max = 128,
-      r = max * mini.scale,
-      block = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r)),
-      s = r * 1.2;
-    block.cache(-s, -s, s * 2, s * 2);
-    var cache = block.cacheCanvas;
-
-    this.model.map.impermeables.forEach(block => {
-      var scale = (block.radius * mini.scale) / r,
-        view = new createjs.Bitmap(cache),
-        pos = block.position;
-      view.scaleX = view.scaleY = scale;
-      view.x = (pos.x * mini.scale) - (scale * cache.width / 2);
-      view.y = (pos.y * mini.scale) - (scale * cache.height / 2);
-      mini.addChild(view);
-    });
-
-    // spawns
-    this.teams.forEach(team => {
-      let camp = team.spawn_camp,
-        radius = team == this.ships.main.owner.team ? 8 : 6,
-        // radius = camp.radius*mini.scale,
-        view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, 6)),
-        pos = camp.position;
-      view.x = pos.x * mini.scale;
-      view.y = pos.y * mini.scale;
-      var s = radius * 1.2;
-      view.cache(-s, -s, s * 2, s * 2);
-      mini.addChild(view);
-    });
-
-    // flag
-    if(this.gameMode == 0) {
-      let flag_view = mini.flag = new createjs.Shape(DeepSpaceGame.graphics.circle_fill('#ECEFF1', 6))
-      mini.addChild(flag_view);
-    }
-
-    // ships .. hmmm.. intel >.>
-    // (only same team for now)
-    let this_player = this.ships.main.owner, this_team = this_player.team
-    mini.players = [];
-    this_team.players.forEach(player => {
-      let view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(this_team.color, 4));
-      view.alpha = player == this_player ? 1 : 0.6;
-      mini.players.push(view);
-      mini.addChild(view);
-    });
-
-    // and also eventually blocks
-    mini.blocks = new Map();
-
-
-    overlay_view.addChild(mini);
-  }
-
-  createOverlayMinimapBlockViewFor(block) {
-    let cache = DeepSpaceGame.graphicsCaches.minimap.blocks[block.team],
-      blv = new createjs.Bitmap(cache),
-      mini = this.view.overlay.minimap,
-      scale = mini.scale;
-
-    // blv.alpha = 0.2
-    blv.x = block.position.x * scale;
-    blv.y = block.position.y * scale;
-
-    blv.regX = blv.regY = (cache.width / 2);
-
-    mini.addChild(blv);
-    mini.setChildIndex(blv, 1)
-    mini.blocks.set(block.id, blv);
-
-    // flag always on top
-    // mini.setChildIndex(mini.flag, mini.numChildren-1)
-  }
-
-  destroyOverlayMinimapBlockViewFor(id) {
-    if (!this.spectate) {
-      var v = this.view.overlay.minimap.blocks.get(id);
-      if (v) {
-        this.view.overlay.minimap.blocks.delete(id);
-        this.view.overlay.minimap.removeChild(v);
-      }
-    }
-  }
-
-  configureProton() {
-
-    // functions
-    const bitmapOfColor = (color) => {
-      const graphics = DeepSpaceGame.graphics.block_fill(color, 6);
-      const particle = new createjs.Shape(graphics);
-      particle.cache(-10, -10, 20, 20);
-      const cache = particle.cacheCanvas;
-      return new createjs.Bitmap(cache);
-    };
-
-    // vars and references
-    this.view.proton = {};
-    const stage = this.stage;
-    const canvas = stage.canvas;
-    const view = this.view.layer.action.back;
-    const proton = this.view.proton.main = new Proton();
-    const renderer = this.view.proton.renderer = new Proton.Renderer('easel', proton, view);
-    const emitters = this.view.proton.emitters = new Map();
-
-    const imageTargets = this.view.proton.imageTargets = {};
-    imageTargets.teams = [];
-    imageTargets.death = new Proton.ImageTarget(bitmapOfColor('#FFFFFF'));
-    for(let team of this.teams) {
-      imageTargets.teams.push(new Proton.ImageTarget(bitmapOfColor(team.color)));
-    }
-
-    const util = this.view.proton.util = {};
-    util.hasInitializer = (emitter, initializer) => {
-      return (emitter.initializes.indexOf(initializer) > -1);
-    };
-    
-
-
-
-
-    // for each ship
-    for(let ship of this.ships) {
-      const local = ship === this.ships.main;
-
-      const emitter = new Proton.Emitter();
-      const color = ship.owner.team.color;
-
-      // setup and config
-      const graphics = DeepSpaceGame.graphics.block_fill(color, 6);
-      const particle = new createjs.Shape(graphics);
-      particle.cache(-10, -10, 20, 20);
-      const cache = particle.cacheCanvas;
-      const bitmap = new createjs.Bitmap(cache);
-
-      emitter.rate = new Proton.Rate(1, 0.2);
-      emitter.addInitialize(imageTargets.teams[ship.owner.team.number]);
-      emitter.addInitialize(new Proton.Life(1, 2.5));
-      const force = new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar');
-      emitter.addInitialize(force);
-      emitter.force = force;
-
-      emitter.addBehaviour(new Proton.Scale(1, 5));
-      emitter.addBehaviour(new Proton.Alpha(0.2, 0));
-
-      emitter.emit();
-      proton.addEmitter(emitter);
-      emitters.set(ship, emitter);
-
-    }
-
-
-
-    renderer.start();
-
-    // // refresh proton
-    // proton.update();
-
-
-  }
-
-  setupCamera() {
-    this.view.layer.action.width = this.mapInfo.width;
-    this.view.layer.action.height = this.mapInfo.height;
-    this.camera = new Camera(this.stage.canvas, this.view.layer.action, this.scale, this.HDPScale);
-
-    if (this.spectate) {
-      this.activePlayerIndex = 0;
-      // this.playerShipViews = new Map();
-      // this.setupData.players.forEach((p, i)=>{
-      //   this.playerShipViews.set(i, this.players.get(p.id).ship.view);
-      // });
-      this.activePlayers = this.setupData.players.map(p => this.players.get(p[0]));
-      this.updateCameraFocus();
-    } else {
-      this.camera.focus = this.ships.main.view;
-    }
-
-    this.camera.width = this.window.width;
-    this.camera.height = this.window.height;
-  }
-
-  setupListeners() { // (needs (even more) work)
-    this.inputHandlers = new Map();
-    var receiver = window;
-
-    if (this.spectate) {
-      var keyHandler = (e) => {
-        if (e.keyCode == 37) { // left: ◀︎
-          this.activePlayerIndex--;
-          if (this.activePlayerIndex < 0) this.activePlayerIndex = this.activePlayers.length - 1;
-        }
-        if (e.keyCode == 39) { // right: ▶︎
-          this.activePlayerIndex++;
-          if (this.activePlayerIndex >= this.activePlayers.length) this.activePlayerIndex = 0;
-        }
-        this.updateCameraFocus();
-      }
-      receiver.addEventListener('keydown', keyHandler); // onkeydown
-      this.inputHandlers.set('keydown', keyHandler);
-    } else {
-
-
-      const inputs = this.input = {
-        acceleration: 0,
-        angularAcceleration: 0,
-        shoot: false,
-        shootAngle: 0,
-        block: false,
-        sub: false,
-      };
-
-
-      // KEYBOARD
-      // key mappings, have multiple ('values') so you can switch between key bindings
-      // the default values are true / false
-
-      const keyboard = new KeyboardInput();
-
-      const keyboardStack = new InputStack();
-      window.stack = keyboardStack; window.keyboard = keyboard;
-      const keymap = [
-        // up: ▲
-        ["up", [38]],
-        // down: ▼
-        ["dn", [40]],
-        // left: ◀︎
-        ["lt", [37]],
-        // right: ▶︎
-        ["rt", [39]],
-        // up: w
-        ["up2", [87]],
-        // down: s
-        ["dn2", [83]],
-        // left: a
-        ["lt2", [65]],
-        // right: d
-        ["rt2", [68]],
-        // block: space, v
-        ["block", [32, 86]],
-        // sub: e
-        ["sub", [69]],
-        // shoot: wsad
-        // ["shoot", [87, 83, 65, 68]],
-      ];
-
-      for(const [item, mappings] of keymap) {
-        for(const keycode of mappings) {
-          keyboardStack.addItemWhen(item, keyboard.button(keycode).ontrue);
-          keyboardStack.removeItemWhen(item, keyboard.button(keycode).onfalse);
-        }
-      }
-      keyboardStack.on('change', () => flattenStack(keyboardStack));
-
-      const buttonWeight = 1;
-      const flattenStack = stack => {
-
-        // setup
-        inputs.acceleration = 0;
-        inputs.angularAcceleration = 0;
-        var x2 = 0, y2 = 0, shoot = false, block = false, sub = false;
-
-        // cycle through
-        for (let [input,] of stack.items) {
-          switch (input) {
-            case 'up':
-              inputs.acceleration = buttonWeight;
-              break;
-            case 'dn':
-              inputs.acceleration =-buttonWeight;
-              break;
-            case 'lt':
-              inputs.angularAcceleration =-buttonWeight;
-              break;
-            case 'rt':
-              inputs.angularAcceleration = buttonWeight;
-              break;
-            case 'up2':
-              y2 = -1;
-              shoot = true;
-              break;
-            case 'dn2':
-              y2 = 1;
-              shoot = true;
-              break;
-            case 'lt2':
-              x2 = -1;
-              shoot = true;
-              break;
-            case 'rt2':
-              x2 = 1;
-              shoot = true;
-              break;
-            case 'shoot':
-              shoot = true;
-              break;
-            case 'block':
-              block = true;
-              break;
-            case 'sub':
-              sub = true;
-              break;
-          }
-        }
-
-        // evaluate
-        var directionV = new V2D(x2, y2);
-        inputs.shootAngle = directionV.angle + (Math.PI / 2);
-        inputs.shoot = shoot;
-        inputs.block = block;
-        inputs.sub = sub;
-
-      };
-
-      // let keyHandler = (e) => {
-      //   var type = e.type;
-      //
-      //   if (type == 'keyup' || type == 'keydown') {
-      //     var eventCode = e.keyCode;
-      //
-      //     keymap.forEach((row) => {
-      //       row[1].forEach((code) => {
-      //         if (code == eventCode) {
-      //
-      //           // row[0] e.g. 'up' or 'block'
-      //           // row[2] is value on keydown
-      //           // row[3] is value on keyup
-      //
-      //           if (!type.is('keyup')) {
-      //             if (!inputStack.has(row[0])) {
-      //               inputStack.add(row[0]);
-      //               inputStack.changed = true;
-      //             }
-      //           } else {
-      //             inputStack.delete(row[0])
-      //             inputStack.changed = true;
-      //           }
-      //
-      //           // inputStack.delete(row[0])
-      //           // if(keydown)
-      //           // if(!type.is('keyup')) inputStack.add(row[0]);
-      //
-      //           // NetworkHelper.out_input_stack(Array.from(inputStack));
-      //           // inputStack.changed = true;
-      //           // log(Array.from(inputStack));
-      //         }
-      //       });
-      //     });
-      //
-      //     if(inputStack.changed) flattenStack(inputStack);
-      //   }
-      // };
-
-      // receiver.addEventListener('keydown', keyHandler); // onkeydown
-      // receiver.addEventListener('keyup', keyHandler); // onkeyup
-      //
-      // this.inputHandlers.set('keydown', keyHandler);
-      // this.inputHandlers.set('keyup', keyHandler);
-
-
-
-
-      // GAMEPAD
-
-      /*
-      receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);
-      // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input
-      // .. thus it is left here .. please revise
-      this.updateGamepadInput = (!navigator.getGamepads) ? () => {
-        } : () => {
-          var gamepad = navigator.getGamepads()[0];
-          if (!gamepad) return;
-
-
-
-
-          // NEW :)
-          const deadZone = 0.15;
-          const buttonMap = new Map([
-
-            ['up', [
-
-              // - y axis
-              gamepad.axes[1] < -deadZone,
-
-              // l trigger
-              gamepad.axes[3] > 0,
-
-              // d-pad north
-
-            ]],
-
-            ['dn', [
-
-              // + y axis
-              gamepad.axes[1] > deadZone,
-
-              // r trigger
-              gamepad.axes[4] > 0,
-
-            ]],
-
-            ['lt', [
-
-              // - x axis
-              gamepad.axes[0] < -deadZone,
-
-            ]],
-
-            ['rt', [
-
-              // - x axis
-              gamepad.axes[0] > deadZone,
-
-            ]],
-
-            ['up2', [
-
-              // - y axis 2
-              gamepad.axes[5] < -deadZone,
-
-            ]],
-
-            ['dn2', [
-
-              // + y axis 2
-              gamepad.axes[5] > deadZone,
-
-            ]],
-
-            ['lt2', [
-
-              // - x axis 2
-              gamepad.axes[2] < -deadZone,
-
-            ]],
-
-            ['rt2', [
-
-              // + x axis 2
-              gamepad.axes[2] > deadZone,
-
-            ]],
-
-            ['shoot', [
-
-              // buttons a & b
-              gamepad.buttons[0].pressed,
-              gamepad.buttons[1].pressed,
-
-            ]],
-
-            ['block', [
-
-              // r shoulder button
-              gamepad.buttons[7].pressed,
-
-            ]],
-
-            ['sub', [
-
-              // buttons x & y
-              gamepad.buttons[3].pressed,
-              gamepad.buttons[4].pressed,
-
-              // l shoulder button
-              gamepad.buttons[6].pressed,
-
-              // r joystick press
-              gamepad.buttons[14].pressed,
-
-            ]],
-
-          ]);
-
-          for(let [code, bindings] of buttonMap) {
-
-            const activation = _(bindings).contains(true);
-
-            if(activation) {
-
-              if(inputStack.has(code)) continue;
-
-              inputStack.add(code);
-              inputStack.changed = true;
-
-            } else {
-
-              if(!inputStack.has(code)) continue;
-
-              inputStack.delete(code);
-              inputStack.changed = true;
-
-            }
-
-          }
-
-
-
-        };
-      */
-
-      // NEWER :D
-
-      const gamepad = new GamepadInput();
-
-      // const buttonMap = new Map([
-      //
-      //   ['up', [
-      //
-      //     // - y axis
-      //     gamepad.axes[1] < -deadZone,
-      //
-      //     // l trigger
-      //     gamepad.axes[3] > 0,
-      //
-      //     // d-pad north
-      //
-      //   ]],
-      //
-      //   ['dn', [
-      //
-      //     // + y axis
-      //     gamepad.axes[1] > deadZone,
-      //
-      //     // r trigger
-      //     gamepad.axes[4] > 0,
-      //
-      //   ]],
-      //
-      //   ['lt', [
-      //
-      //     // - x axis
-      //     gamepad.axes[0] < -deadZone,
-      //
-      //   ]],
-      //
-      //   ['rt', [
-      //
-      //     // - x axis
-      //     gamepad.axes[0] > deadZone,
-      //
-      //   ]],
-      //
-      //   ['up2', [
-      //
-      //     // - y axis 2
-      //     gamepad.axes[5] < -deadZone,
-      //
-      //   ]],
-      //
-      //   ['dn2', [
-      //
-      //     // + y axis 2
-      //     gamepad.axes[5] > deadZone,
-      //
-      //   ]],
-      //
-      //   ['lt2', [
-      //
-      //     // - x axis 2
-      //     gamepad.axes[2] < -deadZone,
-      //
-      //   ]],
-      //
-      //   ['rt2', [
-      //
-      //     // + x axis 2
-      //     gamepad.axes[2] > deadZone,
-      //
-      //   ]],
-      //
-      //   ['shoot', [
-      //
-      //     // buttons a & b
-      //     gamepad.buttons[0].pressed,
-      //     gamepad.buttons[1].pressed,
-      //
-      //   ]],
-      //
-      //   ['block', [
-      //
-      //     // r shoulder button
-      //     gamepad.buttons[7].pressed,
-      //
-      //   ]],
-      //
-      //   ['sub', [
-      //
-      //     // buttons x & y
-      //     gamepad.buttons[3].pressed,
-      //     gamepad.buttons[4].pressed,
-      //
-      //     // l shoulder button
-      //     gamepad.buttons[6].pressed,
-      //
-      //     // r joystick press
-      //     gamepad.buttons[14].pressed,
-      //
-      //   ]],
-      //
-      // ]);
-
-      const deadzone = 0.2;
-      const max = 1;
-      const diff = max - deadzone;
-
-
-      // axes
-
-      keyboardStack.addItemWhen('up', gamepad.axis(1).onlessthan(-deadzone), n => (max + n / diff));
-      keyboardStack.addItemWhen('up', gamepad.axis(3).onmorethan(0));
-      keyboardStack.removeItemWhen('up', gamepad.axis(1).onmorethan(-deadzone));
-      keyboardStack.removeItemWhen('up', gamepad.axis(3).onlessthan(0));
-
-      keyboardStack.addItemWhen('dn', gamepad.axis(1).onmorethan(deadzone), n => (max - n / diff));
-      keyboardStack.addItemWhen('dn', gamepad.axis(4).onmorethan(0));
-      keyboardStack.removeItemWhen('dn', gamepad.axis(1).onlessthan(deadzone));
-      keyboardStack.removeItemWhen('dn', gamepad.axis(4).onlessthan(0));
-
-      keyboardStack.addItemWhen('lt', gamepad.axis(0).onlessthan(-deadzone), n => (max + n / diff));
-      keyboardStack.removeItemWhen('lt', gamepad.axis(0).onmorethan(-deadzone));
-
-      keyboardStack.addItemWhen('rt', gamepad.axis(0).onmorethan(deadzone), n => (max - n / diff));
-      keyboardStack.removeItemWhen('rt', gamepad.axis(0).onmorethan(deadzone));
-
-
-      keyboardStack.addItemWhen('up2', gamepad.axis(5).onlessthan(-deadzone), n => (max + n / diff));
-      keyboardStack.removeItemWhen('up2', gamepad.axis(5).onmorethan(-deadzone));
-
-      keyboardStack.addItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone), n => (max - n / diff));
-      keyboardStack.removeItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone));
-
-      keyboardStack.addItemWhen('lt2', gamepad.axis(2).onlessthan(-deadzone), n => (max + n / diff));
-      keyboardStack.removeItemWhen('lt2', gamepad.axis(2).onmorethan(-deadzone));
-
-      keyboardStack.addItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone), n => (max - n / diff));
-      keyboardStack.removeItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone));
-
-      // buttons
-
-      keyboardStack.addItemWhen('shoot', gamepad.button(0).ontrue);
-      keyboardStack.removeItemWhen('shoot', gamepad.button(0).onfalse);
-      keyboardStack.addItemWhen('shoot', gamepad.button(1).ontrue);
-      keyboardStack.removeItemWhen('shoot', gamepad.button(1).onfalse);
-
-      keyboardStack.addItemWhen('block', gamepad.button(7).ontrue);
-      keyboardStack.removeItemWhen('block', gamepad.button(7).onfalse);
-
-      keyboardStack.addItemWhen('sub', gamepad.button(3).ontrue);
-      keyboardStack.removeItemWhen('sub', gamepad.button(3).onfalse);
-      keyboardStack.addItemWhen('sub', gamepad.button(4).ontrue);
-      keyboardStack.removeItemWhen('sub', gamepad.button(4).onfalse);
-      keyboardStack.addItemWhen('sub', gamepad.button(6).ontrue);
-      keyboardStack.removeItemWhen('sub', gamepad.button(6).onfalse);
-      keyboardStack.addItemWhen('sub', gamepad.button(14).ontrue);
-      keyboardStack.removeItemWhen('sub', gamepad.button(14).onfalse);
-
-
-
-
-
-
-
-
-      // MOBILE
-      let raw_acc_data = [0, 0], applied_acc_data = [0, 0]; // [x, y]
-      let threshold = 1, bias = [0, 0]; // deadzone
-      const minThreshhold = 1;
-      const maxThreshhold = 4;
-      const thresholdSpan = maxThreshhold - minThreshhold;
-      bias = ENV.storage.calibration = (ENV.storage.calibration) ? ENV.storage.calibration.split(",").map(Number) : [0, 0];
-      // let origin = [0, bias];
-      if (ENV.mobile && window.DeviceMotionEvent != undefined) {
-        window.ondevicemotion = function (e) {
-          raw_acc_data = [e.accelerationIncludingGravity.x, e.accelerationIncludingGravity.y];
-          // if ( e.rotationRate )  {
-          //   document.getElementById("rotationAlpha").innerHTML = e.rotationRate.alpha;
-          //   document.getElementById("rotationBeta").innerHTML = e.rotationRate.beta;
-          //   document.getElementById("rotationGamma").innerHTML = e.rotationRate.gamma;
-          // }
-        }
-
-        inputs.updateMotion = function () {
-
-          // generate the data
-          
-          let orientation = window.orientation,
-            [raw_x, raw_y] = raw_acc_data, [x, y] = [raw_x, raw_y];
-
-          if (orientation === 90) {
-            x = -raw_y, y = raw_x
-          }
-          else if (orientation === -90) {
-            x = raw_y, y = -raw_x
-          }
-          else if (orientation === 180 || orientation === -180) {
-            x = -x, y = -y
-          }
-
-          applied_acc_data = [x, y];
-          x -= bias[0]; // bias towards player;
-          y -= bias[1];
-
-          if(ENV.options.input.invertControls) { x = -x; y = -y }
-
-          // apply the data
-
-
-          if(x > minThreshhold) { // more
-            if(x < maxThreshhold) inputs.angularAcceleration = (maxThreshhold - x) / thresholdSpan;
-            else inputs.angularAcceleration = 1;
-          } else if(x < -minThreshhold) { // less
-            if(x > -maxThreshhold) inputs.angularAcceleration = (-maxThreshhold - x) / thresholdSpan;
-            else inputs.angularAcceleration = -1;
-          } else { // neither
-            inputs.angularAcceleration = 0;
-          }
-
-          if(y > minThreshhold) { // more
-            if(y < maxThreshhold) inputs.acceleration = (maxThreshhold - y) / thresholdSpan;
-            else inputs.acceleration = 1;
-          } else if(y < -minThreshhold) { // less
-            if(y > -maxThreshhold) inputs.acceleration = (-maxThreshhold - y) / thresholdSpan;
-            else inputs.acceleration = -1;
-          } else { // neither
-            inputs.acceleration = 0;
-          }
-
-          // if (x > threshold) {
-          //   inputStack.add('rt')
-          // } else {
-          //   inputStack.delete('rt')
-          // }
-          // if (x < -threshold) {
-          //   inputStack.add('lt')
-          // } else {
-          //   inputStack.delete('lt')
-          // }
-          // if (y > threshold) {
-          //   inputStack.add('up')
-          // } else {
-          //   inputStack.delete('up')
-          // }
-          // if (y < -threshold) {
-          //   inputStack.add('dn')
-          // } else {
-          //   inputStack.delete('dn')
-          // }
-
-          $('#clock').text(`x: ${x.round(0)}, y: ${y.round(0)}`);
-
-        };
-      }
-
-      var left = document.querySelector('#touch_layer > .left');
-      left.addEventListener('touchstart', e => {
-        inputStack.add('block')
-      });
-      left.addEventListener('touchend', e => {
-        inputStack.delete('block')
-      });
-
-      let joystick = new V2D(), joystick_deadzone_radius = 30;
-      var right = document.querySelector('#touch_layer > .right');
-      right.addEventListener('touchstart', e => {
-        inputStack.add('shoot')
-      });
-      right.addEventListener('touchend', e => {
-        inputStack.delete('shoot');
-        inputStack.delete('up2');
-        inputStack.delete('dn2');
-        inputStack.delete('lt2');
-        inputStack.delete('rt2');
-      });
-      var right_hammer = new Hammer(right);
-      right_hammer.on('panmove', function (e) {
-        var v = new V2D(e.deltaX, e.deltaY), a = v.angle;
-        if (v.length > joystick_deadzone_radius) {
-          if (a < -0.39 && a > -2.74) {
-            inputStack.add('up2')
-          } else {
-            inputStack.delete('up2')
-          }
-          if (a > 0.39 && a < 2.74) {
-            inputStack.add('dn2')
-          } else {
-            inputStack.delete('dn2')
-          }
-          if (a > 1.96 || a < -1.96) {
-            inputStack.add('lt2')
-          } else {
-            inputStack.delete('lt2')
-          }
-          if (a > -1.18 && a < 1.18) {
-            inputStack.add('rt2')
-          } else {
-            inputStack.delete('rt2')
-          }
-        } else {
-
-        }
-        // console.log(e)
-      });
-
-      var hammertime = new Hammer(document.querySelector('#touch_layer'));
-      hammertime.get('tap').set({taps: 2})
-      hammertime.get('swipe').set({direction: Hammer.DIRECTION_LEFT})
-      hammertime.on('tap', function (ev) {
-        inputStack.add('sub');
-        ( () => inputStack.delete('sub') ).wait(200);
-      });
-      hammertime.on('swipe', function (e) {
-        // calibrate
-        bias = applied_acc_data;
-        ENV.storage.calibration = bias;
-      });
-
-
-    }
-
-  }
-
-  setupPhysics() {
-    this.setupCollisionSystem();
-    this.assignCollisionPatterns();
-    this.setupReferenceGroups();
-  }
-
-  setupCollisionSystem() {
-    let physics = this.physics = {};
-
-    physics.block_size = 512;
-    physics.world_size = {width: this.mapInfo.width, height: this.mapInfo.height};
-
-    let rows = Math.ceil(physics.world_size.width / physics.block_size),
-      cols = Math.ceil(physics.world_size.height / physics.block_size);
-
-    physics.divisions = [];
-    // rows.times(i => {
-    //   physics.divisions.push([]);
-    //   cols.times(() => {
-    //     physics.divisions[i].push(new Set())
-    //   })
-    // })
-
-    physics.division_index = function (x, y) {
-      return (y * cols) + x;
-    }
-
-    physics.division_coordinates = function (i) {
-      return [i % rows, Math.floor(i / cols)]
-    }
-
-    /* collision testing will be composed of the following:
-
-     within each division, all the tests will be performed
-     with the objects available
-
-     each division will contain all the collision groups within..
-     they will be populated accordingly so when the tests are run
-     tests between objects listed in the groups in the division
-     will be tested. */
-    physics.collision_checks = [];
-    physics.collision_groups = {
-      SHIPS: Symbol('SHIPS'),
-      OUR_SHIP: Symbol('OUR_SHIP'),
-      OUR_SHIPS: Symbol('OUR_SHIPS'),
-      ENEMY_SHIPS: Symbol('ENEMY_SHIPS'),
-
-      BULLETS: Symbol('BULLETS'),
-      MY_BULLETS: Symbol('MY_BULLETS'),
-      OUR_BULLETS: Symbol('OUR_BULLETS'),
-      ENEMY_BULLETS: Symbol('ENEMY_BULLETS'),
-
-      BLOCKS: Symbol('BLOCKS'),
-      OUR_BLOCKS: Symbol('OUR_BLOCKS'),
-      ENEMY_BLOCKS: Symbol('ENEMY_BLOCKS'),
-
-      OUR_PROJ_SUBS: Symbol('OUR_PROJ_SUBS'),
-
-      SPAWN_CAMPS: Symbol('SPAWN_CAMPS'),
-      OUR_SPAWN_CAMP: Symbol('OUR_SPAWN_CAMP'),
-      ENEMY_SPAWN_CAMPS: Symbol('ENEMY_SPAWN_CAMPS'),
-
-      REFUGE: Symbol('REFUGE'), // block or camp
-      OUR_REFUGE: Symbol('OUR_REFUGE'),
-
-      FLAG: Symbol('FLAG'),
-      IMPERMEABLES: Symbol('IMPERMEABLES')
-    };
-
-
-    (rows * cols).times(() => {
-      let obj = {};
-      for (let group of Object.keys(physics.collision_groups)) obj[physics.collision_groups[group]] = new Set();
-      physics.divisions.push(obj);
-    })
-
-    /*
-     END RESULT LOOKS SOMETHING LIKE:
-     [.. {...}, {SHIPS: [Set], OUR_BULLETS: Set [b, b, ..], ...}, {...}, ...]
-
-     */
-  }
-
-  setCollisionDivisions(physics_body) {
-    this.clearCollisionDivisions(physics_body)
-
-    let d = physics_body.divisions = new Set(),
-      r = physics_body.radius,
-      [x, y] = [physics_body.position.x, physics_body.position.y];
-
-    [[1, 0], [0, -1], [-1, 0], [0, 1]].forEach(unit_offset_array => {
-      let check_x = x + (r * unit_offset_array[0]),
-        check_y = y + (r * unit_offset_array[1]);
-
-      let division_x = Math.floor(check_x / this.physics.block_size),
-        division_y = Math.floor(check_y / this.physics.block_size),
-        division_index = this.physics.division_index(division_x, division_y);
-
-      if (this.physics.divisions[division_index]) d.add(division_index);
-    });
-
-    for (let division_index of d)
-      for (let group of physics_body.collision_groups)
-        this.physics.divisions[division_index][group].add(physics_body);
-  }
-
-  clearCollisionDivisions(physics_body) {
-    if (physics_body.divisions) {
-      for (let i of physics_body.divisions)
-        for (let group of physics_body.collision_groups)
-          this.physics.divisions[i][group].delete(physics_body);
-    }
-  }
-
-  assignCollisionPatterns() {
-    let checks = this.physics.collision_checks,
-      groups = this.physics.collision_groups;
-
-
-    if (!this.spectate) {
-
-      // MY BULLET <-> ENEMY SHIPS
-      checks.push([
-        groups.MY_BULLETS,
-        groups.ENEMY_SHIPS,
-        (bullet, ship) => {
-          if (!bullet.disabled && !ship.disabled) {
-            this.damageShip(ship.owner.id, bullet.hp, bullet.creator)
-            this.removeBullet(bullet.id)
-          }
-        }]
-      );
-
-      // MY BULLET <-> ENEMY BLOCKS
-      checks.push([
-        groups.MY_BULLETS,
-        groups.ENEMY_BLOCKS,
-        (bullet, block) => {
-          if (!bullet.disabled && !block.disabled) {
-            this.damageBlock(block.id, bullet.hp)
-            if (bullet.hp < block.hp) this.removeBullet(bullet.id);
-          }
-        }]
-      );
-
-      // MY BULLET <-> ENEMY SPAWN_CAMPS
-      checks.push([
-        groups.MY_BULLETS,
-        groups.ENEMY_SPAWN_CAMPS,
-        (bullet, spawn_camp) => {
-          if (!bullet.disabled) {
-            this.removeBullet(bullet.id);
-          }
-        }]
-      );
-
-      // OUR BULLET <-> IMPERMEABLES
-      // checks.push([
-      //   groups.OUR_BULLETS,
-      //   groups.IMPERMEABLES,
-      //   (bullet, imp) => {
-      //     if(!bullet.disabled) {
-      //       NetworkHelper.bullet_destroy(bullet.id);
-      //     }
-      //   }]
-      // );
-
-      // // OUR SHIP <-> OUR REFUGE
-      // checks.push([
-      //   groups.OUR_SHIP,
-      //   groups.OUR_REFUGE,
-      //   (ship, refuge) => {
-      //     if(!ship.disabled) ship.charging = true;
-      //   }]
-      // );
-
-      // OUR SHIP <-> FLAG
-      checks.push([
-        groups.OUR_SHIP,
-        groups.FLAG,
-        (ship, flag) => {
-          if (!ship.disabled && flag.idle)
-            if(ship.canPickupFlag())
-              this.assumeFlag(ship);
-        }]
-      );
-
-      // OUR SUBS <-> ENEMY BLOCKS
-      checks.push([
-        groups.OUR_PROJ_SUBS,
-        groups.ENEMY_BLOCKS,
-        (sub, block) => {
-          if (!sub.disabled && !block.disabled) {
-            switch (sub.type) {
-              case 'attractor':
-              case 'repulsor':
-                // NetworkHelper.sub_destroy(sub.id);
-                // NetworkHelper.block_destroy(block.id);
-                break;
-              case 'block_bomb':
-              case 'missile':
-                sub.explode();
-                break;
-            }
-          }
-        }]
-      );
-
-      // OUR SUBS <-> ENEMY SHIPS
-      checks.push([
-        groups.OUR_PROJ_SUBS,
-        groups.ENEMY_SHIPS,
-        (sub, ship) => {
-          if (!sub.disabled && !ship.disabled) {
-            if (sub.type == 'missile') {
-              this.damageShip(ship.owner.id, sub.hp, sub.player);
-              this.removeSub(sub.id)
-            }
-          }
-        }]
-      );
-
-      // OUR SUBS <-> ENEMY SPAWN_CAMPS
-      checks.push([
-        groups.OUR_PROJ_SUBS,
-        groups.ENEMY_SPAWN_CAMPS,
-        (sub, spawn_camp) => {
-          if (!sub.disabled) this.removeSub(sub.id);
-        }]
-      );
-
-      // OUR BLOCKS <-> OUR BLOCKS
-      checks.push([
-        groups.OUR_BLOCKS,
-        groups.OUR_BLOCKS,
-        (block_a, block_b) => {
-          if (block_a != block_b && !block_a.disabled && !block_b.disabled)
-            if (Physics.overlap(block_a, block_b) > 0.8) // 0.8
-              this.removeBlock(block_a.id);
-        }]
-      );
-
-    }
-
-    // SHIPS <-> WALL OR CAMP (REFUGE)
-    checks.push([
-      groups.SHIPS,
-      groups.REFUGE,
-      (ship, refuge) => {
-        if (!ship.disabled) {
-          if (ship.owner.team.number != refuge.team) {
-            Physics.bounce(ship, refuge);
-          } else {
-            ship.charging = true;
-          }
-        }
-      }]
-    );
-
-    // SHIPS <-> IMPERMEABLES
-    checks.push([
-      groups.SHIPS,
-      groups.IMPERMEABLES,
-      (ship, imp) => {
-        if (!ship.disabled) {
-          Physics.bounce(ship, imp);
-        }
-      }]
-    );
-
-    // BULLETS <-> IMPERMEABLES
-    checks.push([
-      groups.BULLETS,
-      groups.IMPERMEABLES,
-      (bullet, imp) => {
-        if (!bullet.disabled) {
-          if (Physics.overlap(bullet, imp) < 0.1) {
-            Physics.bounce(bullet, imp);
-          } else {
-            this.removeBullet(bullet.id);
-          }
-        }
-      }]
-    );
-
-  }
-
-  setupReferenceGroups() {
-    var refGroups = {};
-
-    refGroups.enemyBlocks = new Set();
-    refGroups.enemySubs = new Set();
-
-    refGroups.animate = new Set();
-
-    // this.collisionGroups = groups;
-    this.refGroups = refGroups;
-  }
-
-  setupLoop() {
-    var FPS = n => 1000 / n;
-    window.getAnimationFrame =
-      window.requestAnimationFrame ||
-      window.webkitRequestAnimationFrame ||
-      window.mozRequestAnimationFrame ||
-      window.oRequestAnimationFrame ||
-      window.msRequestAnimationFrame ||
-      function (callback) {
-        window.setTimeout(callback, FPS(60))
-      };
-
-    this.setupDT();
-  }
-
-  setupDT() {
-    this.last_time = (new Date()).getTime();
-
-    // the variable percentage of a second that has gone by since the last frame
-    // usually expressed: 0.016 when running 60 fps
-    this.dt = 0;
-  }
-
-  updateDT() {
-    let now = (new Date()).getTime();
-    this.dt = (now - this.last_time) / 1000;
-    this.last_time = now;
-  }
-
-  setupReferences() {
-    this.setupShortcutsToCommonCalls();
-    this.setupFinishCollisionAssignment();
-    this.setupGraphicsCaches();
-  }
-
-  setupShortcutsToCommonCalls() {
-    if (!this.spectate) {
-      // model references
-      this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);
-      this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);
-
-      this.player = this.ships.main.owner;
-      this.team = this.player.team;
-    }
-  }
-
-  setupFinishCollisionAssignment() {
-    /*
-     this method is run near end of the setup since things like ships and players
-     and teams and everything else is assigned and references can be made to the
-     local players team and such..
-     */
-
-    // spawn camps
-    this.teams.forEach(team => {
-      let spawn_c = team.spawn_camp;
-      spawn_c.collision_groups = [this.physics.collision_groups.SPAWN_CAMPS, this.physics.collision_groups.REFUGE] // TODO COLLISION OR PHYSICS CLASS PROTOCOLS
-      if (team == this.team) {
-        spawn_c.collision_groups.push(this.physics.collision_groups.OUR_SPAWN_CAMP);
-        spawn_c.collision_groups.push(this.physics.collision_groups.OUR_REFUGE);
-      } else {
-        spawn_c.collision_groups.push(this.physics.collision_groups.ENEMY_SPAWN_CAMPS);
-      }
-      this.setCollisionDivisions(spawn_c);
-    });
-
-    // ships
-    this.ships.forEach(ship => {
-      ship.collision_groups = [this.physics.collision_groups.SHIPS];
-      if (ship == this.ships.main) ship.collision_groups.push(this.physics.collision_groups.OUR_SHIP);
-      ship.collision_groups.push((ship.owner.team == this.team) ? this.physics.collision_groups.OUR_SHIPS : this.physics.collision_groups.ENEMY_SHIPS)
-    });
-  }
-
-  setupGraphicsCaches() {
-    // TODO: deinit graphics caches
-
-    // cache background
-    // this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);
-
-    // create single cache for common objects
-    this.setupCommonGraphicsCachePool();
-  }
-
-
-  setupCommonGraphicsCachePool() {
-    let gc = DeepSpaceGame.graphicsCaches = {};
-
-    // bullets
-    gc.bullets = [];
-    this.teams.forEach(team => {
-
-      // always caching the largest version
-      let radius = Bullet.stats.MAX_RADIUS;
-
-      let v = new createjs.Shape(
-        DeepSpaceGame.graphics.particle(this.teams[team.number].color, radius)
-      );
-
-      var s = radius * 1.2;
-      v.cache(-s, -s, s * 2, s * 2);
-
-      gc.bullets[team.number] = v.cacheCanvas;
-    });
-
-    // blocks
-    gc.blocks = {
-      unlocked: [],
-      locked: [],
-      enemy: []
-    };
-    this.teams.forEach(team => {
-
-      // always caching the largest version
-      let radius = Block.stats.MAX_RADIUS;
-
-
-      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius)),
-        border = new createjs.Shape(DeepSpaceGame.graphics.block_border(this.teams[team.number].color, radius));
-
-      var s = radius * 1.2;
-      let c;
-
-      // enemy
-      c = new createjs.Container();
-      fill.alpha = 0.24;
-      c.addChild(fill);
-      c.cache(-s, -s, s * 2, s * 2);
-      gc.blocks.enemy[team.number] = c.cacheCanvas;
-
-      // unlocked
-      // fill.alpha = 0.16;
-      // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius))
-      c = new createjs.Container();
-      c.addChild(fill);
-      c.cache(-s, -s, s * 2, s * 2);
-      gc.blocks.unlocked[team.number] = c.cacheCanvas;
-
-      // locked
-      // fill.alpha = 1;
-      // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#455A64', 40), radius))
-      c = new createjs.Container();
-      c.addChild(fill);
-      // c.addChild(border);
-      c.cache(-s, -s, s * 2, s * 2);
-      gc.blocks.locked[team.number] = c.cacheCanvas;
-    });
-
-    // minimap
-    if (this.spectate) return; // TODO make minimap accesible to all even spectators
-    gc.minimap = {blocks: []};
-    this.teams.forEach(team => {
-      // '#37474F'
-      let radius = Block.stats.MAX_RADIUS * this.view.overlay.minimap.scale;
-
-      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius));
-
-      var s = radius * 1.2;
-      // fill.alpha = 0.16;
-      fill.cache(-s, -s, s * 2, s * 2);
-      gc.minimap.blocks[team.number] = fill.cacheCanvas;
-    });
-    // (()=>{
-    //   let radius = 128 * this.view.overlay.minimap.scale;
-    //
-    //   let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(, radius));
-    //
-    //   var s = radius * 1.2;
-    //   // fill.alpha = 0.16;
-    //   fill.cache(-s, -s, s*2, s*2);
-    //   gc.minimap.blocks[team.number] = fill.cacheCanvas;
-    //
-    //   gc.minimap.impermeables = ;
-    // })
-  }
-
-  actualize() {
-    // bring an outside game up to speed
-    // DEPRECIATED :: .. no client can join match after start
-
-    // scores
-    // this.setupData.state.scores.forEach((entry) => {
-    //   this.game.scores[entry.t] = entry.s
-    // });
-    this.setupData.teams.forEach((team, i) => {
-      this.game.scores[i] = 100
-    });
-
-    // flag
-    // var holder;
-    // setTimeout(() => {
-    //   if (holder = this.setupData.state.flagHolder) this.pickupFlag(holder);
-    // }, 100);
-
-    // disconnects
-    // this.setupData.disconnects.forEach(id => this.disconnectPlayer(id))
-
-  }
-
-
-  loop() {
-    // stats.begin();
-    this.updateDT();
-    this.update();
-    this.log();
-    // stats.end();
-
-    // NetworkHelper.release();
-
-    getAnimationFrame(() => this.game.ended ? true : this.loop())
-  }
-
-  update() {
-    // this function duty is as follows:
-    // to update all the moving parts pertaining to the current/local user.
-    // any collisions should be sent back to the server to sync the changes.
-    var over = this.game.disabled;
-    if (!over) this.updateInput();
-    this.updateModel(); // TODO: improve performance
-    if (!over) this.checkForCollisions();
-    // if(this.isHost) this.generateMapEntities();
-
-    if (!over) this.updateGame();
-
-    this.updateView();
-  }
-
-  updateInput() {
-    // if(!this.spectate) this.updateGamepadInput();
-    if(!this.spectate) if(this.input.updateMotion) this.input.updateMotion();
-  }
-
-  // updateGamepadInput() {}
-
-  updateModel() {
-    this.updateShips();
-    this.broadcastShip();
-
-    this.updateBullets();
-    this.updateBlocks();
-    this.updateSubs();
-  }
-
-  updateShips() {
-    for (var ship of this.ships) {
-
-      ship.update(this.dt);
-
-      if (ship == this.ships.main && !ship.disabled) {
-
-        const input = this.input;
-
-        // new abstraction
-        ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * input.acceleration;
-        ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.angularAcceleration;
-        ship.relative_shoot_angle = input.shootAngle;
-        if(input.shoot)
-          if(ship.canShoot())
-            this.addBullet(ship);
-
-        if(input.block) {
-          if(ship.canBlock()) {
-            while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
-            this.addBlock(ship)
-          }
-        }
-        if(input.sub) {
-          if(ship.flag) {
-            this.releaseFlag()
-          } else {
-            if(ship.canSub())
-              this.addSub(ship);
-          }
-        }
-
-
-
-
-        // var input = ship.owner.input,
-        //   x = 0, y = 0, x2 = 0, y2 = 0,
-        //   s = false;
-        //
-        // for (var prop of input) {
-        //   switch (prop) {
-        //     case 'up':
-        //       y = 1;
-        //       // y = -1;
-        //       break;
-        //     case 'dn':
-        //       y = -1;
-        //       // y = 1;
-        //       break;
-        //     case 'lt':
-        //       x = -1;
-        //       break;
-        //     case 'rt':
-        //       x = 1;
-        //       break;
-        //     case 'up2':
-        //       y2 = -1;
-        //       break;
-        //     case 'dn2':
-        //       y2 = 1;
-        //       break;
-        //     case 'lt2':
-        //       x2 = -1;
-        //       break;
-        //     case 'rt2':
-        //       x2 = 1;
-        //       break;
-        //     case 'sub':
-        //       // if(!ship.flag) ship.sub();
-        //       if(ship.flag) {
-        //         this.releaseFlag()
-        //       } else {
-        //         if(ship.canSub())
-        //           this.addSub(ship);
-        //       }
-        //       break;
-        //     case 'block':
-        //       if(ship.canBlock()) {
-        //         while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())
-        //         this.addBlock(ship)
-        //       }
-        //       break;
-        //     case 'shoot':
-        //       s = true;
-        //       break;
-        //   }
-        // }
-        //
-        // // ship.acceleration.set({x, y})
-        // // if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;
-        // //
-        // // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle
-        // // if (ship.velocity.length) ship.angle = ship.velocity.angle;
-        //
-        // var direction_v = new V2D(x2, y2)
-        // ship.relative_shoot_angle = direction_v.length ? direction_v.angle + (Math.PI/2) : 0;
-        //
-        //
-        // // new ship controls
-        // ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * y;
-        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * x;
-        //
-        //
-        // // if(direction_v.length) ship.shoot();
-        //
-        //
-        // if (s || direction_v.length)
-        //   if (ship.canShoot())
-        //     this.addBullet(ship);
-      }
-
-      // validate new position TODO (revise)
-      let r = ship.radius + 8;
-      if (ship.position.x - r < 0) {
-        ship.position.x = r;
-        ship.velocity.x = 0
-      }
-      if (ship.position.y - r < 0) {
-        ship.position.y = r;
-        ship.velocity.y = 0
-      }
-      if (ship.position.x + r > this.mapInfo.width) {
-        ship.position.x = this.mapInfo.width - r;
-        ship.velocity.x = 0;
-      }
-      if (ship.position.y + r > this.mapInfo.height) {
-        ship.position.y = this.mapInfo.height - r;
-        ship.velocity.y = 0;
-      }
-
-      this.setCollisionDivisions(ship);
-
-      // if(ship.position.x < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.height))
-      // if(ship.position.y < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.width))
-      // if(ship.position.x > this.mapInfo.width) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.height))
-      // if(ship.position.y > this.mapInfo.height) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.width))
-
-      // if(ship.position.x < 0) ship.position.x = this.mapInfo.width;
-      // if(ship.position.y < 0) ship.position.y = this.mapInfo.height;
-      // if(ship.position.x > this.mapInfo.width) ship.position.x = 0;
-      // if(ship.position.y > this.mapInfo.height) ship.position.y = 0;
-    }
-  }
-
-  broadcastShip() {
-    var ship, input;
-    if ((ship = this.ships.main) && (input = ship.owner.input)) {
-      if (input.changed) {
-        // log(Array.from(input));
-        // NetworkHelper.out_input_stack(Array.from(input));
-        input.changed = false;
-      }
-
-      this.network.sendShipUpdate(ship.export_update());
-
-      if ((new Date()).getTime() % 60 < 2) this.network.sendShipOverride(ship.export_override());
-      if (ship.flag && ship.disabled) this.releaseFlag();
-      // if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();
-    }
-  }
-
-  updateBullets() {
-    this.model.bullets.forEach(b => {
-      b.update(this.dt);
-      this.setCollisionDivisions(b)
-    });
-    // this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });
-  }
-
-  updateBlocks() { // needs needs work
-    this.model.blocks.forEach(b => {
-      if (b.locked) return;
-      if (b.qualified) {
-        this.snapToGrid(b.position);
-        b.scale = 1;
-        this.setCollisionDivisions(b);
-        if (!this.spectate) this.createOverlayMinimapBlockViewFor(b);
-        if (!this.spectate) if (b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!
-        b.locked = true;
-        b.qualified = false;
-      }
-      b.update(this.dt);
-      // if(b.disabled) NetworkHelper.out_block_destroy(b.id) // due to aging
-    });
-  }
-
-  updateSubs() {
-    this.model.subs.forEach(p => {
-      p.update(this.dt);
-      if (p.collision_groups) this.setCollisionDivisions(p);
-
-      switch (p.type) {
-        case 'attractor':
-        case 'repulsor':
-
-          // field effects TODO is games responsibility..? dt is passed to subs themseves..
-          var distance, direction;
-          this.model.bullets.forEach((b) => {
-            if (!b.disabled && p.team != b.team) {
-              if ((distance = Physics.distance(b.position, p.position)) < p.RANGE) {
-                var force = new V2D();
-                direction = p.position.copy();
-                direction.sub(b.position);
-                force.length = p.INTENSITY_FUNCTION(distance);
-                force.angle = direction.angle;
-                if (p.type == 'repulsor') force.angle = force.angle - Math.PI;
-                b.velocity.add(force);
-                b.velocity.length *= 0.94; // friction TODO
-              }
-            }
-          });
-
-          break;
-        case 'block_bomb':
-
-
-          if (p.exploding) {
-
-            // only the player who created it hands out damage to the blocks so it is done once
-            var ship;
-            if ((ship = this.ships.main) && (ship.subs.has(p.id))) {
-              var distance;
-              this.refGroups.enemyBlocks.forEach(block => {
-                if (block && !block.disabled) {
-                  if ((distance = Physics.distance(block.position, p.position)) < p.EXPLOSION_RANGE) {
-                    this.damageBlock(block.id, p.EXPLOSION_DAMAGE_FUNCTION(distance));
-                  }
-                }
-              });
-            }
-
-            // the player is the only one who must wait, the others have been notified to endSub
-            this.removeSub(p.id);
-          }
-
-          break;
-        case 'stealth_cloak':
-          if(p.disabled) ENV.game.destroySub(p.id);
-          break;
-        case 'missile':
-
-          // targeting
-          if (p.target && (Physics.distance(p.target.position, p.position) > p.VISION_RANGE || p.target.stealth)) p.target = null;
-          this.ships.forEach(ship => {
-            if (ship && !ship.disabled && !ship.stealth && ship.owner.team.number != p.team) {
-              if (!p.target && ((distance = Physics.distance(ship.position, p.position)) < p.VISION_RANGE)) {
-                p.target = ship;
-              }
-            }
-          });
-
-          // exploding
-          if (p.exploding) {
-
-            // only the player who created it hands out damage to the blocks so it is done once
-            var ship;
-            if ((ship = this.ships.main) && (ship.subs.has(p.id))) {
-              var distance;
-              this.refGroups.enemyBlocks.forEach(block => {
-                if (block && !block.disabled) {
-                  if ((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {
-                    this.changeBlock(block.id, ship.owner.team.number)
-                    if(!this.spectate) this.ships.main.blocks.add(block.id);
-                  }
-                }
-              });
-            }
-
-            // the player is the only one who must wait, the others have been notified to endSub
-            this.removeSub(p.id);
-          }
-
-          break;
-        default:
-          break;
-      }
-
-
-    });
-
-  }
-
-  checkForCollisions() {
-    // in theory, the user will only check
-    // collisions of those things which it
-    // created. though in practice, perhaps
-    // just it's attack moves. e.g. bullets
-
-    for (let div of this.physics.divisions) {
-      for (var [a_type, b_type, check] of this.physics.collision_checks)
-        for (let body_a of div[a_type])
-          for (let body_b of div[b_type])
-            if (Physics.doTouch(body_a, body_b))
-              check(body_a, body_b);
-    }
-
-  }
-
-  updateGame() {
-    switch(this.gameMode) {
-
-      case 0: // ctf
-
-        var flag = this.game.flag;
-        if (!flag.idle) {
-          var player = this.players.get(flag.holderID),
-            p = player.ship.last_known_position,
-            camp = player.team.spawn_camp;
-          flag.position.x = p.x;
-          flag.position.y = p.y;
-
-          this.setCollisionDivisions(flag);
-
-          // real game stuff
-          var distance = Physics.distance(p, camp.position) - camp.radius,
-            percent = distance / this.game.max,
-            low_score = this.game.scores[player.team.number],
-            current_score = Math.round(percent * 100);
-
-          if (current_score < low_score && current_score >= 0) this.game.scores[player.team.number] = current_score;
-
-          if ((percent < 0) && player == this.player) this.network.sendFlagProgress([player.team.number, current_score])
-          // this.network.out_game_over(player.team.number);
-
-
-          // LEAD COMPARISON
-          // replace lead if none exists
-          if (!this.game.lead) this.game.lead = player.team;
-
-          // replace lead if record shows
-          if (current_score < this.game.scores[this.game.lead.number]) {
-
-            if (!this.spectate) {
-              // if you are replacing
-              if (player.team == this.team) {
-                let c = this.team.color;
-                this.alert(
-                  DeepSpaceGame.localizationStrings.alerts['teamTakesLead'][this.language]()
-                  , c);
-                this.network.sendFlagProgress([player.team.number, current_score])
-                // if (this.game.overtime) this.network.out_game_over(this.team.number);
-              }
-              // if you are being replaced
-              else if (this.game.lead == this.team) {
-                let c = player.team.color;
-                this.alert(
-                  DeepSpaceGame.localizationStrings.alerts['teamLosesLead'][this.language]()
-                  , c);
-              }
-            }
-
-            this.game.lead = player.team;
-          }
-
-
-        }
-
-        break;
-
-      case 1:
-
-
-
-        break;
-
-    } // end switch
-
-
-  }
-
-  updateView() {
-    this.updateShipViews();
-    this.updateBulletViews();
-    this.updateBlockViews();
-    this.updateSubViews();
-
-    this.updateCamera();
-    this.updateBackground();
-    this.updateMap();
-    // this.updateTINT();
-    // this.updateGrid();
-
-    this.updateGameViews();
-
-    if (!this.spectate) this.updateMinimapView();
-
-    this.updateProton();
-
-    this.stage.update(); // render changes!!
-  }
-
-  updateShipViews() {
-    this.ships.forEach((ship) => {
-
-      const isVisible = ( ship.view.visible = this.camera.showing(ship) );
-      const shipIsVisible = ( ship.view.visible = this.camera.showing(ship) );
-
-      if (ship.view.visible = this.camera.showing(ship) || ship.view == this.camera.focus) {
-
-        let visibility = 1;
-        if(ship.disabled) {
-          visibility = 0;
-        } else {
-          if(this.game.flag && this.game.flag.holderID === ship.owner.id) {
-            visibility = 1;
-          } else {
-            if(ship.owner.team != this.team && ship.charging) {
-              visibility = 0;
-            } else if(ship.stealth) {
-              if (ship.owner.team == this.team) {
-                visibility = Math.flipCoin(0.2) ? 0 : 0.4;
-              } else {
-                visibility = 0;
-              }
-            }
-          }
-        }
-
-        let ship_view = ship.view.ship;
-        ship_view.alpha = ship.health * visibility;
-        ship_view.rotation = Math.degrees(ship.angle);
-
-        ship.view.x = ship.position.x;
-        ship.view.y = ship.position.y;
-
-        // ship.view.graphics.clear();
-        ship_view.image = ((ship.flag) ? ship_view.filled : ship_view.hollow);
-      }
-
-    });
-    this.updateEnergyMeterView();
-    this.updateNameViews();
-  }
-
-  updateEnergyMeterView() {
-    if (this.spectate) return;
-
-    let ship = this.player.ship,
-      meterView = ship.view.meter,
-      shadowView = meterView.shadow,
-      percent = ship.energy / 100,
-      offset = V2D.new({angle: ship.angle + (Math.PI/4), length: 30 / this.scale});
-    meterView.graphics = DeepSpaceGame.graphics.energyMeter(this.team.color, percent, this.scale);
-    meterView.alpha = shadowView.alpha = ship.disabled ? 0 : 1;
-    meterView.x = shadowView.x = offset.x
-    meterView.y = shadowView.y = offset.y
-    meterView.rotation = shadowView.rotation = Math.degrees(ship.angle + Math.PI/2)
-  }
-
-  updateNameViews() {
-    if (this.spectate) return;
-
-    let our_ship = this.ships.main, our_team;
-    if (our_ship) our_team = our_ship.owner.team;
-
-    this.ships.forEach((ship) => {
-      if (ship.owner.team == our_team && ship != our_ship) {
-        let textView = ship.view.text,
-            offset = V2D.new({angle: our_ship.angle, length: 30});
-        textView.x = offset.x
-        textView.y = offset.y
-        textView.rotation = Math.degrees(our_ship.angle + Math.PI/2)
-      }
-    });
-
-  }
-
-  updateBulletViews() {
-    var views = this.view.bullets;
-    this.model.bullets.forEach(b => {
-      let v = views.get(b.id);
-      if(this.camera.showing(b)) {
-        if(!v) v = this.createBulletView(b)
-        v.x = b.position.x;
-        v.y = b.position.y;
-      } else {
-        if(v) this.destroyBulletView(b.id);
-      }
-    });
-  }
-
-  updateBlockViews() {
-    var views = this.view.blocks;
-    this.model.blocks.forEach(b => {
-      var v = views.get(b.id);
-
-      if(this.camera.showing(b)) {
-        if(!v) v = this.createBlockView(b)
-        v.alpha = (b.health * 0.9 + 0.1);
-        v.x = b.position.x;
-        v.y = b.position.y;
-        v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;
-        if (b.qualified) {
-          let type = b.isForeign ? 'enemy' : 'locked';
-          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
-        }
-      } else {
-        if(v) this.destroyBlockView(b.id);
-      }
-
-    });
-  }
-
-  updateSubViews() {
-    var views = this.view.subs;
-    this.model.subs.forEach(s => {
-      var v = views.get(s.id);
-      if (v && (v.visible = this.camera.showing(s))) {
-        v.x = s.position.x;
-        v.y = s.position.y;
-        v.rotation = Math.degrees(s.rotation);
-      }
-    });
-  }
-
-  updateCamera() {
-    this.camera.update();
-    // if(camera.position)
-  }
-
-  updateBackground() {
-    
-    const background = this.view.layer.background.map_background;
-    const map_width = this.mapInfo.width;
-    const map_height = this.mapInfo.height;
-    const half_window_width = this.window.width/2;
-    const half_window_height = this.window.height/2;
-    const half_background_width = background.cacheCanvas.width / 2;
-    const half_background_height = background.cacheCanvas.height / 2;
-    let backgroundPositionVector = V2D.new(this.camera.focus);
-    const centerOffset = V2D.new({x: this.camera.offset.x - half_window_width, y: this.camera.offset.y - half_window_height});
-
-    centerOffset.div(this.scale)
-    centerOffset.angle = Math.radians(this.camera.focus.ship.rotation);
-    backgroundPositionVector.add(centerOffset);
-
-    // edges
-    if (backgroundPositionVector.x < half_background_width) backgroundPositionVector.x = half_background_width;
-    if (backgroundPositionVector.y < half_background_height) backgroundPositionVector.y = half_background_height;
-
-
-    if (backgroundPositionVector.x > map_width - half_background_width) backgroundPositionVector.x = map_width - half_background_width;
-    if (backgroundPositionVector.y > map_height - half_background_height) backgroundPositionVector.y = map_height - half_background_height;
-
-
-    background.x = backgroundPositionVector.x;
-    background.y = backgroundPositionVector.y;
-
-    background.rotation = - 90;
-
-
-
-
-    // let background = this.view.layer.background.map_background,
-    //     full_map_width = this.mapInfo.width,
-    //     full_map_height = this.mapInfo.height,
-    //     {x, y} = this.camera.focus,
-    //     half_window_width = this.window.width/2,
-    //     half_window_height = this.window.height/2;
-    //
-    // if(x < half_window_width) background.x = half_window_width - x;
-    // if(x > (full_map_width - half_window_width)) background.x = full_map_width - half_window_width - x;
-    //
-    // if(y < half_window_height) background.y = half_window_height - y;
-    // if(y > (full_map_height - half_window_height)) background.y = full_map_height - half_window_height - y;
-  }
-
-  updateMap() {
-    this.teams.forEach(team => {
-      team.spawn_camp.view.visible = this.camera.showing(team.spawn_camp);
-    })
-
-    this.model.map.impermeables.forEach((imp, i) => {
-      this.view.map.impermeables[i].visible = this.camera.showing(imp);
-    });
-
-  }
-
-  updateTINT() {
-    try {
-      if (TINT) TINT.setAngleOffset(-this.camera.focus.ship.rotation)
-    } catch (e) {
-      log('tint load failed')
-    }
-  }
-
-  updateGrid() {
-    var focus = this.camera.focus;
-    if (focus) GRID.offset(-focus.x, -focus.y)
-  }
-
-  updateGameViews() {
-
-    const list = this.calculateTeamScoreAppearance();
-
-    this.view.overlay.score.team.forEach((text, i) => {
-      text.text = this.game.scores[i];
-      // text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);
-
-      if(this.gameMode == 0) // todo FIX --     export logic to another function to know which is larger
-        text.scaleX = text.scaleY = (list[i] ? 1 : 0.86);
-    })
-
-    if(this.gameMode == 0)
-      this.updateFlagView();
-
-  }
-
-  calculateTeamScoreAppearance() {
-
-    const list = [];
-
-    switch(this.gameMode) {
-
-      case 0: // ctf
-
-        for(let team of this.teams)
-          list.push(team.players.map(p => p.id).indexOf(this.game.flag.holderID) != -1)
-
-        break;
-
-      case 1: // territory
-
-        const bestScore = _(this.game.scores).max();
-        _(this.game.scores).each(score => list.push(score == bestScore))
-
-        break;
-
-    }
-
-    return list;
-  }
-
-  updateFlagView() {
-    var v = this.view.flag, flag = this.game.flag;
-
-    var not_visible = false;
-    let newPosition = new V2D(flag.position.x - this.camera.plane.regX, flag.position.y - this.camera.plane.regY)
-    newPosition.angle -= Math.radians(this.camera.focus.ship.rotation + 90)
-    newPosition.mul(this.scale)
-    newPosition.add({x: this.camera.plane.x, y: this.camera.plane.y})
-    v.x = newPosition.x;
-    v.y = newPosition.y;
-    var padding = (flag.radius * 2)
-    if (v.x < padding) {
-      v.x = padding;
-      not_visible = true;
-    }
-    if (v.x > this.window.width - padding) {
-      v.x = this.window.width - padding;
-      not_visible = true;
-    }
-    if (v.y < padding) {
-      v.y = padding;
-      not_visible = true;
-    }
-    if (v.y > this.window.height - padding) {
-      v.y = this.window.height - padding;
-      not_visible = true;
-    }
-
-    v.alpha = not_visible ? 0.3 : (flag.idle ? 1 : 0);
-
-
-    // var v = this.view.flag, flag = this.game.flag;
-    //
-    // var not_visible = false;
-    // v.x = flag.position.x + this.camera.plane.x;
-    // v.y = flag.position.y + this.camera.plane.y;
-    // var padding = (flag.radius * 2)
-    // if(v.x < padding) { v.x = padding; not_visible = true; }
-    // if(v.x > this.window.width - padding) { v.x = this.window.width - padding; not_visible = true; }
-    // if(v.y < padding) { v.y = padding; not_visible = true; }
-    // if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }
-    //
-    // v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);
-  }
-
-  updateMinimapView() {
-    let mini = this.view.overlay.minimap;
-
-    // ships
-    this.team.players.forEach((player, i) => {
-      mini.players[i].x = player.ship.position.x * mini.scale;
-      mini.players[i].y = player.ship.position.y * mini.scale;
-    })
-
-
-    // flag
-    if(this.gameMode == 0) {
-      let flag = this.game.flag;
-      mini.flag.x = flag.position.x * mini.scale;
-      mini.flag.y = flag.position.y * mini.scale;
-    }
-
-  }
-
-  updateCameraFocus() {
-    this.camera.focus = this.activePlayers[this.activePlayerIndex].ship.view;
-  }
-
-  updateProton() {
-
-    const timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);
-    const slowest = 0.1; const fastest = 0.02;
-    const defaultMinAngle = 150; const defaultMaxAngle = 210;
-
-    for(const [ship, emitter] of this.view.proton.emitters) {
-
-      if(ship.disabled) {
-        if(!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.death)) {
-          emitter.removeInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);
-          emitter.addInitialize(this.view.proton.imageTargets.death);
-        }
-      } else {
-        if(!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.teams[ship.owner.team.number])) {
-          emitter.removeInitialize(this.view.proton.imageTargets.death);
-          emitter.addInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);
-        }
-      }
-
-      // update ship dependencies
-      const percent = ship.velocity.length /
-        (ship.LINEAR_VELOCITY_LIMIT + ship.LINEAR_VELOCITY_LIMIT_EXTENDED);
-      let amount = ship.disabled ? 3 : (percent < 0.2 ? 0 : 1);
-      const pos = ship.back_weapon_position;
-      const minAngle = ship.disabled ? 0 : defaultMinAngle;
-      const maxAngle = ship.disabled ? 360 : defaultMinAngle;
-
-      emitter.p.x = pos.x;
-      emitter.p.y = pos.y;
-      emitter.rotation = -Math.degrees(ship.angle) - 90;
-      emitter.rate.timePan.a =
-        emitter.rate.timePan.b =
-          slowest - ((slowest - fastest) * timingFunction(percent));
-      emitter.rate.numPan.a =
-        emitter.rate.numPan.b =
-          amount;
-      emitter.force.thaPan.a = minAngle;
-      emitter.force.thaPan.b = maxAngle;
-
-
-    }
-
-
-    // refresh proton
-    this.view.proton.main.update();
-  }
-
-  log() {
-    // var input = this.ships.main.owner.input;
-    // var ship = this.ships.main;
-    // $('#log').text(`forward: ${input.get('forward')}, turn: ${input.get('turn')}, shoot: ${input.get('shoot')}, block: ${input.get('block')}, `)
-//     $('#log').text(
-// `    x: ${ship.position.x.round(2)}
-//     y: ${ship.position.y.round(2)}
-// angle: ${ship.angle.round(2)}`
-//     );
-
-    // FPS
-    // this.last = this.last || [];
-    // this.last.push(1/this.dt)
-    // if(this.last.length > 10) this.last.shift();
-    // $('#log').text(`fps ${Math.round(this.last.average())}`);
-  }
-
-
-  // end vs stop: end happens when the local game appears to conclude; interaction with the game is stopped
-  // and the state might even be obstructed from view though the simluation continues;
-
-  disableInteraction() {
-    this.game.disabled = true;
-    if (this.player) this.resetInput();
-    this.deinitListeners();
-    this.timer.cancel();
-  }
-
-  endSimulation() {
-    this.game.ended = true;
-    // SoundHelper.stop();
-  }
-
-  timerExpire() {
-
-    // let server know TODO this should not lie here like this..
-    switch(this.gameMode) {
-
-      case 0: // ctf
-
-        const team = this.player.team.number;
-        const score = this.game.scores[team];
-        this.network.sendFlagProgress([team, score]);
-
-        break;
-
-    }
-
-    // LOBBY.disableGame();
-
-    // disconnect if no server response after 6s
-    setTimeout(() => {
-      if (!(this.game.ended || this.game.overtime)) LOBBY.disconnect();
-    }, 6000);
-  }
-
-  takeOvertime() {
-    this.game.overtime = true;
-
-    // disconnect if no server response after 40s
-    setTimeout(() => {
-      if (!(this.game.ended)) LOBBY.disconnect();
-    }, TIME.sec(40)); // OVERTIME DURATION.. todo
-  }
-
-
-  end(results) {
-
-    // this.setScoreToResults(results);
-
-    this.game.ended = true;
-    this.disableInteraction();
-  }
-
-  setScoreToResults(results) {
-    // this.game.scores = results;
-  }
-
-  // *** NEW NETWORK STRUCTURE *** //
-
-  // ** SHIP ** //
-
-  damageShip(toID, hp, fromID) {
-
-    // interpret damage data
-    const data = [toID, hp, fromID];
-
-    // adjust locally (if possible)
-    this.adjustShipHP(data)
-
-    // send through network
-    this.network.sendAdjustShipHP(data);
-
-  }
-
-  adjustShipHP([toID, hp, fromID]) {
-
-    // health on a player can only be adjusted by own player
-    if(toID !== this.player.id) return;
-
-    // damage and send death if neccessary
-    if(this.player.ship.damage(hp))
-      this.processDeath([toID, fromID]);
-
- }
-
-  processDeath(data) {
-
-    // announce locally
-    this.deathOccurrence(data)
-
-    // send through network
-    this.network.sendDeathOccurrence(data);
-
-  }
-
-  deathOccurrence([toID, fromID]) {
-
-    const t = this.players.get(toID)
-    const g = this.players.get(fromID);
-
-    if (t) t.score.deaths++;
-    if (g) g.score.kills++;
-
-    if (this.spectate) return;
-    if (toID == this.player.id) {
-      const player = this.players.get(fromID);
-      this.alert_kill(
-        DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](
-          player.name
-        )
-      );
-      this.camera.animateFocus(player.ship.view, [this.player.ship, 'disabled']);
-      // this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);
-    } else if (fromID == this.player.id) {
-      this.alert_kill(
-        DeepSpaceGame.localizationStrings.alerts['yourKill'][this.language](
-          this.players.get(toID).name
-        )
-      );
-    }
-
-  }
-
-  // ** PROJECTILES ** //
-
-  // * BULLETS * //
-
-  addBullet(ship) {
-    
-    // interpretation ship data for bullet creation
-    const data = this.generateBulletData(ship)
-
-    // actually create bullet object
-    this.createBullet(data)
-
-    // ditribute bullet creation data to other clients
-    this.network.sendCreateBullet(data)
-
-    // notify ship
-    ship.didShoot(data.id)
-
-  }
-
-  generateBulletData(ship) {
-
-    return ({
-      id: Math.uuid(),
-      creator: ship.owner.id,
-      team: ship.owner.team.number,
-      position: ship.shoot_position,
-      angle: ship.shoot_angle + ship.shot_RNG,
-      radius: ship.ATTACK_RADIUS,
-      hp: ship.ATTACK_HP,
-      lifespan: ship.ATTACK_LIFESPAN,
-      velocity: ship.velocity,
-      speed: ship.ATTACK_SPEED
-    });
-
-  }
-
-  createBullet(data) {
-
-    const b = new Bullet(data);
-
-    // set model map
-    this.model.bullets.set(b.id, b);
-
-    // collision groups
-    b.collision_groups = [this.physics.collision_groups.BULLETS];
-    b.collision_groups.push(this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS);
-    if (!this.spectate && b.creator == this.player.id) b.collision_groups.push(this.physics.collision_groups.MY_BULLETS);
-
-  }
-
-  removeBullet(id) {
-
-    // remove local copy
-    this.destroyBullet(id)
-
-    // annouce bullet demise
-    this.network.sendDestroyBullet(id)
-
-  }
-
-  destroyBullet(id) {
-
-    var b = this.model.bullets.get(id);
-    if (!b) return;
-
-    this.clearCollisionDivisions(b);
-
-    this.model.bullets.delete(id);
-    if (!this.spectate) this.ships.main.bullets.delete(id);
-
-    // erase the view for it.
-    this.destroyBulletView(id);
-
-  }
-
-  // * BLOCKS * //
-
-  addBlock(ship) {
-
-    // interpretation ship data for block creation
-    const data = this.generateBlockData(ship)
-
-    // actually create block object
-    this.createBlock(data)
-
-    // ditribute bullet creation data to other clients
-    this.network.sendCreateBlock(data)
-
-    // notify ship
-    ship.didBlock(data.id)
-
-  }
-
-  generateBlockData(ship) {
-    return ({
-      id: Math.uuid(),
-      creator: ship.owner.id,
-      team: ship.owner.team.number,
-      position: ship.front_weapon_position,
-      angle: (ship.angle) + ((ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1)),
-      hp: ship.BLOCK_HP_CAPACITY,
-      // radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)
-      radius: Block.stats.MAX_RADIUS,
-      speed: Math.randomIntMinMax(Block.stats.MIN_SPEED, Block.stats.MAX_SPEED)
-    });
-
-  }
-
-  createBlock(data) {
-
-    var bl = new Block(data);
-
-    // misc..?
-    bl.isForeign = this.spectate || bl.team != this.team.number;
-
-    // set model map
-    this.model.blocks.set(bl.id, bl);
-
-    // collision groups
-    bl.collision_groups = [this.physics.collision_groups.REFUGE]
-    if (this.teams[bl.team] != this.team) {
-      bl.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)
-    } else {
-      bl.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)
-      bl.collision_groups.push(this.physics.collision_groups.OUR_BLOCKS)
-    }
-
-    // notify game
-    if(this.gameMode == 1) this.game.scores[data.team]++;
-
-  }
-
-  damageBlock(id, hp) {
-
-    // interpret damage data
-    const data = [id, hp];
-
-    // adjust locally
-    this.adjustBlockHP(data)
-
-    // send through network
-    this.network.sendAdjustBlockHP(data);
-
-  }
-
-  adjustBlockHP([id, hp]) {
-    const block = ENV.game.model.blocks.get(id);
-    if(block) block.damage(hp);
-  }
-
-  changeBlock(id, team) {
-
-    // interpret change data
-    const data = [id, team];
-
-    // adjust locally
-    this.setBlockTeam(data)
-    
-    // send through network
-    this.network.sendSetBlockTeam(data);
-
-  }
-
-  setBlockTeam([id, team]) {
-    // retrieve and store block
-    var b = this.model.blocks.get(id);
-    if (!b) return false;
-
-    // begin change if locked
-    if (b.locked) {
-
-      // skip if change is unnecessary
-      if (b.team != team) {
-
-        const oldTeam = b.team;
-
-        // assign new team
-        b.team = team;
-
-        // if not spectating add or remove from ref group
-        if (!this.spectate) {
-          if (b.team != this.team.number) {
-            this.refGroups.enemyBlocks.add(b);
-          } else {
-            this.refGroups.enemyBlocks.delete(b);
-          }
-        }
-
-        //
-        if (!this.spectate) {
-
-          this.ships.main.blocks.delete(id);
-
-        }
-
-        // replace and delete old view
-        var v = this.view.blocks.get(id);
-        if (v) {
-          let type = this.refGroups.enemyBlocks.has(b) ? 'enemy' : (b.locked ? 'locked' : 'unlocked');
-          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];
-          // v.updateCache();
-        }
-
-        // collision groups
-        this.clearCollisionDivisions(b);
-        b.collision_groups = [this.physics.collision_groups.REFUGE]
-        if (this.teams[b.team] != this.team) {
-          b.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)
-        } else {
-          b.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)
-        }
-        this.setCollisionDivisions(b);
-
-        // notify game
-        if(this.gameMode == 1) {
-          this.game.scores[oldTeam]--;
-          this.game.scores[team]++;
-        }
-
-        
-      } // end if(b.team != team)
-    } // end if(!b.locked)
-
-
-  }
-
-  removeBlock(id) {
-
-    // remove local copy
-    this.destroyBlock(id)
-
-    // annouce blocks demise
-    this.network.sendDestroyBlock(id)
-
-  }
-
-  destroyBlock(id) {
-    var b = this.model.blocks.get(id);
-    if (!b) return false;
-
-    this.clearCollisionDivisions(b);
-
-    this.model.blocks.delete(id);
-    if (!this.spectate) this.ships.main.blocks.delete(id);
-
-    if (b.locked) this.refGroups.enemyBlocks.delete(b);
-
-    // erase the view for it.
-    this.destroyBlockView(id);
-    this.destroyOverlayMinimapBlockViewFor(id);
-
-    // notify game
-    if(this.gameMode == 1) this.game.scores[b.team]--;
-
-    return true;
-  }
-
-  // * SUBS * //
-
-  addSub(ship) {
-
-    // interpretation ship data for sub creation
-    const data = this.generateSubData(ship)
-
-    // actually create block object
-    this.createSub(data)
-
-    // ditribute bullet creation data to other clients
-    this.network.sendCreateSub(data)
-
-    // notify ship
-    ship.didSub(data.id)
-
-  }
-
-  generateSubData(ship) {
-    return ({
-      id: Math.uuid(),
-      type: ship.SUB_TYPE,
-      team: ship.owner.team.number,
-      player: ship.owner.id,
-      position: ship.front_weapon_position,
-      angle: ship.angle
-    });
-  }
-
-  createSub(data) {
-    var p;
-    switch (data.type) {
-      case 'attractor':
-        p = new Attractor(data)
-        break;
-      case 'repulsor':
-        p = new Repulsor(data)
-        break;
-      case 'block_bomb':
-        p = new BlockBomb(data)
-        break;
-      case 'stealth_cloak':
-        p = new StealthCloak(data)
-        break;
-      case 'missile':
-        p = new Missile(data)
-        break;
-      default:
-        break;
-    }
-
-    // create a view for it.
-    if (data.type != 'stealth_cloak') {
-      let graphics = DeepSpaceGame.graphics[data.type](this.teams[p.team].color);
-      var pv = new createjs.Shape(graphics);
-      pv.cache(-12, -12, 24, 24);
-      this.view.layer.action.back.addChild(pv);
-
-      this.view.subs.set(p.id, pv);
-
-      // if(this.camera.showing(p)) SoundHelper.fireSub(); // no sound for stealth
-
-      p.collision_groups = (this.teams[p.team] == this.team) ? [this.physics.collision_groups.OUR_PROJ_SUBS] : [];
-    }
-
-    this.model.subs.set(p.id, p);
-
-    if (!this.spectate) if (p.team != this.ships.main.owner.team.number) this.refGroups.enemySubs.add(p.id);
-
-    return p;
-  }
-
-  removeSub(id) {
-
-    // remove local copy
-    this.destroySub(id)
-
-    // annouce blocks demise
-    this.network.sendDestroySub(id)
-
-  }
-
-  destroySub(id) {
-    var p = this.model.subs.get(id);
-    if (!p) return false;
-
-    this.clearCollisionDivisions(p);
-
-    this.model.subs.delete(id);
-    if (!this.spectate) this.ships.main.subs.delete(id);
-
-    this.refGroups.enemySubs.delete(p.id);
-
-    // erase the view for it.
-    if (p.type != 'stealth_cloak') {
-      var v = this.view.subs.get(id);
-      if (v) {
-        this.view.subs.delete(id);
-        this.view.layer.action.back.removeChild(v);
-      }
-    }
-    return true;
-  }
-
-  // * GAME * //
-
-  // CTF //
-
-  assumeFlag(ship) {
-
-    // interpret for flag capture
-    const id = ship.owner.id
-
-    // capture flag locally
-    this.captureFlag(id)
-
-    // let other clients know
-    this.network.sendCaptureFlag(id)
-
-    // notify ship
-    ship.didPickupFlag()
-
-  }
-
-  captureFlag(id) {
-
-    // set flag and ship state
-    const player = this.players.get(id);
-    this.game.flag.holderID = id;
-    if(this.players.get(id)) this.players.get(id).ship.setFlag(this.game.flag);
-
-    // alert
-    var c = player.team.color, us = player.team == this.team;
-    // var c = DeepSpaceGame.colors[player.team.color], us = player.team == this.team;
-    this.alert(
-      DeepSpaceGame.localizationStrings.alerts[us ? 'teamTakesFlag' : 'enemyTakesFlag'][this.language](
-        DeepSpaceGame.localizationStrings.colors[c][this.language]
-      )
-      , c);
-
-    // sound
-    // us ? SoundHelper.teamYay() : SoundHelper.teamNay();
-
-    // this.updateFlagView();
-
-  }
-
-  releaseFlag() {
-
-    // capture flag locally
-    this.dropFlag()
-
-    // let other clients know
-    this.network.sendDropFlag()
-
-    // let server know
-    const team = this.player.team.number;
-    const score = this.game.scores[team];
-    this.network.sendFlagProgress([team, score]);
-
-  }
-
-  dropFlag() {
-
-    var id, flag = this.game.flag, ship = null;
-
-    if (id = flag.holderID) {
-      var player = this.players.get(flag.holderID)
-      if (ship = player.ship)
-        ship.clearFlag();
-
-      flag.reset();
-
-      var c = player.team.color, us = player.team == this.team;
-      var color = undefined;//us || this.spectate ? undefined : this.team.color;
-      this.alert(
-        DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](
-          DeepSpaceGame.localizationStrings.colors[c][this.language]
-        )
-        , color);
-
-      // this.updateFlagView();
-    }
-
-  }
-
-  flagProgress([team, score]) {
-
-    // update local registry w/ server score
-    this.game.scores[team] = score;
-
-  }
-
-
-
-
-  // pickupFlag(playerID) { // flag activation needs to go through here
-  //   var flag = this.game.flag, ship = null;
-  //   // if(!flag.idle) NetworkHelper.out_flag_drop();
-  //   flag.holderID = playerID;
-  //
-  //   var player = this.players.get(flag.holderID);
-  //
-  //
-  //   if (ship = player.ship) {
-  //     ship.setFlag(flag);
-  //     if(this.game.overtime)
-  //       if(ship.owner.team == this.game.lead)
-  //         if(ship.owner.team == this.team)
-  //           this.network.out_game_over(this.team.number);
-  //   }
-  //
-  //
-  //
-  //   var c = DeepSpaceGame.colors[player.team.color], us = player.team == this.team;
-  //   this.alert(
-  //     DeepSpaceGame.localizationStrings.alerts[us ? 'teamTakesFlag' : 'enemyTakesFlag'][this.language](
-  //       DeepSpaceGame.localizationStrings.colors[c][this.language]
-  //     )
-  //     , c);
-  //
-  //   // sound
-  //   us ? SoundHelper.teamYay() : SoundHelper.teamNay();
-  //
-  //   // this.updateFlagView();
-  // }
-
-  // dropFlag() {
-  //   var id, flag = this.game.flag, ship = null;
-  //   if (id = flag.holderID) {
-  //     var player = this.players.get(flag.holderID)
-  //     if (ship = player.ship)
-  //       ship.clearFlag();
-  //
-  //     flag.reset();
-  //
-  //     var c = player.team.color, us = player.team == this.team;
-  //     this.alert(
-  //       DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](
-  //         DeepSpaceGame.localizationStrings.colors[c][this.language]
-  //       )
-  //       , us || this.spectate ? undefined : this.team.color);
-  //
-  //     // this.updateFlagView();
-  //   }
-  //
-  // }
-
-  
-
-  alert(msg, color = "#ECEFF1") {
-    clearTimeout(this.alertTimeout)
-    var v = this.view.overlay.message;
-    v.text = msg;
-    v.color = color;
-    if (msg.trim() !== '') this.alertTimeout = setTimeout(() => {
-      this.alert("")
-    }, 4000)
-  }
-
-  alert_kill(msg, color = "#ECEFF1") {
-    clearTimeout(this.alertKillTimeout)
-    var v = this.view.overlay.kill_message;
-    v.text = msg;
-    v.color = color;
-    if (msg.trim() !== '') this.alertKillTimeout = setTimeout(() => {
-      this.alert_kill("")
-    }, 4000)
-  }
-
-
-  msgShipKill(takerID, giverID) {//alert(`takerID ${takerID}, giverID ${giverID},`)
-    var t = this.players.get(takerID), g = this.players.get(giverID);
-    if (t) t.score.deaths++;
-    if (g) g.score.kills++;
-
-    if (this.spectate) return;
-    if (takerID == this.player.id) {
-      const player = this.players.get(giverID);
-      this.alert_kill(
-        DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](
-          player.name
-        )
-      );
-      this.camera.animateFocus(player.ship.view, [this.player.ship, 'disabled']);
-      // this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);
-    } else if (giverID == this.player.id) {
-      this.alert_kill(
-        DeepSpaceGame.localizationStrings.alerts['yourKill'][this.language](
-          this.players.get(takerID).name
-        )
-      );
-    }
-  }
-
-
-
-  /* NEW DYNAMIC GRAPHICS */
-  // Size has grown. It is now ineffective to keep copies
-  // of views for all map objects and choose to render
-  // based on visibility. Views will be created and
-  // destroyed dynamically. This will hopefully have
-  // great performance benefits 09/17/17
-
-  createBulletView(b) {
-
-    const cache = DeepSpaceGame.graphicsCaches.bullets[b.team];
-    const bv = new createjs.Bitmap(cache);
-    bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;
-    bv.regX = bv.regY = (cache.width / 2);
-    this.view.layer.action.back.addChild(bv);
-
-    // set view map
-    this.view.bullets.set(b.id, bv);
-
-    return bv
-
-  }
-
-  destroyBulletView(id) {
-
-    const v = this.view.bullets.get(id);
-    if (v) {
-      this.view.bullets.delete(id);
-      this.view.layer.action.back.removeChild(v);
-    }
-
-  }
-
-  createBlockView(bl) {
-    
-    // a block can either look fluid or locked
-    // these being either ours or theirs
-
-    // create a view for it.
-    let type = 'unlocked';
-    if(bl.locked || bl.qualified) type = bl.isForeign ? 'enemy' : 'locked';
-    let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];
-    var blv = new createjs.Bitmap(cache);
-    blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;
-    blv.regX = blv.regY = (cache.width / 2);
-    this.view.layer.action.back.addChild(blv);
-
-    // set view map
-    this.view.blocks.set(bl.id, blv);
-
-    return blv
-
-  }
-
-  destroyBlockView(id) {
-
-    const v = this.view.blocks.get(id);
-    if (v) {
-      this.view.blocks.delete(id);
-      this.view.layer.action.back.removeChild(v);
-    }
-
-  }
-
-  /* DEINITIALIZATION */
-
-  deinit() {
-    // it must go in reverse order
-    // as children of root objects will
-    // need to know what to get removed from
-    this.deinitCaches();
-    this.deinitPhysics();
-    this.deinitInput();
-    this.deinitListeners();
-    this.deinitCamera();
-    this.deinitView();
-    this.deinitGame();
-    this.deinitModel();
-
-    delete DeepSpaceGame.runningInstance;
-  }
-
-  deinitCaches() {
-    delete this.enemyTeams;
-    delete this.enemyPlayers;
-    delete this.player;
-    delete this.team;
-
-    delete DeepSpaceGame.graphicsCaches;
-  }
-
-  deinitPhysics() {
-    delete this.refGroups;
-  }
-
-  deinitInput() {
-    var main = this.ships.main;
-    if (main) delete main.owner.input;
-  }
-
-  deinitListeners() {
-    for (let [, handler] of this.inputHandlers) {
-      window.removeEventListener('keydown', handler); // onkeydown
-      window.removeEventListener('keyup', handler); // onkeyup
-    }
-  }
-
-  deinitCamera() {
-    delete this.camera;
-  }
-
-  deinitView() {
-    delete this.view;
-    delete this.window;
-    this.stage.removeAllChildren();
-    delete this.stage;
-    delete this.colors;
-  }
-
-  deinitGame() {
-    delete this.game;
-  }
-
-  deinitModel() {
-    delete this.ships;
-    delete this.players;
-    delete this.teams;
-  }
-
-  reset() {
-
-  }
-
-  resetInput() {
-    var input;
-    if (this.player) if (input = this.player.input) input.clear();
-  }
-
-  disconnectPlayer(id) {
-    var player = this.players.get(id);
-    if (player) {
-      player.disconnected = true;
-      player.ship.disabled = true;
-      if (this.spectate) this.activePlayers.delete(player);
-      
-      // alert team members
-      if (!this.spectate) {
-        if(player.team === this.team) this.alert(
-          DeepSpaceGame.localizationStrings.alerts['teamMemberDisconnects'][this.language](
-            player.name
-          )
-        )
-      }
-    } else {
-      log(`ERR in disconnectPlayer :: id(${id}) not found`)
-    }
-  }
-
-}
-
-DeepSpaceGame.graphics = {
-  circle_fill: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
-
-  spawn_camp: (color) => new createjs.Graphics().beginStroke(color).setStrokeStyle(6).drawCircle(0, 0, 64),
-  spawn_camp_fill: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 64),
-  // spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),
-  ship: [
-    // 0 "standard"
-    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
-      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
-
-    // 1 "rate"
-    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8),
-      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8)],
-
-    // 2 "speed"
-    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),
-      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],
-
-    // 3 "defense"
-    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4),
-      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4)],
-
-    // 4 "damage"
-    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8),
-      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8)],
-
-  ],
-  particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),
-  // bullet: (color) => DeepSpaceGame.graphics.particle(color)
-  // block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
-  block_border: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),
-  block_fill: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),
-  block_center: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 2),
-
-  attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
-  repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),
-  block_bomb: color => new createjs.Graphics().beginFill(color).moveTo(-10, 0).arcTo(-10, -10, 0, -10, 10).lineTo(0, 10).arcTo(-9, 9, -10, 0, 10),
-  missile: color => new createjs.Graphics().beginFill(color).moveTo(6, 0).lineTo(-6, -6).lineTo(-6, 6).lineTo(6, 0),
-
-
-  ring: r => new createjs.Graphics().beginStroke("#ECEFF1").setStrokeStyle(16).drawCircle(0, 0, r),
-  flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r),
-  flag_shadow: () => new createjs.Shadow("#ECEFF1", 0, 0, 10),
-
-  energyMeter: (color, percent, scale, radius = 5) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius/scale, (-Math.PI / 2), (2 * Math.PI * percent) - (Math.PI / 2)),
-  energyMeterShadow: (color, scale, radius = 7) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius/scale, 0, 2 * Math.PI)
-};
-
-DeepSpaceGame.renderingParameters = {
-  'bulletCount': 100,
-  'shipThrustParticleCount': 80
-}
-
-DeepSpaceGame.localizationStrings = {
-  alerts: {
-    enemyTakesFlag: {
-      en: (color) => `The ${color} team has the moon!`
-    },
-    teamTakesFlag: {
-      en: () => `We have the moon!`
-    },
-    enemyDropsFlag: {
-      en: (color) => `The ${color} team dropped the moon!`
-    },
-    teamDropsFlag: {
-      en: () => `We dropped the moon!`
-    },
-    yourKill: {
-      en: (name) => `you got ${name}`
-    },
-    yourDeath: {
-      en: (name) => `${name} got you!`
-    },
-    teamTakesLead: {
-      en: () => `We took the lead!`
-    },
-    teamLosesLead: {
-      en: () => `We lost the lead!`
-    },
-    teamMemberDisconnects: {
-      en: (name) => `Your teammate ${name} has disconnected`
-    }
-  },
-  colors: {
-    '#FF4081': {
-      en: `pink`
-    },
-    '#FF5252': {
-      en: `red`
-    },
-    '#FFEA00': {
-      en: `yellow`
-    },
-    '#00E676': {
-      en: `green`
-    },
-    '#00B0FF': {
-      en: `blue`
-    },
-    '#BB33FF': {
-      en: `purple`
-    },
-    '#ECEFF1': {
-      en: `white`
-    },
-    '#90A4AE': {
-      en: `light`
-    },
-    '#37474F': {
-      en: `dark`
-    },
-    '#263238': {
-      en: `black`
-    },
-
-
-    '#FFA33F': {
-      en: `orange`
-    }, // 10 orange
-    '#82E600': {
-      en: `lime`
-    }, // 11 grass
-    '#00FFE2': {
-      en: `aqua`
-    }, // 12 aqua
-    '#F93FFF': {
-      en: `magenta`
-    }, // 13 magenta
-  }
-}
-
-// DeepSpaceGame.colorNames = [
-//   '#FF4081': `pink`,
-//   '#FF5252': `red`,
-//   '#FFEA00': `yellow`,
-//   '#00E676': `green`,
-//   '#00B0FF': `blue`,
-//   '#AA00FF': `purple`,
-//   '#ECEFF1': `white`,
-//   '#90A4AE': `light`,
-//   '#37474F': `dark`,
-//   '#263238': `black`
-// ];
-
-// DeepSpaceGame.colorNames = [
-//   '#FF4081', // 0 pink
-//   '#FF5252', // 1 red
-//   '#FFEA00', // 2 yellow
-//   '#00E676', // 3 green
-//   '#00B0FF', // 4 blue
-//   '#AA00FF', // 5 purple
-//   '#ECEFF1', // 6 white
-//   '#90A4AE', // 7 light
-//   '#37474F', // 8 dark
-//   '#263238'  // 9 black
-// ];
-//
-// DeepSpaceGame.colorCombinations = new Map([2, [
-//   [1, 4], // red, blue
-//   [1, 2], // red, yellow
-//   [5, 2], // purple, yellow
-//   [2, 4], // yellow, blue
-//   [2, 0], // yellow, pink
-//   [0, 4], // pink, blue
-//   [4, 3]  // blue, green
-// ]],
-// [3,[
-//
-// ]]
-// );
-
-DeepSpaceGame.colors = [
-  '#FF4081', // 0 pink
-  '#FF5252', // 1 red
-  '#FFEA00', // 2 yellow
-  '#00E676', // 3 green
-  '#00B0FF', // 4 blue
-  '#BB33FF', // 5 purple AA00FF old
-  '#ECEFF1', // 6 white
-  '#90A4AE', // 7 light
-  '#37474F', // 8 dark
-  '#263238', // 9 black
-
-  // added colors
-  '#FFA33F', // 10 orange
-  '#82E600', // 11 grass
-  '#00FFE2', // 12 aqua
-  '#F93FFF', // 13 bubble gum
-];
-
-DeepSpaceGame.maps = [
-  {
-    name: "The Event Horizon",
-    width: 1920, height: 1920,
-    // width: 1024, height: 1024,
-    spawn: [
-      [{x: 30, y: 30}, {x: 30, y: 60}, {x: 60, y: 60}, {x: 60, y: 30}],
-      [{x: 450, y: 290}, {x: 450, y: 260}],
-      [{x: 450, y: 290}, {x: 450, y: 260}]
-    ]
-  }
-];
-
-DeepSpaceGame.maps = [
-  { // 0
-    name: "Wide Sky",
-    width: 3072 * 1, height: 3072 * 1,
-    teams: [2],
-
-    spawn: [
-      // [{x: 192, y: 192}, {x: 3072 - 192, y: 3072 - 192}] // 2
-
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],
-    ],
-    impermeables: {
-      copies: 4,
-      bodies: [
-        [32, // radius
-          [ 1192, 382 ],
-          [ 716, 414 ],
-          [ 1496, 87 ],
-          [ 1668, 441 ],
-          [ 1670, 849 ],
-          [ 869, 1320 ],
-          [ 276, 1270 ],
-          [ 1380, 681 ],
-          [ 344, 1228 ],
-          [ 632, 1022 ],
-          [ 427, 1256 ],
-          [ 728, 1150 ],
-          [ 140, 1096 ],
-          [ 76, 1146 ],
-          [ 716, 1064 ]
-        ],
-        [48,
-          [ 1332, 585 ],
-          [ 1021, 265 ],
-          [ 1224, 1006 ],
-          [ 520, 1308 ],
-          [ 812, 1006 ],
-          [ 536, 974 ]
-        ],
-        [64,
-          [ 408, 942 ],
-          [ 856, 878 ],
-          [ 684, 537 ],
-          [ 1160, 274 ],
-          [ 957, 761 ],
-          [ 840, 1210 ]
-        ],
-        [96,
-          [ 491, 169 ],
-          [ 860, 601 ],
-          [ 1338, 409 ]
-        ],
-        [128,
-          [1540, 569],
-        ]
-      ]
-    }
-  },
-  { // 0
-    name: "Nautical",
-    width: 3072 * 1, height: 3072 * 1,
-    teams: [2],
-
-    // first array is for the number of teams coresponding to the teams array
-    // second is place in the arrangement for that number of teams
-    // object is position
-    spawn: [
-      // [{x: 192, y: 192}, {x: 3072 - 192, y: 3072 - 192}] // 2
-
-      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}],
-      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}],
-      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}],
-      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}]
-    ],
-    impermeables: {
-      copies: 4,
-      bodies: [
-        [32, // radius
-          [325, 764],
-          [989, 98],
-          [746, 898],
-          [1054, 1308],
-          [1179, 1260],
-          [1514, 1308],
-          [993, 1356],
-          [534, 1308],
-          [1546, 194],
-          [1488, 130],
-          [173, 1028],
-          [173, 892],
-          [470, 880],
-          [325, 764],
-          [667, 892]
-        ],
-        [48,
-          [1218, 274],
-          [1242, 786],
-          [618, 1260],
-          [1139, 1340],
-          [238, 960],
-          [794, 818]
-        ],
-        [64,
-          [1084, 475],
-          [422, 322],
-          [914, 784],
-          [1654, 546],
-          [1279, 1219],
-          [1423, 1228]
-        ],
-        [96,
-          [298, 539],
-          [967, 610]
-        ],
-        [128,
-          [831, 411]
-        ]
-      ]
-    }
-  },
-  /*{ // 1
-    name: "Liftor",
-    width: 1920, height: 1920,
-    teams: [2],
-
-    // first array is for the number of teams coresponding to the teams array
-    // second is place in the arrangement for that number of teams
-    // object is position
-    spawn: [
-      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
-
-      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
-      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
-      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],
-      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]
-    ],
-    impermeables: {
-      copies: 2,
-      bodies: [
-        [32, // radius
-          [929, 76],
-          [582, 128],
-          [696, 176],
-          [811, 226],
-          [173, 892],
-          [173, 1028]
-        ],
-        [48,
-          [1218, 274],
-          [1242, 786],
-          [238, 960]
-        ],
-        [64,
-          [1654, 546],
-          [637, 578]
-        ]
-      ]
-    }
-  },*/
-  {
-    name: "Nebula",
-    width: 3072, height: 3072,
-    teams: [2],
-    tint: [180, '#FFFFFF', '#000000', ],
-
-    // first array is for the number of teams coresponding to the teams array
-    // second is place in the arrangement for that number of teams
-    // object is position
-    spawn: [
-      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
-
-      [
-        {x: 1791, y: 160, rotation: Math.PI/2},
-        {x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI/2},
-      ],
-      [
-        {x: 1791, y: 160, rotation: Math.PI/2},
-        {x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI/2},
-      ],
-    ],
-    impermeables: {
-      copies: 2,
-      bodies: [
-        [32, // radius
-          [ 456, 549 ],
-          [ 692, 1238 ],
-          [ 787, 1367 ],
-          [ 2013, 176 ],
-          [ 1199, 1175 ],
-          [ 555, 1731 ],
-          [ 1276, 1143 ],
-          [ 1507, 192 ],
-          [ 1587, 224 ],
-          [ 1443, 391 ],
-          [ 3030, 697 ],
-          [ 2609, 847 ],
-          [ 1727, 920 ],
-          [ 1911, 643 ],
-          [ 898, 1303 ],
-          [ 1078, 1358 ],
-          [ 1503, 1341 ],
-          [ 1575, 1316 ],
-          [ 1639, 1358 ],
-          [ 2798, 859 ]
-        ],
-        [48,
-          [898,1207],[510,1183],[1110,1206],[1343,1214],[1459,274],[2888,863]
-        ],
-        [64,
-          [1372,1079],[1631,845],[946,1422],[1515,86],[1007,1278],[341,660],[2166,1047],[541,1348],[421,1271],[1395,160],[992,847],[566,537],[2449,560],[2936,751],[2699,909],[2077,86],[1497,811],[2417,697],[2737,258]
-        ],
-        [96,
-          [231,304],[330,485],[1355,911],[276,822],[820,879],[1853,845],[2045,920],[2221,1213],[2277,592]
-        ],
-        [128,
-          [2609,421],[385,1037],[641,724],[1267,334],[1215,613],[427,1519],[2149,278],[2289,857]
-        ]
-      ]
-    }
-  },
-  {
-    name: "Clockwise",
-    width: 2048, height: 2048,
-    teams: [2],
-    tint: [180, '#207272', '#000000', ],
-
-    // first array is for the number of teams coresponding to the teams array
-    // second is place in the arrangement for that number of teams
-    // object is position
-    spawn: [
-      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2
-
-      [
-        {x: 1023, y: 119, rotation: Math.PI/2},
-        {x: 2048 - 1023, y: 2048 - 119, rotation: -Math.PI/2},
-      ],
-      [
-        {x: 1023, y: 119, rotation: Math.PI/2},
-        {x: 2048 - 1023, y: 2048 - 119, rotation: -Math.PI/2},
-      ],
-    ],
-    impermeables: {
-      copies: 2,
-      bodies: [
-        [32, // radius
-          [557,1059],[509,1367],[1000,876],[1077,844],[678,1420],[1897,192],[1977,224],[1162,344],[589,173],[1613,398],[1367,299],[1439,274],[1485,211]
-        ],
-        [48,
-          [589,77],[481,1009],[587,1415],[911,907],[1144,915],[941,372],[745,1491]
-        ],
-        [64,
-          [278,205],[541,748],[635,276],[1865,86],[507,521],[826,661],[370,1091],[420,1312],[317,1219],[1056,320],[1266,332],[497,883],[1549,302]
-        ],
-        [96,
-          [806,292],[656,617],[118,662]
-        ],
-      ]
-    }
-  },
-];
-
-DeepSpaceGame.spawn_structure = [
-  [{x: 0, y: 0}], // 1 player
-  [{x: 18, y: 0}, {x: -18, y: 0}], // 2
-  [{x: 26, y: 0}, {x: -13, y: 22}, {x: -13, y: -22}], // 3
-  [{x: 34, y: 0}, {x: 0, y: 34}, {x: -34, y: 0}, {x: 0, y: -34}], //4
-  [{x: 34, y: 0}, {x: 10, y: 32}, {x: -28, y: 20}, {x: -28, y: -20}, {x: 10, y: -32}], // 5
-  [{x: 34, y: 0}, {x: 17, y: 30}, {x: -17, y: 30}, {x: -34, y: 0}, {x: -17, y: -30}, {x: 17, y: -30}] // 6
-]
-
-DeepSpaceGame.modes = {
-  ctf: { // capture the flag
-    ring_radius: 720,
-    flag_radius: 18,
-    time_limit: FRAMES.mins(3)
-  }
-};
+// deep space js by david ruiz.class DeepSpaceGame {  // at initialization we can assume the environment  // knows certain game parameters:  // - map  // - game mode  // - players: amount, names, ship types, indexes,  constructor(data, network) {    this.interpret(data, network);    this.setup();    // this.loop();  }  static create(data, network) {    if (DeepSpaceGame.runningInstance) DeepSpaceGame.runningInstance.deinit();    return DeepSpaceGame.runningInstance = new DeepSpaceGame(data, network);  }  start() {    this.loop();    this.timer.start(() => {      this.timerExpire()    });  }  interpret(data, network) {    // anything pertaining to game    // object itself gets set    this.spectate = ENV.spectate;    this.isHost = data.host;    this.mapInfo = DeepSpaceGame.maps[data.options.map];    this.gameMode = data.options.mode;    this.game = {}    this.language = 'en';    this.timer = new Timer(data.duration - TIME.sec(1.5));    this.network = network;    this.network.game = this;    // SoundHelper.start(); // new    // this.soundHelper = SoundHelper.start(); // olc    try {      // if (TINT) TINT.load(...data.colors[1])      if (TINT) {        if(this.mapInfo.tint) { TINT.load(...this.mapInfo.tint) }        else { TINT.load(...data.colors[1]) }      }    } catch (e) {      log('tint load failed')    }    // everything else:    this.setupData = data;  }  setup() {    this.setupPhysics();    this.setupModel();    this.setupView();    this.setupListeners();    this.setupLoop();    this.setupReferences();    // if (this.spectate) this.actualize();  }  setupModel() {    this.setupTeams();    this.setupPlayers();    this.setupShips();    this.setupBubbles();    this.setupObjectPools();    this.setupGame();    this.setupMap();  }  setupTeams() {    this.teams = [];    let teamCount = this.setupData.teams.length;    teamCount.times((i) => {      this.teams.push(new Team(this, i))    });    this.setupSpawnCamps();  }  setupSpawnCamps() {    this.teams.forEach(team => {      team.spawn_camp = {        position: V2D.new(this.mapInfo.spawn[team.game.teams.length - 1][team.number]),        radius: 64,        team: team.number      }    });  }  setupPlayers() {    this.players = new Map();    this.teams.forEach((team, i) => {      this.setupData.teams[i].forEach((playerIndex)=>{        var [id, name, , , , type] = this.setupData.players[playerIndex];        team.createPlayer(id, name, type);      });    });  }  setupShips() {    this.ships = [];    this.players.forEach((player) => {      var ship;      if (localIDMatches(player.id) && !this.spectate) {        ship = new Ship(player);        ship.isMain = true;        this.ships.main = ship;      } else {        ship = new BasicShip(player);      }      this.ships.push(ship);      player.ship = ship;    });  }  setupBubbles() {    this.ships.forEach(ship => {      const our_ship = this.ships.main === ship;      const data = {        id: ship.owner.id,        team: ship.owner.team.number,        target: ship,      };      const bubbleClass = our_ship ? Bubble : SimpleBubble;      ship.bubble = new bubbleClass(data);      if(our_ship)        ship.bubbleCore = new BubbleCore(ship.bubble);    });  }  setupObjectPools() {    var model = {};    model.bullets = new Map();    model.blocks = new Map();    model.subs = new Map();    this.model = model;  }  setupGame() {    this.game = {};    this.game.disabled = false; // interaction disabled    this.game.ended = false; // game over happened    this.game.overtime = false; // game overtime happened    this.game.scores = new Array(this.teams.length);    // this.timer = DeepSpaceGame.modes[this.gameMode];    switch (this.gameMode) {      case 0: // ctf        // flag whatevers        var centerX = this.mapInfo.width / 2;        var centerY = this.mapInfo.height / 2;        let flag = new Flag(new V2D(centerX, centerY));        flag.collision_groups = [this.physics.collision_groups.FLAG];        this.setCollisionDivisions(flag);        this.game.flag = flag;        // actual game stats        this.game.scores.fill(0);        this.game.max = Physics.distance(this.teams[0].spawn_camp.position, {x: centerX, y: centerY});        this.game.lead = undefined; // team in the lead        // this.game.scores.fill(100);        // this.game.max = Physics.distance(this.teams[0].spawn_camp.position, {x: centerX, y: centerY});        // this.game.lead = undefined; // team in the lead        break;      case 1:        this.game.scores.fill(0);        break;    }  }  setupMap() {    let map = this.model.map = {},      info = this.mapInfo;    let cX = info.width / 2,      cY = info.height / 2;    // IMPERMEABLES    let initial_impermeables = [], radii = new Set();    for (let radius_size_group of info.impermeables.bodies) {      let list = radius_size_group.slice(),        radius = list.shift();      for (let [x, y] of list) {        initial_impermeables.push({          radius: radius,          position: {x, y}        })      }      radii.add(radius);    }    map.impermeables = [];    map.impermeables.radii = radii;    // in the future use the 'copies' variable on impermeables    // and make it odd symmetry    map.impermeables.push(...initial_impermeables)    if (info.impermeables.copies >= 2) {      map.impermeables.push(...(initial_impermeables.map(obj => {        return {          radius: obj.radius,          position: {x: info.width - obj.position.x, y: info.width - obj.position.y}        }      })));      if (info.impermeables.copies == 4) {        map.impermeables.push(...(initial_impermeables.map(obj => {          return {            radius: obj.radius,            position: {x: info.width - obj.position.y, y: obj.position.x}          }        })));        map.impermeables.push(...(initial_impermeables.map(obj => {          return {            radius: obj.radius,            position: {x: obj.position.y, y: info.width - obj.position.x}          }        })));      }    }    for (let imp of map.impermeables) {      imp.collision_groups = [this.physics.collision_groups.IMPERMEABLES]      this.setCollisionDivisions(imp);    }  }  setupView() {    this.setupPalette();    this.configureCreateJS();    this.configureProton();    this.setupCamera();  }  setupPalette() {    this.colors = this.setupData.colors;  }  configureCreateJS() {    this.setupCanvas();    // populate stage    this.createViews();  }  setupCanvas() { // TODO: (revise)    var canvas = $('#canvas')[0];    canvas.width = document.body.clientWidth;    canvas.height = document.body.clientHeight;    // if (canvas.width > 1024) canvas.width = 1024;    // if (canvas.height > 768) canvas.height = 768;        this.scale = Math.sqrt(canvas.width * canvas.height) / Math.sqrt(1024 * 768);    // this.scale ;    var stage = new createjs.StageGL(canvas);    // stage.canvas = canvas;    stage.snapToPixel = true;    // gui.add(stage, 'snapToPixel');    this.stage = stage;    this.HDPSupport();  }  HDPSupport() {    this.HDPScale = 1; return // todo fix support for high pixel dense screens...    if (window.devicePixelRatio) {      const stage = this.stage;      const canvas = stage.canvas;      // grab the width and height from canvas      var height = canvas.getAttribute('height');      var width = canvas.getAttribute('width');      // reset the canvas width and height with window.devicePixelRatio applied      canvas.setAttribute('width', Math.round(width * window.devicePixelRatio));      canvas.setAttribute('height', Math.round( height * window.devicePixelRatio));      // force the canvas back to the original size using css      canvas.style.width = width+"px";      canvas.style.height = height+"px";      // set CreateJS to render scaled      stage.scaleX = stage.scaleY = window.devicePixelRatio;      this.HDPScale = 1/window.devicePixelRatio    }  }  createViews() {    this.view = {      grid: {width: 100, height: 100},    };    this.window = {      width: this.stage.canvas.width * this.HDPScale,      height: this.stage.canvas.height * this.HDPScale,    };    this.createLayers();    this.createBackgroundViews();    this.createGameModeSpecificViewsAction();    this.createSpawnCampViews();    this.createBubbleViews();    this.createShipViews();    this.createPoolViews();    this.createOverlayViews();  }  snapToGrid(position) {    position.x = Math.round(position.x / this.view.grid.width) * this.view.grid.width    position.y = Math.round(position.y / this.view.grid.height) * this.view.grid.height  }  createLayers() {    var layer = {}    layer.background = new createjs.Container();    layer.action = new createjs.Container();    layer.overlay = new createjs.Container();    layer.action.back = new createjs.Container();    layer.action.front = new createjs.Container();    layer.action.addChild(layer.action.back);    layer.action.addChild(layer.action.front);    layer.action.scaleX = layer.action.scaleY = this.scale;    this.stage.addChild(layer.background);    this.stage.addChild(layer.action);    this.stage.addChild(layer.overlay);    this.view.layer = layer;  }  createBackgroundViews() {    // var canvas = this.stage.canvas, background = new createjs.Shape();    // // background.graphics.beginFill('#37474F').drawRect(0, 0, canvas.width, canvas.height);    // // background.cache(0, 0, canvas.width, canvas.height);    // // this.view.layer.background.addChild(background);    // //    // // background = new createjs.Shape();    // background.graphics.beginFill('#455A64').drawRect(0, 0, canvas.width, canvas.height);    // background.cache(0, 0, canvas.width, canvas.height);    // this.view.layer.background.map_background = background;    // this.view.layer.background.addChild(background);    var canvas = this.stage.canvas, canvasBackground = new createjs.Shape(), mapBackground = new createjs.Shape();    canvasBackground.graphics.beginFill('#37474F').drawRect(0, 0, this.window.width, this.window.height);    canvasBackground.cache(0, 0, canvas.width, canvas.height);    this.view.layer.background.addChild(canvasBackground);    const background_width = this.window.width * 2    const background_height = this.window.width * 2    const hypotenuse = Math.sqrt(Math.sqr(this.window.width) + Math.sqr(this.window.height)) / this.scale;    mapBackground.graphics.beginFill('#455A64').drawRect(0, 0, hypotenuse, hypotenuse);    mapBackground.cache(0, 0, hypotenuse, hypotenuse);    mapBackground.regX = hypotenuse/2;    mapBackground.regY = hypotenuse/2;    this.view.layer.background.map_background = mapBackground;    this.view.layer.action.back.addChild(mapBackground);  }  createGameModeSpecificViewsAction() {    /*switch(this.gameMode) {     case "ctf":     // ring and flag     var centerX = this.mapInfo.width / 2;     var centerY = this.mapInfo.height / 2;     var r = DeepSpaceGame.modes["ctf"].ring_radius, s = r * 1.2;     var ring = new createjs.Shape(     DeepSpaceGame.graphics.ring(r)     );     ring.cache(-s, -s, s*2, s*2);     // var r = DeepSpaceGame.modes["ctf"].flag_radius, s = r * 1.2;     // var flag = new createjs.Shape(     //   DeepSpaceGame.graphics.flag(DeepSpaceGame.modes["ctf"].flag_radius)     // );     // flag.shadow = DeepSpaceGame.graphics.flag_shadow();     // flag.cache(-s, -s, s*2, s*2);     //     ring.x = centerX; ring.y = centerY;     // flag.x = centerX; flag.y = centerY;     this.view.layer.action.back.addChild(ring);     // this.view.layer.action.back.addChild(flag);     // this.view.flag = flag;     // actual game things     break;     }*/    // create caches    var caches = new Map();    this.model.map.impermeables.radii.forEach(r => {      var view = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r));      var s = r * 1.2;      view.cache(-s, -s, s * 2, s * 2);      caches.set(r, view.cacheCanvas);    })    // create views    this.view.map = {impermeables: []}    this.model.map.impermeables.forEach(block => {      var view = new createjs.Bitmap(caches.get(block.radius)),        pos = block.position;      view.x = pos.x - block.radius * 1.2;      view.y = pos.y - block.radius * 1.2;      this.view.map.impermeables.push(view)      this.view.layer.action.front.addChild(view);    });  }  createSpawnCampViews() {    // this.view.teams = { spawn_camp: []}    // DeepSpaceGame.maps[0].spawn[this.owner.team.game.teams.length][this.owner.team.number]    var s = 64 + 3; // radius + border-half    this.teams.forEach((team, i) => {      var group = new createjs.Container(),        camp = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp(team.color)),        fill = new createjs.Shape(DeepSpaceGame.graphics.spawn_camp_fill(team.color)),        pos = team.spawn_camp.position;      fill.alpha = 0.08;      group.x = pos.x;      group.y = pos.y;      group.addChild(fill);      group.addChild(camp);      group.cache(-s, -s, s * 2, s * 2);      team.spawn_camp.view = group;      this.view.layer.action.back.addChild(group);    });  }  createBubbleViews() {    // variables for reference in loop    const our_ship = this.ships.main;    const maxRadius = Bubble.stats.OUTER_RADIUS;    const innerCircleScale = Bubble.stats.INNER_RADIUS / Bubble.stats.OUTER_RADIUS;    const s = maxRadius * 1.2;    const bubbles = this.view.bubbles = new Map();    // loop    this.ships.forEach(ship => {      const teamColor = ship.owner.team.color;      const container = new createjs.Container();      let handle;      if(ship === our_ship) {        const r = BubbleCore.stats.RADIUS;        handle = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(teamColor, r));        handle.alpha = 0.7;        handle.cache(-r, -r, r * 2, r * 2);        container.addChild(handle);      }      const fullRange = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(teamColor, maxRadius)),            growingCircle = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(teamColor, maxRadius)),            growingCircleEdge = new createjs.Shape(DeepSpaceGame.graphics.circle_edge(teamColor, maxRadius, 8));      const c1 = new createjs.Container();      const c2 = new createjs.Container();      const c3 = new createjs.Container();      fullRange.alpha = 0.1;      growingCircle.alpha = 0.3;      growingCircleEdge.alpha = 1.0;      c1.addChild(fullRange);      c2.addChild(growingCircle);      c3.addChild(growingCircleEdge);      c1.cache(-s, -s, s * 2, s * 2);      c2.cache(-s, -s, s * 2, s * 2);      c3.cache(-s, -s, s * 2, s * 2);      const fullRangeBitmap = new createjs.Bitmap(c1.cacheCanvas),            growingCircleBitmap = new createjs.Bitmap(c2.cacheCanvas),            growingCircleEdgeBitmap = new createjs.Bitmap(c3.cacheCanvas);      fullRangeBitmap.regX = fullRangeBitmap.regY = s;      growingCircleBitmap.regX = growingCircleBitmap.regY = s;      growingCircleEdgeBitmap.regX = growingCircleEdgeBitmap.regY = s;      container.addChild(fullRangeBitmap);      container.addChild(growingCircleBitmap);      container.addChild(growingCircleEdgeBitmap);      this.view.layer.action.back.addChild(container);      const views = {        container,        handle,        fullRange: fullRangeBitmap,        growingCircle: growingCircleBitmap,        growingCircleEdge: growingCircleEdgeBitmap,      };      bubbles.set(ship, views);    })  }  createShipViews() {    let our_ship = this.ships.main, our_team;    if (our_ship) our_team = our_ship.owner.team;    this.ships.forEach((ship) => {      let container = new createjs.Container();      var hollow = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][0](ship.owner.team.color, ship.isMain ? 4 : 2)),        filled = new createjs.Shape(DeepSpaceGame.graphics.ship[ship.owner.type][1](ship.owner.team.color, ship.isMain ? 4 : 2)),        s = ship.radius * 1.2;      hollow.cache(-s, -s, s * 2, s * 2);      filled.cache(-s, -s, s * 2, s * 2);      var view = new createjs.Bitmap(hollow.cacheCanvas);      view.regX = view.regY = s;      view.hollow = hollow.cacheCanvas, view.filled = filled.cacheCanvas; // TODO cache ships with interchangable bitmap instead      container.ship = view;      container.addChild(view);      //text      if (ship.owner.team == our_team && ship != our_ship) {        var text = new createjs.Text(ship.owner.name, "14px Roboto", our_team.color);        text.textAlign = "center";        // text.cache(-50, -30, 100, 60)        container.text = text;        container.addChild(text);      }      // if(ship == our_ship) {      //   let color = this.ships.main.owner.team.color,      //     view = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),      //     shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),      //     offset = { x: 22, y: -22 };      //      //   view.x = shadow.x = offset.x;      //   view.y = shadow.y = offset.y;      //      //   container.addChild(container.meter_shadow = view.shadow = shadow);      //   container.addChild(container.meter = view);      // }      this.view.layer.action.front.addChild(ship.view = container);    });    if (our_ship) {      let container = our_ship.view,        color = this.ships.main.owner.team.color,        innerRadius = 9,        outerRadius = 12,        meter = new createjs.Shape(DeepSpaceGame.graphics.energyMeter(this.ships.main.owner.team.color, 1)),        shadow = new createjs.Shape(DeepSpaceGame.graphics.energyMeterShadow('#455A64')),        offset = {x: 39 * this.scale, y: -39 * this.scale}      shadow.cache(-outerRadius, -outerRadius, outerRadius*2, outerRadius*2);      meter.cache(-innerRadius, -innerRadius, innerRadius*2, innerRadius*2);      meter.x = shadow.x = offset.x;      meter.y = shadow.y = offset.y;      container.addChild(container.meter_shadow = meter.shadow = shadow);      container.addChild(container.meter = meter);    }  }  createPoolViews() {    this.view.bullets = new Map()    this.view.blocks = new Map()    this.view.subs = new Map()  }  createOverlayViews() {    var overlay = {};    overlay.score = new createjs.Container();    overlay.score.team = [];    var imagined_width = 120;    this.teams.forEach((team, i) => {      var text = new createjs.Text(this.game.scores[i].toString(), "48px Unica One", team.color);      text.x = (i * imagined_width) + (imagined_width / 2);      text.textAlign = "center";      text.shadow = new createjs.Shadow("#455A64", 0, 0, 6);      text.cache(-100, 0, 200, 60);      overlay.score.addChild(text);      overlay.score.team.push(text);    });    overlay.score.x = (this.window.width / 2) - ((this.teams.length * imagined_width) / 2)    overlay.score.y = 12;    this.view.layer.overlay.addChild(overlay.score);    // MINI MAP    if (!this.spectate) this.createOverlayMinimapViews(overlay, this.view.layer.overlay);    // energy meter    // if(!this.spectate) {    //   overlay.energyMeter = {};    //   const color = this.ships.main.owner.team.color,    //         white = '#ECEFF1',    //         darkColor = COLOR.mix(color, '#37474F', 30),    //         lightColor = COLOR.mix(color, white, 30),    //         padding = 32,    //         minimapSpace = overlay.minimap.x + overlay.minimap.width,    //         remainingWidth = (this.window.width - minimapSpace) - (2 * padding),    //         width = remainingWidth,    //         height = 16 * this.scale,    //         meterContainer = new createjs.Container(),    //         barBackdropView = new createjs.Shape(DeepSpaceGame.graphics.energy_bar_rect(darkColor, width, height)),    //         chargeBarView = new createjs.Shape(DeepSpaceGame.graphics.energy_bar_rect(white, width, height)),    //         colorBarView = new createjs.Shape(DeepSpaceGame.graphics.energy_bar_rect(color, width, height));    //    //    //   meterContainer.addChild(barBackdropView);    //   meterContainer.addChild(chargeBarView);    //   meterContainer.addChild(colorBarView);    //    //   meterContainer.x = minimapSpace; // + (width / 2);    //   meterContainer.y = this.window.height - (padding + (height / 2));    //    //   overlay.energyMeter.container = meterContainer;    //   overlay.energyMeter.colorBar = colorBarView;    //   overlay.energyMeter.chargeBar = chargeBarView;    //    //   this.view.layer.overlay.addChild(meterContainer);    // }    // var imagined_width = 512;    overlay.message = new createjs.Text("", "24px Roboto Condensed");    overlay.message.textAlign = "center";    overlay.message.x = (this.window.width / 2);    overlay.message.y = 76;    overlay.message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);    overlay.message.cache(-(this.window.width/2), 0, this.window.width, 28);    this.view.layer.overlay.addChild(overlay.message);    // var imagined_width = 512;    overlay.kill_message = new createjs.Text("", "24px Roboto Condensed");    overlay.kill_message.textAlign = "center";    overlay.kill_message.x = (this.window.width / 2);    overlay.kill_message.y = this.window.height - 76;    overlay.kill_message.shadow = new createjs.Shadow("#455A64", 0, 0, 6);    overlay.kill_message.cache(-(this.window.width/2), 0, this.window.width, 28);    this.view.layer.overlay.addChild(overlay.kill_message);    switch (this.gameMode) {      case 0: // ctf        // var centerX = this.mapInfo.width / 2;        // var centerY = this.mapInfo.height / 2;        var r = DeepSpaceGame.modes["ctf"].flag_radius * this.scale, s = r * 1.2;        var flag = new createjs.Shape(          DeepSpaceGame.graphics.flag(r)        );        flag.shadow = DeepSpaceGame.graphics.flag_shadow();        flag.cache(-s, -s, s * 2, s * 2);        // flag.x = centerX; flag.y = centerY;        this.view.layer.overlay.addChild(flag);        this.view.flag = flag;        break;    }    this.view.overlay = overlay;  }  createOverlayMinimapViews(overlay_model, overlay_view) {    let mini = overlay_model.minimap = new createjs.Container();    mini.width = mini.height = 168;    mini.relativeScale = mini.width / this.mapInfo.width;    mini.regX = mini.width/2;    mini.regY = mini.height/2;    mini.rotation = Math.degrees(-this.ships.main.spawnRotation) - 90;    let padd = this.window.width < 600 ? 0 : 32;    mini.x = (padd) + mini.width/2;    mini.y = this.window.height - (padd + mini.height) + mini.height/2    // background    let background = mini.background = new createjs.Shape();    background.graphics.beginFill('#263238').drawRect(0, 0, mini.width, mini.height);    background.cache(0, 0, mini.width, mini.height);    mini.addChild(background);    // map obstacles    var max = 128,      r = max * mini.relativeScale,      block = new createjs.Shape(DeepSpaceGame.graphics.block_fill('#37474F', r)),      s = r * 1.2;    block.cache(-s, -s, s * 2, s * 2);    var cache = block.cacheCanvas;    this.model.map.impermeables.forEach(block => {      var scale = (block.radius * mini.relativeScale) / r,        view = new createjs.Bitmap(cache),        pos = block.position;      view.scaleX = view.scaleY = scale;      view.x = (pos.x * mini.relativeScale) - (scale * cache.width / 2);      view.y = (pos.y * mini.relativeScale) - (scale * cache.height / 2);      mini.addChild(view);    });    // spawns    this.teams.forEach(team => {      let camp = team.spawn_camp,        radius = team == this.ships.main.owner.team ? 8 : 6,        // radius = camp.radius*mini.relativeScale,        view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(team.color, 6)),        pos = camp.position;      view.x = pos.x * mini.relativeScale;      view.y = pos.y * mini.relativeScale;      var s = radius * 1.2;      view.cache(-s, -s, s * 2, s * 2);      mini.addChild(view);    });    // bubbles    if(this.gameMode === 0) {      const this_player = this.ships.main.owner;      const maxR = Bubble.stats.OUTER_RADIUS * mini.relativeScale;      const s = maxR * 1.2;      mini.playerBubbles = new Map();      this.players.forEach((player, id) => {        const bubbleContainer = new createjs.Container();        const teamColor = player.team.color;        const color = player === this_player ? '#ECEFF1' : teamColor;        const bubbleEdge = new createjs.Shape(DeepSpaceGame.graphics.circle_edge(color, maxR, 4));        const bubbleFill = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(player.team.color, maxR));        bubbleFill.alpha = 0.3;        bubbleFill.cache(-s, -s, s*2, s*2);        bubbleEdge.cache(-s, -s, s*2, s*2);        bubbleContainer.addChild(bubbleFill);        bubbleContainer.addChild(bubbleEdge);        mini.playerBubbles.set(id, [bubbleContainer, bubbleFill]);        mini.addChild(bubbleContainer);      });    }    // flag    if(this.gameMode == 0) {      const r = 6;      let flag_view = mini.flag = new createjs.Shape(DeepSpaceGame.graphics.circle_fill('#ECEFF1', r));      flag_view.cache(-r, -r, r*2, r*2);      mini.addChild(flag_view);    }    // ships .. hmmm.. intel >.>    // (only same team for now)    let this_player = this.ships.main.owner, this_team = this_player.team    mini.players = [];    const miniShipRadii = 4;    this_team.players.forEach(player => {      let view = new createjs.Shape(DeepSpaceGame.graphics.circle_fill(this_team.color, miniShipRadii));      view.alpha = player == this_player ? 1 : 0.6;      view.cache(-miniShipRadii, -miniShipRadii, miniShipRadii*2, miniShipRadii*2);      mini.players.push(view);      mini.addChild(view);    });    // and also eventually blocks    mini.blocks = new Map();    overlay_view.addChild(mini);  }  createOverlayMinimapBlockViewFor(block) {    let cache = DeepSpaceGame.graphicsCaches.minimap.blocks[block.team],      blv = new createjs.Bitmap(cache),      mini = this.view.overlay.minimap,      scale = mini.relativeScale;    // blv.alpha = 0.2    blv.x = block.position.x * scale;    blv.y = block.position.y * scale;    blv.regX = blv.regY = (cache.width / 2);    mini.addChild(blv);    mini.setChildIndex(blv, 1)    mini.blocks.set(block.id, blv);    // flag always on top    // mini.setChildIndex(mini.flag, mini.numChildren-1)  }  destroyOverlayMinimapBlockViewFor(id) {    if (!this.spectate) {      var v = this.view.overlay.minimap.blocks.get(id);      if (v) {        this.view.overlay.minimap.blocks.delete(id);        this.view.overlay.minimap.removeChild(v);      }    }  }  configureProton() {    // functions    const bitmapOfColor = (color) => {      const graphics = DeepSpaceGame.graphics.block_fill(color, 6);      const particle = new createjs.Shape(graphics);      particle.cache(-10, -10, 20, 20);      const cache = particle.cacheCanvas;      return new createjs.Bitmap(cache);    };    // vars and references    this.view.proton = {};    const stage = this.stage;    const canvas = stage.canvas;    const view = this.view.layer.action.back;    const proton = this.view.proton.main = new Proton();    const renderer = this.view.proton.renderer = new Proton.Renderer('easel', proton, view);    const emitters = this.view.proton.emitters = new Map();    const imageTargets = this.view.proton.imageTargets = {};    imageTargets.teams = [];    imageTargets.death = new Proton.ImageTarget(bitmapOfColor('#FFFFFF'));    imageTargets.stars = new Proton.ImageTarget(bitmapOfColor('#FFFFFF'));    imageTargets.starTeams = [];    for(let team of this.teams) {      imageTargets.teams.push(new Proton.ImageTarget(bitmapOfColor(team.color)));      imageTargets.starTeams.push(new Proton.ImageTarget(bitmapOfColor(team.color)))    }    const util = this.view.proton.util = {};    util.hasInitializer = (emitter, initializer) => {      return (emitter.initializes.indexOf(initializer) > -1);    };        // for each ship    for(let ship of this.ships) {      const local = ship === this.ships.main;      const emitter = new Proton.Emitter();      const color = ship.owner.team.color;      // setup and config      const graphics = DeepSpaceGame.graphics.block_fill(color, 6);      const particle = new createjs.Shape(graphics);      particle.cache(-10, -10, 20, 20);      const cache = particle.cacheCanvas;      const bitmap = new createjs.Bitmap(cache);      emitter.rate = new Proton.Rate(1, 0.2);      emitter.addInitialize(imageTargets.teams[ship.owner.team.number]);      emitter.addInitialize(new Proton.Life(1, 2.5));      const force = new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar');      emitter.addInitialize(force);      emitter.force = force;      emitter.addBehaviour(new Proton.Scale(1, 5));      emitter.addBehaviour(new Proton.Alpha(0.2, 0));      emitter.emit();      proton.addEmitter(emitter);      emitters.set(ship, emitter);    }    {      const starEmitter = new Proton.Emitter();      // setup and config      starEmitter.rate = new Proton.Rate(20, 0.1);      starEmitter.addInitialize(imageTargets.stars);      starEmitter.addInitialize(new Proton.Life(1));      const zone = new Proton.P(new Proton.CircleZone(0, 0, 1000));      starEmitter.addInitialize(zone);      const force = new Proton.V(new Proton.Span(0.2, 0.6), new Proton.Span(150, 210), 'polar');      starEmitter.addInitialize(force);      starEmitter.force = force;      starEmitter.addBehaviour(new Proton.Alpha(0.4, 0));      starEmitter.addBehaviour(new Proton.Scale(0, 0.7));      starEmitter.emit();      proton.addEmitter(starEmitter);      this.starEmitter = starEmitter;    }    renderer.start();    // // refresh proton    // proton.update();  }  setupCamera() {    this.view.layer.action.width = this.mapInfo.width;    this.view.layer.action.height = this.mapInfo.height;    this.camera = new Camera(this.stage.canvas, this.view.layer.action, this.scale, this.HDPScale);    if (this.spectate) {      this.activePlayerIndex = 0;      // this.playerShipViews = new Map();      // this.setupData.players.forEach((p, i)=>{      //   this.playerShipViews.set(i, this.players.get(p.id).ship.view);      // });      this.activePlayers = this.setupData.players.map(p => this.players.get(p[0]));      this.updateCameraFocus();    } else {      this.camera.focus = this.ships.main.view;    }    this.camera.width = this.window.width;    this.camera.height = this.window.height;  }  setupListeners() { // (needs (even more) work)    this.inputHandlers = new Map();    var receiver = window;    if (this.spectate) {      var keyHandler = (e) => {        if (e.keyCode == 37) { // left: ◀︎          this.activePlayerIndex--;          if (this.activePlayerIndex < 0) this.activePlayerIndex = this.activePlayers.length - 1;        }        if (e.keyCode == 39) { // right: ▶︎          this.activePlayerIndex++;          if (this.activePlayerIndex >= this.activePlayers.length) this.activePlayerIndex = 0;        }        this.updateCameraFocus();      }      receiver.addEventListener('keydown', keyHandler); // onkeydown      this.inputHandlers.set('keydown', keyHandler);    } else {      const inputs = this.input = {        acceleration: 0,        angularAcceleration: 0,        angularVelocity: null,        shoot: false,        shootAngle: 0,        block: false,        sub: false,      };      // KEYBOARD      // key mappings, have multiple ('values') so you can switch between key bindings      // the default values are true / false      const keyboard = new KeyboardInput();      const keyboardStack = new InputStack();      window.stack = keyboardStack; window.keyboard = keyboard;      const keymap = [        // up: ▲        ["up", [38]],        // left: ◀︎        ["lt", [37]],        // right: ▶︎        ["rt", [39]],        // block: space, v        ["shoot", [32, 86]],        // sub: d        ["sub", [68]],        // shoot: wsad        // ["shoot", [87, 83, 65, 68]],      ];      for(const [item, mappings] of keymap) {        for(const keycode of mappings) {          keyboardStack.addItemWhen(item, keyboard.button(keycode).ontrue);          keyboardStack.removeItemWhen(item, keyboard.button(keycode).onfalse);        }      }      keyboardStack.on('change', () => flattenStack(keyboardStack));      const buttonWeight = 1;      const flattenStack = stack => {        // setup        inputs.acceleration = 0;        inputs.angularAcceleration = 0;        inputs.angularVelocity = null;        let x2 = 0, y2 = 0, shoot = false, block = false, sub = false;        // cycle through        for (let [input, value] of stack.items) {          let noValue = typeof value === 'undefined';          switch (input) {            case 'up':              inputs.acceleration = noValue ? buttonWeight : value;              break;            case 'dn':              inputs.acceleration = noValue ? -buttonWeight : -value;              break;            case 'rt':              inputs.angularAcceleration = noValue ? buttonWeight : value;              break;            case 'lt':              inputs.angularAcceleration = noValue ? -buttonWeight : -value;              break;            case 'rt+':              inputs.angularVelocity = noValue ? buttonWeight : value;              break;            case 'lt+':              inputs.angularVelocity = noValue ? -buttonWeight : -value;              break;            case 'up2':              x2 = 1;              shoot = true;              break;            case 'dn2':              x2 = -1;              shoot = true;              break;            case 'lt2':              y2 = -1;              shoot = true;              break;            case 'rt2':              y2 = 1;              shoot = true;              break;            case 'shoot':              shoot = true;              break;            case 'block':              block = true;              break;            case 'sub':              sub = true;              break;          }        }        // evaluate        const directionV = new V2D(x2, y2);        inputs.shootAngle = directionV.angle;        inputs.shoot = shoot;        inputs.block = block;        inputs.sub = sub;      };window.flatten = flattenStack;      // let keyHandler = (e) => {      //   var type = e.type;      //      //   if (type == 'keyup' || type == 'keydown') {      //     var eventCode = e.keyCode;      //      //     keymap.forEach((row) => {      //       row[1].forEach((code) => {      //         if (code == eventCode) {      //      //           // row[0] e.g. 'up' or 'block'      //           // row[2] is value on keydown      //           // row[3] is value on keyup      //      //           if (!type.is('keyup')) {      //             if (!inputStack.has(row[0])) {      //               inputStack.add(row[0]);      //               inputStack.changed = true;      //             }      //           } else {      //             inputStack.delete(row[0])      //             inputStack.changed = true;      //           }      //      //           // inputStack.delete(row[0])      //           // if(keydown)      //           // if(!type.is('keyup')) inputStack.add(row[0]);      //      //           // NetworkHelper.out_input_stack(Array.from(inputStack));      //           // inputStack.changed = true;      //           // log(Array.from(inputStack));      //         }      //       });      //     });      //      //     if(inputStack.changed) flattenStack(inputStack);      //   }      // };      // receiver.addEventListener('keydown', keyHandler); // onkeydown      // receiver.addEventListener('keyup', keyHandler); // onkeyup      //      // this.inputHandlers.set('keydown', keyHandler);      // this.inputHandlers.set('keyup', keyHandler);      // GAMEPAD      /*      receiver.addEventListener("gamepadconnected", (e) => this.gamepad = e.gamepad);      // this closure has access to the inputStack variable.. the alias for this.ships.main.owner.input      // .. thus it is left here .. please revise      this.updateGamepadInput = (!navigator.getGamepads) ? () => {        } : () => {          var gamepad = navigator.getGamepads()[0];          if (!gamepad) return;          // NEW :)          const deadZone = 0.15;          const buttonMap = new Map([            ['up', [              // - y axis              gamepad.axes[1] < -deadZone,              // l trigger              gamepad.axes[3] > 0,              // d-pad north            ]],            ['dn', [              // + y axis              gamepad.axes[1] > deadZone,              // r trigger              gamepad.axes[4] > 0,            ]],            ['lt', [              // - x axis              gamepad.axes[0] < -deadZone,            ]],            ['rt', [              // - x axis              gamepad.axes[0] > deadZone,            ]],            ['up2', [              // - y axis 2              gamepad.axes[5] < -deadZone,            ]],            ['dn2', [              // + y axis 2              gamepad.axes[5] > deadZone,            ]],            ['lt2', [              // - x axis 2              gamepad.axes[2] < -deadZone,            ]],            ['rt2', [              // + x axis 2              gamepad.axes[2] > deadZone,            ]],            ['shoot', [              // buttons a & b              gamepad.buttons[0].pressed,              gamepad.buttons[1].pressed,            ]],            ['block', [              // r shoulder button              gamepad.buttons[7].pressed,            ]],            ['sub', [              // buttons x & y              gamepad.buttons[3].pressed,              gamepad.buttons[4].pressed,              // l shoulder button              gamepad.buttons[6].pressed,              // r joystick press              gamepad.buttons[14].pressed,            ]],          ]);          for(let [code, bindings] of buttonMap) {            const activation = _(bindings).contains(true);            if(activation) {              if(inputStack.has(code)) continue;              inputStack.add(code);              inputStack.changed = true;            } else {              if(!inputStack.has(code)) continue;              inputStack.delete(code);              inputStack.changed = true;            }          }        };      */      // newer :D      const gamepad = new GamepadInput();      // const buttonMap = new Map([      //      //   ['up', [      //      //     // - y axis      //     gamepad.axes[1] < -deadZone,      //      //     // l trigger      //     gamepad.axes[3] > 0,      //      //     // d-pad north      //      //   ]],      //      //   ['dn', [      //      //     // + y axis      //     gamepad.axes[1] > deadZone,      //      //     // r trigger      //     gamepad.axes[4] > 0,      //      //   ]],      //      //   ['lt', [      //      //     // - x axis      //     gamepad.axes[0] < -deadZone,      //      //   ]],      //      //   ['rt', [      //      //     // - x axis      //     gamepad.axes[0] > deadZone,      //      //   ]],      //      //   ['up2', [      //      //     // - y axis 2      //     gamepad.axes[5] < -deadZone,      //      //   ]],      //      //   ['dn2', [      //      //     // + y axis 2      //     gamepad.axes[5] > deadZone,      //      //   ]],      //      //   ['lt2', [      //      //     // - x axis 2      //     gamepad.axes[2] < -deadZone,      //      //   ]],      //      //   ['rt2', [      //      //     // + x axis 2      //     gamepad.axes[2] > deadZone,      //      //   ]],      //      //   ['shoot', [      //      //     // buttons a & b      //     gamepad.buttons[0].pressed,      //     gamepad.buttons[1].pressed,      //      //   ]],      //      //   ['block', [      //      //     // r shoulder button      //     gamepad.buttons[7].pressed,      //      //   ]],      //      //   ['sub', [      //      //     // buttons x & y      //     gamepad.buttons[3].pressed,      //     gamepad.buttons[4].pressed,      //      //     // l shoulder button      //     gamepad.buttons[6].pressed,      //      //     // r joystick press      //     gamepad.buttons[14].pressed,      //      //   ]],      //      // ]);      const deadzone = 0.2;      const max = 1;      const diff = max - deadzone;      // axes      keyboardStack.addItemWhen('up', gamepad.axis(1).onlessthan(-deadzone), n => (max + n / diff));      keyboardStack.addItemWhen('up', gamepad.axis(3).onmorethan(0));      keyboardStack.removeItemWhen('up', gamepad.axis(1).onmorethan(-deadzone));      keyboardStack.removeItemWhen('up', gamepad.axis(3).onlessthan(0));      keyboardStack.addItemWhen('dn', gamepad.axis(1).onmorethan(deadzone), n => (max - n / diff));      keyboardStack.addItemWhen('dn', gamepad.axis(4).onmorethan(0));      keyboardStack.removeItemWhen('dn', gamepad.axis(1).onlessthan(deadzone));      keyboardStack.removeItemWhen('dn', gamepad.axis(4).onlessthan(0));      keyboardStack.addItemWhen('lt', gamepad.axis(0).onlessthan(-deadzone), n => (max + n / diff));      keyboardStack.removeItemWhen('lt', gamepad.axis(0).onmorethan(-deadzone));      keyboardStack.addItemWhen('rt', gamepad.axis(0).onmorethan(deadzone), n => (max - n / diff));      keyboardStack.removeItemWhen('rt', gamepad.axis(0).onmorethan(deadzone));      keyboardStack.addItemWhen('up2', gamepad.axis(5).onlessthan(-deadzone), n => (max + n / diff));      keyboardStack.removeItemWhen('up2', gamepad.axis(5).onmorethan(-deadzone));      keyboardStack.addItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone), n => (max - n / diff));      keyboardStack.removeItemWhen('dn2', gamepad.axis(5).onmorethan(deadzone));      keyboardStack.addItemWhen('lt2', gamepad.axis(2).onlessthan(-deadzone), n => (max + n / diff));      keyboardStack.removeItemWhen('lt2', gamepad.axis(2).onmorethan(-deadzone));      keyboardStack.addItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone), n => (max - n / diff));      keyboardStack.removeItemWhen('rt2', gamepad.axis(2).onmorethan(deadzone));      // buttons      keyboardStack.addItemWhen('shoot', gamepad.button(0).ontrue);      keyboardStack.removeItemWhen('shoot', gamepad.button(0).onfalse);      keyboardStack.addItemWhen('shoot', gamepad.button(1).ontrue);      keyboardStack.removeItemWhen('shoot', gamepad.button(1).onfalse);      keyboardStack.addItemWhen('block', gamepad.button(7).ontrue);      keyboardStack.removeItemWhen('block', gamepad.button(7).onfalse);      keyboardStack.addItemWhen('sub', gamepad.button(3).ontrue);      keyboardStack.removeItemWhen('sub', gamepad.button(3).onfalse);      keyboardStack.addItemWhen('sub', gamepad.button(4).ontrue);      keyboardStack.removeItemWhen('sub', gamepad.button(4).onfalse);      keyboardStack.addItemWhen('sub', gamepad.button(6).ontrue);      keyboardStack.removeItemWhen('sub', gamepad.button(6).onfalse);      keyboardStack.addItemWhen('sub', gamepad.button(14).ontrue);      keyboardStack.removeItemWhen('sub', gamepad.button(14).onfalse);      // MOBILE      const mobile = new MobileInput();      window.mobile = mobile;      const left = document.querySelector('#touch_layer > .left');      const rightTop = document.querySelector('#touch_layer > .right > .top');      const rightBottom = document.querySelector('#touch_layer > .right > .bottom');      const deadzone1 = 10;      const max1 = 110;      const diff1 = max1 - deadzone1;      const maxExtended = 150;      // mobile.createButton('whole-screen', whole);      mobile.createButton('left-screen', left);      mobile.createButton('right-top', rightTop);      mobile.createButton('right-bottom', rightBottom);      mobile.createVerticalAxis('leftY', left);      keyboardStack.addItemWhen('up', mobile.button('left-screen').ontrue);      keyboardStack.removeItemWhen('up', mobile.button('left-screen').onfalse);      keyboardStack.addItemWhen('lt+', mobile.axis('leftY').onlessthan(-deadzone1), n => (diff1 - (max1 + n)) / diff1);      keyboardStack.removeItemWhen('lt+', mobile.axis('leftY').onmorethan(-deadzone1));      keyboardStack.addItemWhen('rt+', mobile.axis('leftY').onmorethan(deadzone1), n => (diff1 - (max1 - n)) / diff1);      keyboardStack.removeItemWhen('rt+', mobile.axis('leftY').onlessthan(deadzone1));      keyboardStack.addItemWhen('sub', mobile.button('right-top').ontrue);      keyboardStack.removeItemWhen('sub', mobile.button('right-top').onfalse);      keyboardStack.addItemWhen('shoot', mobile.button('right-bottom').ontrue);      keyboardStack.removeItemWhen('shoot', mobile.button('right-bottom').onfalse);      // gamepad.axis('leftY').onlessthan(0)((value)=>{      //   $('#clock').text(`value: ${value}`);      // })      // const mobile = new MobileInput({      //   draggableAxes: true,      // });      // mobile.accelerometer.start();      // mobile.accelerometer.stop();      // mobile.accelerometer.reset();      // mobile.axis('tiltX').onlessthan(3);      // mobile.addSurface('left-screen', 890);      // mobile.addSurface('right-bottom', 891);      //      //      // keyboardStack.addItemWhen('rt2', mobile.axis('left-screen').onmorethan(deadzone), n => (max - n / diff));      // keyboardStack.removeItemWhen('rt2', mobile.axis('left-screen').onmorethan(deadzone));      let raw_acc_data = [0, 0], applied_acc_data = [0, 0]; // [x, y]      let threshold = 1, bias = [0, 0]; // deadzone      const minThreshhold = 1;      const maxThreshhold = 7;      const thresholdSpan = maxThreshhold - minThreshhold;      bias = ENV.storage.calibration = (ENV.storage.calibration) ? ENV.storage.calibration.split(",").map(Number) : [0, 0];      // let origin = [0, bias];      if (ENV.mobile && false && window.DeviceMotionEvent != undefined) {        window.ondevicemotion = function (e) {          raw_acc_data = [e.accelerationIncludingGravity.x, e.accelerationIncludingGravity.y];          // if ( e.rotationRate )  {          //   document.getElementById("rotationAlpha").innerHTML = e.rotationRate.alpha;          //   document.getElementById("rotationBeta").innerHTML = e.rotationRate.beta;          //   document.getElementById("rotationGamma").innerHTML = e.rotationRate.gamma;          // }        }        inputs.updateMotion = function () {          // generate the data                    let orientation = window.orientation,            [raw_x, raw_y] = raw_acc_data, [x, y] = [raw_x, raw_y];          if (orientation === 90) {            x = -raw_y, y = raw_x          }          else if (orientation === -90) {            x = raw_y, y = -raw_x          }          else if (orientation === 180 || orientation === -180) {            x = -x, y = -y          }          applied_acc_data = [x, y];          x -= bias[0]; // bias towards player;          y -= bias[1];          if(ENV.options.input.invertControls) { x = -x; y = -y }          // apply the data          if(x > minThreshhold) { // more            if(x < maxThreshhold) inputs.angularAcceleration = (maxThreshhold - x) / thresholdSpan;            else inputs.angularAcceleration = 1;          } else if(x < -minThreshhold) { // less            if(x > -maxThreshhold) inputs.angularAcceleration = (-maxThreshhold - x) / thresholdSpan;            else inputs.angularAcceleration = -1;          } else { // neither            inputs.angularAcceleration = 0;          }          if(y > minThreshhold) { // more            if(y < maxThreshhold) inputs.acceleration = (maxThreshhold - y) / thresholdSpan;            else inputs.acceleration = 1;          } else if(y < -minThreshhold) { // less            if(y > -maxThreshhold) inputs.acceleration = (-maxThreshhold - y) / thresholdSpan;            else inputs.acceleration = -1;          } else { // neither            inputs.acceleration = 0;          }          // if (x > threshold) {          //   inputStack.add('rt')          // } else {          //   inputStack.delete('rt')          // }          // if (x < -threshold) {          //   inputStack.add('lt')          // } else {          //   inputStack.delete('lt')          // }          // if (y > threshold) {          //   inputStack.add('up')          // } else {          //   inputStack.delete('up')          // }          // if (y < -threshold) {          //   inputStack.add('dn')          // } else {          //   inputStack.delete('dn')          // }          $('#clock').text(`x: ${x.round(0)}, y: ${y.round(0)}`);        };      }      // var left = document.querySelector('#touch_layer > .left');      // left.addEventListener('touchstart', e => {      //   keyboardStack.setItem('block')      //   // inputStack.add('block')      // });      // left.addEventListener('touchend', e => {      //   keyboardStack.clearItem('block')      //   // inputStack.delete('block')      // });      //      // let joystick = new V2D(), joystick_deadzone_radius = 30;      // var right = document.querySelector('#touch_layer > .right');      // right.addEventListener('touchstart', e => {      //   keyboardStack.setItem('shoot')      //   // inputStack.add('shoot')      // });      // right.addEventListener('touchend', e => {      //   keyboardStack.clearItem('shoot');      //   keyboardStack.clearItem('up2');      //   keyboardStack.clearItem('dn2');      //   keyboardStack.clearItem('lt2');      //   keyboardStack.clearItem('rt2');      //   // inputStack.delete('shoot');      //   // inputStack.delete('up2');      //   // inputStack.delete('dn2');      //   // inputStack.delete('lt2');      //   // inputStack.delete('rt2');      // });      // var right_hammer = new Hammer(right);      // right_hammer.on('panmove', function (e) {      //   var v = new V2D(e.deltaX, e.deltaY), a = v.angle;      //   if (v.length > joystick_deadzone_radius) {      //     if (a < -0.39 && a > -2.74) {      //       keyboardStack.setItem('up2')      //       // inputStack.add('up2')      //     } else {      //       keyboardStack.clearItem('up2')      //       // inputStack.delete('up2')      //     }      //     if (a > 0.39 && a < 2.74) {      //       keyboardStack.setItem('dn2')      //       // inputStack.add('dn2')      //     } else {      //       keyboardStack.clearItem('dn2')      //       // inputStack.delete('dn2')      //     }      //     if (a > 1.96 || a < -1.96) {      //       keyboardStack.setItem('lt2')      //       // inputStack.add('lt2')      //     } else {      //       keyboardStack.clearItem('lt2')      //       // inputStack.delete('lt2')      //     }      //     if (a > -1.18 && a < 1.18) {      //       keyboardStack.setItem('rt2')      //       // inputStack.add('rt2')      //     } else {      //       keyboardStack.clearItem('rt2')      //       // inputStack.delete('rt2')      //     }      //   } else {      //      //   }      //   // console.log(e)      // });      //      // var hammertime = new Hammer(document.querySelector('#touch_layer'));      // hammertime.get('tap').set({taps: 2})      // hammertime.get('swipe').set({direction: Hammer.DIRECTION_LEFT})      // hammertime.on('tap', function (ev) {      //   keyboardStack.setItem('sub');      //   // inputStack.add('sub');      //   ( () => keyboardStack.clearItem('sub') ).wait(200);      //   // ( () => inputStack.delete('sub') ).wait(200);      // });      // hammertime.on('swipe', function (e) {      //   // calibrate      //   bias = applied_acc_data;      //   ENV.storage.calibration = bias;      // });    }  }  setupPhysics() {    this.setupCollisionSystem();    this.assignCollisionPatterns();    this.setupReferenceGroups();  }  setupCollisionSystem() {    let physics = this.physics = {};    physics.block_size = 512;    physics.world_size = {width: this.mapInfo.width, height: this.mapInfo.height};    let rows = Math.ceil(physics.world_size.width / physics.block_size),      cols = Math.ceil(physics.world_size.height / physics.block_size);    physics.divisions = [];    // rows.times(i => {    //   physics.divisions.push([]);    //   cols.times(() => {    //     physics.divisions[i].push(new Set())    //   })    // })    physics.division_index = function (x, y) {      return (y * cols) + x;    }    physics.division_coordinates = function (i) {      return [i % rows, Math.floor(i / cols)]    }    /* collision testing will be composed of the following:     within each division, all the tests will be performed     with the objects available     each division will contain all the collision groups within..     they will be populated accordingly so when the tests are run     tests between objects listed in the groups in the division     will be tested. */    physics.collision_checks = [];    physics.collision_groups = {      SHIPS: Symbol('SHIPS'),      OUR_SHIP: Symbol('OUR_SHIP'),      OUR_SHIPS: Symbol('OUR_SHIPS'),      ENEMY_SHIPS: Symbol('ENEMY_SHIPS'),      BULLETS: Symbol('BULLETS'),      MY_BULLETS: Symbol('MY_BULLETS'),      OUR_BULLETS: Symbol('OUR_BULLETS'),      ENEMY_BULLETS: Symbol('ENEMY_BULLETS'),      BLOCKS: Symbol('BLOCKS'),      OUR_BLOCKS: Symbol('OUR_BLOCKS'),      ENEMY_BLOCKS: Symbol('ENEMY_BLOCKS'),      BUBBLES: Symbol('BUBBLES'),      MY_BUBBLE: Symbol('MY_BUBBLE'),      MY_BUBBLE_CORE: Symbol('MY_BUBBLE_CORE'),      OUR_BUBBLES: Symbol('OUR_BUBBLES'),      ENEMY_BUBBLES: Symbol('ENEMY_BUBBLES'),      OUR_PROJ_SUBS: Symbol('OUR_PROJ_SUBS'),      SPAWN_CAMPS: Symbol('SPAWN_CAMPS'),      OUR_SPAWN_CAMP: Symbol('OUR_SPAWN_CAMP'),      ENEMY_SPAWN_CAMPS: Symbol('ENEMY_SPAWN_CAMPS'),      REFUGE: Symbol('REFUGE'), // block or camp      OUR_REFUGE: Symbol('OUR_REFUGE'),      FLAG: Symbol('FLAG'),      IMPERMEABLES: Symbol('IMPERMEABLES')    };    (rows * cols).times(() => {      let obj = {};      for (let group of Object.keys(physics.collision_groups)) obj[physics.collision_groups[group]] = new Set();      physics.divisions.push(obj);    })    /*     END RESULT LOOKS SOMETHING LIKE:     [.. {...}, {SHIPS: [Set], OUR_BULLETS: Set [b, b, ..], ...}, {...}, ...]     */  }  setCollisionDivisions(physics_body) {    this.clearCollisionDivisions(physics_body)    let d = physics_body.divisions = new Set(),      r = physics_body.radius,      [x, y] = [physics_body.position.x, physics_body.position.y];    [[1, 0], [0, -1], [-1, 0], [0, 1]].forEach(unit_offset_array => {      let check_x = x + (r * unit_offset_array[0]),        check_y = y + (r * unit_offset_array[1]);      let division_x = Math.floor(check_x / this.physics.block_size),        division_y = Math.floor(check_y / this.physics.block_size),        division_index = this.physics.division_index(division_x, division_y);      if (this.physics.divisions[division_index]) d.add(division_index);    });    for (let division_index of d)      for (let group of physics_body.collision_groups)        this.physics.divisions[division_index][group].add(physics_body);  }  clearCollisionDivisions(physics_body) {    if (physics_body.divisions) {      for (let i of physics_body.divisions)        for (let group of physics_body.collision_groups)          this.physics.divisions[i][group].delete(physics_body);    }  }  assignCollisionPatterns() {    let checks = this.physics.collision_checks,      groups = this.physics.collision_groups;    if (!this.spectate) {      // MY BULLET <-> ENEMY SHIPS      checks.push([        groups.MY_BULLETS,        groups.ENEMY_SHIPS,        (bullet, ship) => {          if (!bullet.disabled && !ship.disabled) {            this.damageShip(ship.owner.id, bullet.hp, bullet.creator)            this.removeBullet(bullet.id)          }        }]      );      // MY BULLET <-> ENEMY BLOCKS      checks.push([        groups.MY_BULLETS,        groups.ENEMY_BLOCKS,        (bullet, block) => {          if (!bullet.disabled && !block.disabled) {            this.damageBlock(block.id, bullet.hp)            if (bullet.hp < block.hp) this.removeBullet(bullet.id);          }        }]      );      // MY BULLET <-> ENEMY SPAWN_CAMPS      checks.push([        groups.MY_BULLETS,        groups.ENEMY_SPAWN_CAMPS,        (bullet, spawn_camp) => {          if (!bullet.disabled) {            this.removeBullet(bullet.id);          }        }]      );      // MY BULLET <-> ENEMY BULLETS      checks.push([        groups.MY_BULLETS,        groups.ENEMY_BULLETS,        (bulletA, bulletB) => {          if (!bulletA.disabled && !bulletB.disabled) {            this.removeBullet(bulletA.id);            this.removeBullet(bulletB.id);          }        }]      );      // MY BULLET <-> ENEMY BUBBLES      checks.push([        groups.MY_BULLETS,        groups.ENEMY_BUBBLES,        (bullet, bubble) => {          if (!bullet.used && bubble.locked && !bullet.disabled && !bubble.complete && !bubble.disabled) {            // this.removeBullet(bullet.id);            bullet.used = true;            this.damageBubble(bubble.target.owner.id, bullet.hp, bullet.creator);          }        }]      );      // OUR BULLET <-> IMPERMEABLES      // checks.push([      //   groups.OUR_BULLETS,      //   groups.IMPERMEABLES,      //   (bullet, imp) => {      //     if(!bullet.disabled) {      //       NetworkHelper.bullet_destroy(bullet.id);      //     }      //   }]      // );      // // OUR SHIP <-> OUR REFUGE      // checks.push([      //   groups.OUR_SHIP,      //   groups.OUR_REFUGE,      //   (ship, refuge) => {      //     if(!ship.disabled) ship.charging = true;      //   }]      // );      // OUR SHIP <-> FLAG      checks.push([        groups.OUR_SHIP,        groups.FLAG,        (ship, flag) => {          if (!ship.disabled && flag.idle)            if(ship.canPickupFlag())              this.assumeFlag(ship);        }]      );      // OUR SHIP <-> BUBBLE CORE      checks.push([        groups.OUR_SHIP,        groups.MY_BUBBLE_CORE,        (ship, core) => {          if(!ship.bubble.ready) {            ship.bubble.resetDropCooldownCounter();          } else if (!core.disabled && ship.canPickupBubble())            ship.bubble.locked = false;        }]      );      // OUR SHIP <-> MY BUBBLE      checks.push([        groups.OUR_SHIPS,        groups.MY_BUBBLE,        (ship, bubble) => {          if (!ship.disabled && !!ship.flag && !bubble.complete)            bubble.growing = true;        }]      );      // OUR SUBS <-> ENEMY BLOCKS      checks.push([        groups.OUR_PROJ_SUBS,        groups.ENEMY_BLOCKS,        (sub, block) => {          if (!sub.disabled && !block.disabled) {            switch (sub.type) {              case 'attractor':              case 'repulsor':                // NetworkHelper.sub_destroy(sub.id);                // NetworkHelper.block_destroy(block.id);                break;              case 'block_bomb':              case 'missile':                sub.explode();                break;            }          }        }]      );      // OUR SUBS <-> ENEMY SHIPS      checks.push([        groups.OUR_PROJ_SUBS,        groups.ENEMY_SHIPS,        (sub, ship) => {          if (!sub.disabled && !ship.disabled) {            if (sub.type == 'missile') {              this.damageShip(ship.owner.id, sub.hp, sub.player);              this.removeSub(sub.id)            }          }        }]      );      // OUR SUBS <-> ENEMY SPAWN_CAMPS      checks.push([        groups.OUR_PROJ_SUBS,        groups.ENEMY_SPAWN_CAMPS,        (sub, spawn_camp) => {          if (!sub.disabled) this.removeSub(sub.id);        }]      );      // OUR SUBS <-> ENEMY BUBBLES      checks.push([        groups.OUR_PROJ_SUBS,        groups.ENEMY_BUBBLES,        (sub, bubble) => {          if (!sub.disabled && bubble.locked && !bubble.complete && !bubble.disabled) {            switch (sub.type) {              case 'attractor':              case 'repulsor':                // NetworkHelper.sub_destroy(sub.id);                // NetworkHelper.block_destroy(block.id);                break;              case 'block_bomb':              case 'missile':                sub.explode();                break;            }          }        }]      );      // OUR BLOCKS <-> OUR BLOCKS      checks.push([        groups.OUR_BLOCKS,        groups.OUR_BLOCKS,        (block_a, block_b) => {          if (block_a != block_b && !block_a.disabled && !block_b.disabled)            if (Physics.overlap(block_a, block_b) > 0.8) // 0.8              this.removeBlock(block_a.id);        }]      );    }    // SHIPS <-> WALL OR CAMP (REFUGE)    checks.push([      groups.SHIPS,      groups.REFUGE,      (ship, refuge) => {        if (!ship.disabled) {          if (ship.owner.team.number != refuge.team) {            // Physics.bounce(ship, refuge);          } else {            ship.charging = true;          }        }      }]    );    // SHIPS <-> IMPERMEABLES    checks.push([      groups.SHIPS,      groups.IMPERMEABLES,      (ship, imp) => {        if (!ship.disabled) {          Physics.bounce(ship, imp);        }      }]    );    // BULLETS <-> IMPERMEABLES    checks.push([      groups.BULLETS,      groups.IMPERMEABLES,      (bullet, imp) => {        if (!bullet.disabled) {          if (Physics.overlap(bullet, imp) < 0.1) {            Physics.bounce(bullet, imp);          } else {            this.removeBullet(bullet.id);          }        }      }]    );    // MY_BUBBLE <-> FLAG    checks.push([      groups.BUBBLES,      groups.FLAG,      (bubble, flag) => {        if (!bubble.locked) {          Physics.bounce(bubble.target, flag);        }      }]    );    // BUBBLES <-> BUBBLES    checks.push([      groups.BUBBLES,      groups.BUBBLES,      (bubbleA, bubbleB) => {        if (!bubbleA.locked && bubbleB.locked) {          Physics.bounce(bubbleA.target, bubbleB);        } else        if (!bubbleB.locked && bubbleA.locked) {          Physics.bounce(bubbleB.target, bubbleA);        }      }]    );  }  setupReferenceGroups() {    var refGroups = {};    refGroups.enemyBlocks = new Set();    refGroups.enemySubs = new Set();    refGroups.animate = new Set();    // this.collisionGroups = groups;    this.refGroups = refGroups;  }  setupLoop() {    var FPS = n => 1000 / n;    window.getAnimationFrame =      window.requestAnimationFrame ||      window.webkitRequestAnimationFrame ||      window.mozRequestAnimationFrame ||      window.oRequestAnimationFrame ||      window.msRequestAnimationFrame ||      function (callback) {        window.setTimeout(callback, FPS(60))      };    this.setupDT();  }  setupDT() {    this.last_time = (new Date()).getTime();    // the variable percentage of a second that has gone by since the last frame    // usually expressed: 0.016 when running 60 fps    this.dt = 0;  }  updateDT() {    let now = (new Date()).getTime();    this.dt = (now - this.last_time) / 1000;    this.last_time = now;  }  setupReferences() {    this.setupShortcutsToCommonCalls();    this.setupFinishCollisionAssignment();    this.setupGraphicsCaches();  }  setupShortcutsToCommonCalls() {    if (!this.spectate) {      // model references      this.enemyTeams = this.teams.filter(team => team.number != this.ships.main.owner.team.number);      this.enemyPlayers = this.enemyTeams.reduce((list, team) => list.concat(team.players), []);      this.player = this.ships.main.owner;      this.team = this.player.team;    }  }  setupFinishCollisionAssignment() {    /*     this method is run near end of the setup since things like ships and players     and teams and everything else is assigned and references can be made to the     local players team and such..     */    // spawn camps    this.teams.forEach(team => {      let spawn_c = team.spawn_camp;      spawn_c.collision_groups = [this.physics.collision_groups.SPAWN_CAMPS, this.physics.collision_groups.REFUGE] // TODO COLLISION OR PHYSICS CLASS PROTOCOLS      if (team == this.team) {        spawn_c.collision_groups.push(this.physics.collision_groups.OUR_SPAWN_CAMP);        spawn_c.collision_groups.push(this.physics.collision_groups.OUR_REFUGE);      } else {        spawn_c.collision_groups.push(this.physics.collision_groups.ENEMY_SPAWN_CAMPS);      }      this.setCollisionDivisions(spawn_c);    });    // ships    this.ships.forEach(ship => {      ship.collision_groups = [this.physics.collision_groups.SHIPS];      if (ship == this.ships.main) ship.collision_groups.push(this.physics.collision_groups.OUR_SHIP);      ship.collision_groups.push((ship.owner.team == this.team) ? this.physics.collision_groups.OUR_SHIPS : this.physics.collision_groups.ENEMY_SHIPS)    });    // bubbles    this.ships.forEach(ship => {      const bubble = ship.bubble;      bubble.collision_groups = [this.physics.collision_groups.REFUGE, this.physics.collision_groups.BUBBLES];      if (ship.owner.team === this.team) {        bubble.collision_groups.push(this.physics.collision_groups.OUR_BUBBLES);      } else {        bubble.collision_groups.push(this.physics.collision_groups.ENEMY_BUBBLES);      }      if(this.player.ship === ship) {        bubble.collision_groups.push(this.physics.collision_groups.MY_BUBBLE);        ship.bubbleCore.collision_groups = [this.physics.collision_groups.MY_BUBBLE_CORE];      }    });  }  setupGraphicsCaches() {    // TODO: deinit graphics caches    // cache background    // this.view.layer.background.cache(0, 0, this.mapInfo.width, this.mapInfo.height);    // create single cache for common objects    this.setupCommonGraphicsCachePool();  }  setupCommonGraphicsCachePool() {    let gc = DeepSpaceGame.graphicsCaches = {};    // bullets    gc.bullets = [];    this.teams.forEach(team => {      // always caching the largest version      let radius = Bullet.stats.MAX_RADIUS;      let v = new createjs.Shape(        DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius)      );      var s = radius * 1.2;      let c = new createjs.Container();      v.alpha = 0.5;      c.addChild(v);      c.cache(-s, -s, s * 2, s * 2);      // v.cache(-s, -s, s * 2, s * 2);      gc.bullets[team.number] = c.cacheCanvas;    });    // blocks    gc.blocks = {      unlocked: [],      locked: [],      enemy: []    };    this.teams.forEach(team => {      // always caching the largest version      let radius = Block.stats.MAX_RADIUS;      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(this.teams[team.number].color, radius)),        border = new createjs.Shape(DeepSpaceGame.graphics.block_border(this.teams[team.number].color, radius));      var s = radius * 1.2;      let c;      // enemy      c = new createjs.Container();      fill.alpha = 0.24;      c.addChild(fill);      c.cache(-s, -s, s * 2, s * 2);      gc.blocks.enemy[team.number] = c.cacheCanvas;      // unlocked      // fill.alpha = 0.16;      // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius))      c = new createjs.Container();      c.addChild(fill);      c.cache(-s, -s, s * 2, s * 2);      gc.blocks.unlocked[team.number] = c.cacheCanvas;      // locked      // fill.alpha = 1;      // fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#455A64', 40), radius))      c = new createjs.Container();      c.addChild(fill);      // c.addChild(border);      c.cache(-s, -s, s * 2, s * 2);      gc.blocks.locked[team.number] = c.cacheCanvas;    });    // minimap    if (this.spectate) return; // TODO make minimap accesible to all even spectators    gc.minimap = {blocks: []};    this.teams.forEach(team => {      // '#37474F'      let radius = Block.stats.MAX_RADIUS * this.view.overlay.minimap.scale;      let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(COLOR.mix(this.teams[team.number].color, '#37474F', 40), radius));      var s = radius * 1.2;      // fill.alpha = 0.16;      fill.cache(-s, -s, s * 2, s * 2);      gc.minimap.blocks[team.number] = fill.cacheCanvas;    });    // (()=>{    //   let radius = 128 * this.view.overlay.minimap.scale;    //    //   let fill = new createjs.Shape(DeepSpaceGame.graphics.block_fill(, radius));    //    //   var s = radius * 1.2;    //   // fill.alpha = 0.16;    //   fill.cache(-s, -s, s*2, s*2);    //   gc.minimap.blocks[team.number] = fill.cacheCanvas;    //    //   gc.minimap.impermeables = ;    // })  }  actualize() {    // bring an outside game up to speed    // DEPRECIATED :: .. no client can join match after start    // scores    // this.setupData.state.scores.forEach((entry) => {    //   this.game.scores[entry.t] = entry.s    // });    this.setupData.teams.forEach((team, i) => {      this.game.scores[i] = 100    });    // flag    // var holder;    // setTimeout(() => {    //   if (holder = this.setupData.state.flagHolder) this.pickupFlag(holder);    // }, 100);    // disconnects    // this.setupData.disconnects.forEach(id => this.disconnectPlayer(id))  }  loop() {    // stats.begin();    this.updateDT();    this.update();    this.log();    // stats.end();    // NetworkHelper.release();    getAnimationFrame(() => this.game.ended ? true : this.loop())  }  update() {    // this function duty is as follows:    // to update all the moving parts pertaining to the current/local user.    // any collisions should be sent back to the server to sync the changes.    var over = this.game.disabled;    if (!over) this.updateInput();    this.updateModel(); // TODO: improve performance    if (!over) this.checkForCollisions();    // if(this.isHost) this.generateMapEntities();    if (!over) this.updateGame();    this.updateView();  }  updateInput() {    // if(!this.spectate) this.updateGamepadInput();    if(!this.spectate) if(this.input.updateMotion) this.input.updateMotion();  }  // updateGamepadInput() {}  updateModel() {    this.updateShips();    this.broadcastShip();    this.updateBullets();    this.updateBlocks();    this.updateSubs();    this.updateBubble();  }  updateShips() {    for (var ship of this.ships) {      ship.update(this.dt);      if (ship == this.ships.main && !ship.disabled) {        const input = this.input;        // new abstraction        ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * input.acceleration;        ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * input.angularAcceleration;        ship.relative_shoot_angle = input.shootAngle;        if(input.angularVelocity !== null)          ship.angular_velocity = ship.ANGULAR_VELOCITY_LIMIT_MIN * input.angularVelocity;        if(input.shoot) {          if(ship.bubble.locked) {            if(ship.canShoot())              this.addBullet(ship);          } else {            ship.bubble.locked = true;          }        }        if(input.block) {          if(ship.canBlock()) {            while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())            this.addBlock(ship)          }        }        if(input.sub) {          if(ship.flag) {            this.releaseFlag()          } else {            if(ship.canSub())              this.addSub(ship);          }        }        // var input = ship.owner.input,        //   x = 0, y = 0, x2 = 0, y2 = 0,        //   s = false;        //        // for (var prop of input) {        //   switch (prop) {        //     case 'up':        //       y = 1;        //       // y = -1;        //       break;        //     case 'dn':        //       y = -1;        //       // y = 1;        //       break;        //     case 'lt':        //       x = -1;        //       break;        //     case 'rt':        //       x = 1;        //       break;        //     case 'up2':        //       y2 = -1;        //       break;        //     case 'dn2':        //       y2 = 1;        //       break;        //     case 'lt2':        //       x2 = -1;        //       break;        //     case 'rt2':        //       x2 = 1;        //       break;        //     case 'sub':        //       // if(!ship.flag) ship.sub();        //       if(ship.flag) {        //         this.releaseFlag()        //       } else {        //         if(ship.canSub())        //           this.addSub(ship);        //       }        //       break;        //     case 'block':        //       if(ship.canBlock()) {        //         while(ship.reachedBlockLimit) this.removeBlock(ship.oldestBlockID())        //         this.addBlock(ship)        //       }        //       break;        //     case 'shoot':        //       s = true;        //       break;        //   }        // }        //        // // ship.acceleration.set({x, y})        // // if (ship.acceleration.length) ship.acceleration.length = ship.LINEAR_ACCELERATION_LIMIT;        // //        // // // if(ship.acceleration.length) ship.angle = ship.acceleration.angle        // // if (ship.velocity.length) ship.angle = ship.velocity.angle;        //        // var direction_v = new V2D(x2, y2)        // ship.relative_shoot_angle = direction_v.length ? direction_v.angle + (Math.PI/2) : 0;        //        //        // // new ship controls        // ship.acceleration = ship.LINEAR_ACCELERATION_LIMIT * y;        // ship.angular_acceleration = ship.ANGULAR_ACCELERATION_LIMIT * x;        //        //        // // if(direction_v.length) ship.shoot();        //        //        // if (s || direction_v.length)        //   if (ship.canShoot())        //     this.addBullet(ship);      }      // validate new position TODO (revise)      let r = ship.radius + 8;      if (ship.position.x - r < 0) {        ship.position.x = r;        ship.velocity.x = 0      }      if (ship.position.y - r < 0) {        ship.position.y = r;        ship.velocity.y = 0      }      if (ship.position.x + r > this.mapInfo.width) {        ship.position.x = this.mapInfo.width - r;        ship.velocity.x = 0;      }      if (ship.position.y + r > this.mapInfo.height) {        ship.position.y = this.mapInfo.height - r;        ship.velocity.y = 0;      }      this.setCollisionDivisions(ship);      // if(ship.position.x < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.height))      // if(ship.position.y < 0) Physics.bounce_off_line(ship, V2D.new(0, 0), V2D.new(0, this.mapInfo.width))      // if(ship.position.x > this.mapInfo.width) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.height))      // if(ship.position.y > this.mapInfo.height) Physics.bounce_off_line(ship, V2D.new(0, this.mapInfo.width))      // if(ship.position.x < 0) ship.position.x = this.mapInfo.width;      // if(ship.position.y < 0) ship.position.y = this.mapInfo.height;      // if(ship.position.x > this.mapInfo.width) ship.position.x = 0;      // if(ship.position.y > this.mapInfo.height) ship.position.y = 0;    }  }  broadcastShip() {    var ship, input;    if ((ship = this.ships.main) && (input = this.input)) {      if (input.changed) {        // log(Array.from(input));        // NetworkHelper.out_input_stack(Array.from(input));        input.changed = false;      }      this.network.sendShipUpdate(ship.export_update());      if ((new Date()).getTime() % 60 < 2) this.network.sendShipOverride(ship.export_override());      if (ship.flag && ship.disabled) this.releaseFlag();      // if(ship.flag && ship.disabled && !this.game.flag.idle) NetworkHelper.out_flag_drop();    }  }  updateBullets() {    this.model.bullets.forEach(b => {      b.update(this.dt);      this.setCollisionDivisions(b)    });    // this.model.bullets.forEach(b => { b.update(); if(b.disabled) NetworkHelper.out_bullet_destroy(b.id) });  }  updateBlocks() { // needs needs work    this.model.blocks.forEach(b => {      if (b.locked) return;      if (b.qualified) {        this.snapToGrid(b.position);        b.scale = 1;        this.setCollisionDivisions(b);        if (!this.spectate) this.createOverlayMinimapBlockViewFor(b);        if (!this.spectate) if (b.team != this.team.number) this.refGroups.enemyBlocks.add(b); // TODO REVISE AFTER NEW COLLISION SYSTEM!!        b.locked = true;        b.qualified = false;      }      b.update(this.dt);      // if(b.disabled) NetworkHelper.out_block_destroy(b.id) // due to aging    });  }  updateSubs() {    this.model.subs.forEach(p => {      p.update(this.dt);      if (p.collision_groups) this.setCollisionDivisions(p);      switch (p.type) {        case 'attractor':        case 'repulsor':          // field effects TODO is games responsibility..? dt is passed to subs themseves..          var distance, direction;          this.model.bullets.forEach((b) => {            if (!b.disabled && p.team != b.team) {              if ((distance = Physics.distance(b.position, p.position)) < p.RANGE) {                var force = new V2D();                direction = p.position.copy();                direction.sub(b.position);                force.length = p.INTENSITY_FUNCTION(distance);                force.angle = direction.angle;                if (p.type == 'repulsor') force.angle = force.angle - Math.PI;                b.velocity.add(force);                b.velocity.length *= 0.94; // friction TODO              }            }          });          break;        case 'block_bomb':          if (p.exploding) {            // only the player who created it hands out damage to the blocks so it is done once            let ship;            if ((ship = this.ships.main) && (ship.subs.has(p.id))) {              let distance;              this.teams.forEach(team => {                if(this.team === team) return;                team.players.forEach(player => {                  const bubble = player.ship.bubble;                  if(player.disconnected || !bubble.locked) return;                  if ((distance = Physics.distance(bubble.position, p.position)) < p.EXPLOSION_RANGE) {                    this.damageBubble(bubble.target.owner.id, p.EXPLOSION_DAMAGE_FUNCTION(distance));                  }                })              });            }            // the player is the only one who must wait, the others have been notified to endSub            this.removeSub(p.id);          }          break;        case 'stealth_cloak':          if(p.disabled) ENV.game.destroySub(p.id);          break;        case 'missile':          // targeting          if (p.target && (Physics.distance(p.target.position, p.position) > p.VISION_RANGE || p.target.stealth)) p.target = null;          this.ships.forEach(ship => {            if (ship && !ship.disabled && !ship.stealth && ship.owner.team.number != p.team) {              if (!p.target && ((distance = Physics.distance(ship.position, p.position)) < p.VISION_RANGE)) {                p.target = ship;              }            }          });          // exploding          if (p.exploding) {            // only the player who created it hands out damage to the blocks so it is done once            var ship;            if ((ship = this.ships.main) && (ship.subs.has(p.id))) {              var distance;              this.refGroups.enemyBlocks.forEach(block => {                if (block && !block.disabled) {                  if ((distance = Physics.distance(block.position, p.position) - block.radius) < p.EXPLOSION_RANGE) {                    this.changeBlock(block.id, ship.owner.team.number)                    if(!this.spectate) this.ships.main.blocks.add(block.id);                  }                }              });            }            // the player is the only one who must wait, the others have been notified to endSub            this.removeSub(p.id);          }          break;        default:          break;      }    });  }  updateBubble() {    this.ships.forEach(ship => {      ship.bubble.update(this.dt);      this.setCollisionDivisions(ship.bubble);      if(ship === this.player.ship) this.setCollisionDivisions(ship.bubbleCore);    });  }  checkForCollisions() {    // in theory, the user will only check    // collisions of those things which it    // created. though in practice, perhaps    // just it's attack moves. e.g. bullets    for (let div of this.physics.divisions) {      for (var [a_type, b_type, check] of this.physics.collision_checks)        for (let body_a of div[a_type])          for (let body_b of div[b_type])            if (Physics.doTouch(body_a, body_b))              check(body_a, body_b);    }  }  updateGame() {    switch(this.gameMode) {      case 0: // ctf        const flag = this.game.flag;        if (!flag.idle) {          const player = this.players.get(flag.holderID),                p = player.ship.last_known_position,                camp = player.team.spawn_camp;          flag.position.x = p.x;          flag.position.y = p.y;          this.setCollisionDivisions(flag);          // real game stuff          const activePlayers = player.team.players.filter(player => !player.disconnected);          let teamProgresses = activePlayers.map(player => player.ship.bubble.progress);          let percent = _.reduce(teamProgresses, (memo, num) => memo + num, 0) / player.team.players.length;          let high_score = this.game.scores[player.team.number];          let current_score = Math.round(percent * 100);          if (current_score > high_score && current_score <= 100)            this.game.scores[player.team.number] = current_score;          if ((percent >= 1) && player === this.player)            this.network.sendFlagProgress([player.team.number, current_score]);          // LEAD COMPARISON          // replace lead if none exists          if (!this.game.lead) this.game.lead = player.team;          // replace lead if record shows          if (current_score > this.game.scores[this.game.lead.number]) {            if (!this.spectate) {              // if you are replacing              if (player.team == this.team) {                let c = this.team.color;                this.alert(                  DeepSpaceGame.localizationStrings.alerts['teamTakesLead'][this.language]()                  , c);                this.network.sendFlagProgress([player.team.number, current_score])                // if (this.game.overtime) this.network.out_game_over(this.team.number);              }              // if you are being replaced              else if (this.game.lead == this.team) {                let c = player.team.color;                this.alert(                  DeepSpaceGame.localizationStrings.alerts['teamLosesLead'][this.language]()                  , c);              }            }            this.game.lead = player.team;          }        }        break;      case 1: // Territorial        break;      case 2: // Bubble Match or.. Survival?? idk        /*var flag = this.game.flag;        if (!flag.idle) {          var player = this.players.get(flag.holderID),            p = player.ship.last_known_position,            camp = player.team.spawn_camp;          flag.position.x = p.x;          flag.position.y = p.y;          this.setCollisionDivisions(flag);          // real game stuff          var distance = Physics.distance(p, camp.position) - camp.radius,            percent = distance / this.game.max,            low_score = this.game.scores[player.team.number],            current_score = Math.round(percent * 100);          if (current_score < low_score && current_score >= 0) this.game.scores[player.team.number] = current_score;          if ((percent < 0) && player == this.player) this.network.sendFlagProgress([player.team.number, current_score])          // this.network.out_game_over(player.team.number);          // LEAD COMPARISON          // replace lead if none exists          if (!this.game.lead) this.game.lead = player.team;          // replace lead if record shows          if (current_score < this.game.scores[this.game.lead.number]) {            if (!this.spectate) {              // if you are replacing              if (player.team == this.team) {                let c = this.team.color;                this.alert(                  DeepSpaceGame.localizationStrings.alerts['teamTakesLead'][this.language]()                  , c);                this.network.sendFlagProgress([player.team.number, current_score])                // if (this.game.overtime) this.network.out_game_over(this.team.number);              }              // if you are being replaced              else if (this.game.lead == this.team) {                let c = player.team.color;                this.alert(                  DeepSpaceGame.localizationStrings.alerts['teamLosesLead'][this.language]()                  , c);              }            }            this.game.lead = player.team;          }        }*/        break;    } // end switch  }  updateView() {    this.updateShipViews();    this.updateBubbleViews();    this.updateBulletViews();    this.updateBlockViews();    this.updateSubViews();    this.updateCamera();    this.updateBackground();    this.updateMap();    // this.updateTINT();    // this.updateGrid();    this.updateGameViews();    if (!this.spectate) this.updateMinimapView();    this.updateProton();    this.stage.update(); // render changes!!  }  updateShipViews() {    this.ships.forEach((ship) => {      const isVisible = ( ship.view.visible = this.camera.showing(ship) );      const shipIsVisible = ( ship.view.visible = this.camera.showing(ship) );      if (ship.view.visible = this.camera.showing(ship) || ship.view == this.camera.focus) {        let visibility = 1;        if(ship.disabled) {          visibility = 0;        } else {          if(this.game.flag && this.game.flag.holderID === ship.owner.id) {            visibility = 1;          } else {            // if(ship.owner.team != this.team && ship.charging) {            //   visibility = 0;            // } else            if(ship.stealth) {              if (ship.owner.team == this.team) {                visibility = Math.flipCoin(0.2) ? 0 : 0.4;              } else {                visibility = 0;              }            }          }        }        let ship_view = ship.view.ship;        ship_view.alpha = ship.health * visibility;        ship_view.rotation = Math.degrees(ship.angle);        ship.view.x = ship.position.x;        ship.view.y = ship.position.y;        // ship.view.graphics.clear();        ship_view.image = ((ship.flag) ? ship_view.filled : ship_view.hollow);      }    });    this.updateEnergyMeterView();    this.updateNameViews();  }  updateEnergyMeterView() {    if (this.spectate) return;    let ship = this.player.ship,      meterView = ship.view.meter,      shadowView = meterView.shadow,      percent = ship.energy / 100,      offset = V2D.new({angle: ship.angle + (Math.PI/4), length: 42}),      color = ship.charging ? this.team.color : '#90A4AE';    meterView.graphics = DeepSpaceGame.graphics.energyMeter(color, percent);    meterView.alpha = shadowView.alpha = ship.disabled ? 0 : 1;    meterView.x = shadowView.x = offset.x;    meterView.y = shadowView.y = offset.y;    meterView.rotation = shadowView.rotation = Math.degrees(ship.angle + Math.PI/2);    meterView.updateCache();    // const { colorBar, chargeBar } = this.view.overlay.energyMeter;    // colorBar.scaleX = chargeBar.scaleX = percent;    // colorBar.visible = !ship.charging;  }  updateNameViews() {    if (this.spectate) return;    let our_ship = this.ships.main, our_team;    if (our_ship) our_team = our_ship.owner.team;    this.ships.forEach((ship) => {      if (ship.owner.team == our_team && ship != our_ship) {        let textView = ship.view.text,            offset = V2D.new({angle: our_ship.angle, length: 30});        textView.x = offset.x        textView.y = offset.y        textView.rotation = Math.degrees(our_ship.angle + Math.PI/2)      }    });  }  updateBubbleViews() {    let our_ship = this.ships.main, our_team;    if (our_ship) our_team = our_ship.owner.team;    this.ships.forEach((ship) => {      const bubble = ship.bubble;      const bubbleViews = this.view.bubbles.get(ship);      const { container } = bubbleViews;      if(ship.owner.disconnected) {        container.visible = false;        return;      }      const {        handle,        fullRange,        growingCircle,        growingCircleEdge,      } = bubbleViews;      const bubbleVisible = ( container.visible = this.camera.showing(bubble) );      // should this be added to the if ?  >>  ( || ship.view === this.camera.focus )      if (bubbleVisible) {        if(bubble.disabled) {          container.alpha = 0;        } else {          container.alpha = 1;          if(bubble.locked) {            growingCircleEdge.alpha = 1;            growingCircle.alpha = +!bubble.complete;            fullRange.alpha = +!bubble.complete;          } else {            growingCircle.alpha = 0;            fullRange.alpha = 0;            if(ship === our_ship)              growingCircleEdge.alpha = 1;            else              growingCircleEdge.alpha = 0.3;          }        }      }      container.x = bubble.position.x;      container.y = bubble.position.y;      growingCircleEdge.scaleX = growingCircle.scaleX =        growingCircleEdge.scaleY = growingCircle.scaleY =          ( bubble.radius / bubble.OUTER_RADIUS );      if(handle) handle.visible = !ship.bubbleCore.disabled;    });  }  updateBulletViews() {    var views = this.view.bullets;    this.model.bullets.forEach(b => {      let v = views.get(b.id);      if(this.camera.showing(b)) {        if(!v) v = this.createBulletView(b)        v.x = b.position.x;        v.y = b.position.y;      } else {        if(v) this.destroyBulletView(b.id);      }    });  }  updateBlockViews() {    var views = this.view.blocks;    this.model.blocks.forEach(b => {      var v = views.get(b.id);      if(this.camera.showing(b)) {        if(!v) v = this.createBlockView(b)        v.alpha = (b.health * 0.9 + 0.1);        v.x = b.position.x;        v.y = b.position.y;        v.scaleX = v.scaleY = (b.radius / Block.stats.MAX_RADIUS) * b.scale;        if (b.qualified) {          let type = b.isForeign ? 'enemy' : 'locked';          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];        }      } else {        if(v) this.destroyBlockView(b.id);      }    });  }  updateSubViews() {    var views = this.view.subs;    this.model.subs.forEach(s => {      var v = views.get(s.id);      if (v && (v.visible = this.camera.showing(s))) {        v.x = s.position.x;        v.y = s.position.y;        v.rotation = Math.degrees(s.rotation);      }    });  }  updateCamera() {    this.camera.update();    // if(camera.position)  }  updateBackground() {        const background = this.view.layer.background.map_background;    const map_width = this.mapInfo.width;    const map_height = this.mapInfo.height;    const half_window_width = this.window.width/2;    const half_window_height = this.window.height/2;    const half_background_width = background.cacheCanvas.width / 2;    const half_background_height = background.cacheCanvas.height / 2;    let backgroundPositionVector = V2D.new(this.camera.focus);    const centerOffset = V2D.new({x: this.camera.offset.x - half_window_width, y: this.camera.offset.y - half_window_height});    centerOffset.div(this.scale)    centerOffset.angle = Math.radians(this.camera.focus.ship.rotation);    backgroundPositionVector.add(centerOffset);    // edges    if (backgroundPositionVector.x < half_background_width) backgroundPositionVector.x = half_background_width;    if (backgroundPositionVector.y < half_background_height) backgroundPositionVector.y = half_background_height;    if (backgroundPositionVector.x > map_width - half_background_width) backgroundPositionVector.x = map_width - half_background_width;    if (backgroundPositionVector.y > map_height - half_background_height) backgroundPositionVector.y = map_height - half_background_height;    background.x = backgroundPositionVector.x;    background.y = backgroundPositionVector.y;    background.rotation = - 90;    // let background = this.view.layer.background.map_background,    //     full_map_width = this.mapInfo.width,    //     full_map_height = this.mapInfo.height,    //     {x, y} = this.camera.focus,    //     half_window_width = this.window.width/2,    //     half_window_height = this.window.height/2;    //    // if(x < half_window_width) background.x = half_window_width - x;    // if(x > (full_map_width - half_window_width)) background.x = full_map_width - half_window_width - x;    //    // if(y < half_window_height) background.y = half_window_height - y;    // if(y > (full_map_height - half_window_height)) background.y = full_map_height - half_window_height - y;  }  updateMap() {    this.teams.forEach(team => {      team.spawn_camp.view.visible = this.camera.showing(team.spawn_camp);    })    this.model.map.impermeables.forEach((imp, i) => {      this.view.map.impermeables[i].visible = this.camera.showing(imp);    });  }  updateTINT() {    try {      if (TINT) TINT.setAngleOffset(-this.camera.focus.ship.rotation)    } catch (e) {      log('tint load failed')    }  }  updateGrid() {    var focus = this.camera.focus;    if (focus) GRID.offset(-focus.x, -focus.y)  }  updateGameViews() {    const list = this.calculateTeamScoreAppearance();    this.view.overlay.score.team.forEach((text, i) => {      text.text = this.game.scores[i];      // text.scaleX = text.scaleY = (this.teams[i] == this.game.lead ? 1 : 0.86);      if(this.gameMode == 0) // todo FIX --     export logic to another function to know which is larger        text.scaleX = text.scaleY = (list[i] ? 1 : 0.86);      text.updateCache();    })    if(this.gameMode == 0)      this.updateFlagView();  }  calculateTeamScoreAppearance() {    const list = [];    switch(this.gameMode) {      case 0: // ctf        for(let team of this.teams)          list.push(team.players.map(p => p.id).indexOf(this.game.flag.holderID) != -1)        break;      case 1: // territory        const bestScore = _(this.game.scores).max();        _(this.game.scores).each(score => list.push(score == bestScore))        break;    }    return list;  }  updateFlagView() {    var v = this.view.flag, flag = this.game.flag;    var not_visible = false;    let newPosition = new V2D(flag.position.x - this.camera.plane.regX, flag.position.y - this.camera.plane.regY)    newPosition.angle -= Math.radians(this.camera.focus.ship.rotation + 90)    newPosition.mul(this.scale)    newPosition.add({x: this.camera.plane.x, y: this.camera.plane.y})    v.x = newPosition.x;    v.y = newPosition.y;    var padding = (flag.radius * 2)    if (v.x < padding) {      v.x = padding;      not_visible = true;    }    if (v.x > this.window.width - padding) {      v.x = this.window.width - padding;      not_visible = true;    }    if (v.y < padding) {      v.y = padding;      not_visible = true;    }    if (v.y > this.window.height - padding) {      v.y = this.window.height - padding;      not_visible = true;    }    v.alpha = not_visible ? 0.3 : (flag.idle ? 1 : 0);    // var v = this.view.flag, flag = this.game.flag;    //    // var not_visible = false;    // v.x = flag.position.x + this.camera.plane.x;    // v.y = flag.position.y + this.camera.plane.y;    // var padding = (flag.radius * 2)    // if(v.x < padding) { v.x = padding; not_visible = true; }    // if(v.x > this.window.width - padding) { v.x = this.window.width - padding; not_visible = true; }    // if(v.y < padding) { v.y = padding; not_visible = true; }    // if(v.y > this.window.height - padding) { v.y = this.window.height - padding; not_visible = true; }    //    // v.alpha = not_visible ? 0.1 : (flag.idle ? 1 : 0);  }  updateMinimapView() {    let mini = this.view.overlay.minimap;    // ships    this.team.players.forEach((player, i) => {      mini.players[i].x = player.ship.position.x * mini.relativeScale;      mini.players[i].y = player.ship.position.y * mini.relativeScale;    })    // flag    if(this.gameMode == 0) {      let flag = this.game.flag;      mini.flag.x = flag.position.x * mini.relativeScale;      mini.flag.y = flag.position.y * mini.relativeScale;    }    // bubbles    this.players.forEach((player, id) => {      const [container, fill] = mini.playerBubbles.get(id);      if(player.disconnected) {        container.visible = false;        return;      }      const bubble = player.ship.bubble;      const scale = bubble.radius / Bubble.stats.OUTER_RADIUS;      container.x = player.ship.bubble.position.x * mini.relativeScale;      container.y = player.ship.bubble.position.y * mini.relativeScale;      container.scaleX = container.scaleY = scale;      let alpha = 0.3;      if(!bubble.locked)        alpha = 0;      else if(bubble.growing)        alpha = 1;      fill.alpha = alpha;    });  }  updateCameraFocus() {    this.camera.focus = this.activePlayers[this.activePlayerIndex].ship.view;  }  updateProton() {    const timingFunction = BezierEasing(0.0, 0.0, 0.2, 1);    const slowest = 0.1; const fastest = 0.02;    const defaultMinAngle = 150; const defaultMaxAngle = 210;    for(const [ship, emitter] of this.view.proton.emitters) {      if(ship.disabled) {        if(!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.death)) {          emitter.removeInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);          emitter.addInitialize(this.view.proton.imageTargets.death);        }      } else {        if(!this.view.proton.util.hasInitializer(emitter, this.view.proton.imageTargets.teams[ship.owner.team.number])) {          emitter.removeInitialize(this.view.proton.imageTargets.death);          emitter.addInitialize(this.view.proton.imageTargets.teams[ship.owner.team.number]);        }      }      // update ship dependencies      const percent = ship.velocity.length /        (ship.LINEAR_VELOCITY_LIMIT + ship.LINEAR_VELOCITY_LIMIT_EXTENDED);      let amount = ship.disabled ? 3 : (percent < 0.2 ? 0 : 1);      const pos = ship.back_weapon_position;      const minAngle = ship.disabled ? 0 : defaultMinAngle;      const maxAngle = ship.disabled ? 360 : defaultMinAngle;      emitter.p.x = pos.x;      emitter.p.y = pos.y;      emitter.rotation = -Math.degrees(ship.angle) - 90;      emitter.rate.timePan.a =        emitter.rate.timePan.b =          slowest - ((slowest - fastest) * timingFunction(percent));      emitter.rate.numPan.a =        emitter.rate.numPan.b =          amount;      emitter.force.thaPan.a = minAngle;      emitter.force.thaPan.b = maxAngle;    }    // star emmiter update // TODO .. why starEmitter on this?    this.starEmitter.p.x = this.camera.focus.x;    this.starEmitter.p.y = this.camera.focus.y;    const flagHolder = this.players.get(this.game.flag.holderID);    const imageTargets = this.view.proton.imageTargets;    const starTarget = imageTargets.stars;    if(flagHolder) {      const teamStarTarget = imageTargets.starTeams.cache = imageTargets.starTeams[flagHolder.team.number];      if(!this.view.proton.util.hasInitializer(this.starEmitter, teamStarTarget)) {        this.starEmitter.removeInitialize(starTarget);        this.starEmitter.addInitialize(teamStarTarget);      }    } else {      if(!this.view.proton.util.hasInitializer(this.starEmitter, starTarget)) {        this.starEmitter.removeInitialize(imageTargets.starTeams.cache);        this.starEmitter.addInitialize(starTarget);      }    }    // refresh proton    this.view.proton.main.update();  }  log() {    // var input = this.ships.main.owner.input;    // var ship = this.ships.main;    // $('#log').text(`forward: ${input.get('forward')}, turn: ${input.get('turn')}, shoot: ${input.get('shoot')}, block: ${input.get('block')}, `)//     $('#log').text(// `    x: ${ship.position.x.round(2)}//     y: ${ship.position.y.round(2)}// angle: ${ship.angle.round(2)}`//     );    // FPS    // this.last = this.last || [];    // this.last.push(1/this.dt)    // if(this.last.length > 10) this.last.shift();    // $('#log').text(`fps ${Math.round(this.last.average())}`);  }  // end vs stop: end happens when the local game appears to conclude; interaction with the game is stopped  // and the state might even be obstructed from view though the simluation continues;  disableInteraction() {    this.game.disabled = true;    if (this.player) this.resetInput();    this.deinitListeners();    this.timer.cancel();  }  endSimulation() {    this.game.ended = true;    // SoundHelper.stop();  }  timerExpire() {    // let server know TODO this should not lie here like this..    switch(this.gameMode) {      case 0: // ctf        const team = this.player.team.number;        const score = this.game.scores[team];        this.network.sendFlagProgress([team, score]);        break;    }    // LOBBY.disableGame();    // disconnect if no server response after 6s    setTimeout(() => {      if (!(this.game.ended || this.game.overtime)) LOBBY.disconnect();    }, 6000);  }  takeOvertime() {    this.game.overtime = true;    // disconnect if no server response after 40s    setTimeout(() => {      if (!(this.game.ended)) LOBBY.disconnect();    }, TIME.sec(40)); // OVERTIME DURATION.. todo  }  end(results) {    // this.setScoreToResults(results);    this.game.ended = true;    this.disableInteraction();  }  setScoreToResults(results) {    // this.game.scores = results;  }  // *** NEW NETWORK STRUCTURE *** //  // ** SHIP ** //  damageShip(toID, hp, fromID) {    // interpret damage data    const data = [toID, hp, fromID];    // adjust locally (if possible)    this.adjustShipHP(data)    // send through network    this.network.sendAdjustShipHP(data);  }  adjustShipHP([toID, hp, fromID]) {    // health on a player can only be adjusted by own player    if(toID !== this.player.id) return;    // damage and send death if neccessary    if(this.player.ship.damage(hp))      this.processDeath([toID, fromID]);  }  processDeath(data) {    // announce locally    this.deathOccurrence(data)    // send through network    this.network.sendDeathOccurrence(data);  }  deathOccurrence([toID, fromID]) {    const t = this.players.get(toID)    const g = this.players.get(fromID);    if (t) t.score.deaths++;    if (g) g.score.kills++;    if (this.spectate) return;    if (toID == this.player.id) {      const player = this.players.get(fromID);      this.alert_kill(        DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](          player.name        )      );      this.camera.animateFocus(player.ship.view, [this.player.ship, 'disabled']);      // this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);    } else if (fromID == this.player.id) {      this.alert_kill(        DeepSpaceGame.localizationStrings.alerts['yourKill'][this.language](          this.players.get(toID).name        )      );    }  }  // ** BUBBLES ** //  damageBubble(toID, hp, fromID) {    // interpret damage data    const data = [toID, hp, fromID];    // adjust locally (if possible)    this.adjustBubbleHP(data);    // send through network    this.network.sendAdjustBubbleHP(data);  }  adjustBubbleHP([toID, hp, fromID]) {    // health on a player can only be adjusted by own player    if(toID !== this.player.id) return;    // damage bubble    this.player.ship.bubble.damage(hp)  }  // ** PROJECTILES ** //  // * BULLETS * //  addBullet(ship) {        // interpretation ship data for bullet creation    const data = this.generateBulletData(ship)    // actually create bullet object    this.createBullet(data)    // ditribute bullet creation data to other clients    this.network.sendCreateBullet(data)    // notify ship    ship.didShoot(data.id)  }  generateBulletData(ship) {    return ({      id: Math.uuid(),      creator: ship.owner.id,      team: ship.owner.team.number,      position: ship.shoot_position,      angle: ship.shoot_angle + ship.shot_RNG,      radius: ship.ATTACK_RADIUS,      hp: ship.ATTACK_HP,      lifespan: ship.ATTACK_LIFESPAN,      velocity: ship.velocity,      speed: ship.ATTACK_SPEED    });  }  createBullet(data) {    const b = new Bullet(data);    // set model map    this.model.bullets.set(b.id, b);    // collision groups    b.collision_groups = [this.physics.collision_groups.BULLETS];    b.collision_groups.push(this.teams[b.team] == this.team ? this.physics.collision_groups.OUR_BULLETS : this.physics.collision_groups.ENEMY_BULLETS);    if (!this.spectate && b.creator == this.player.id) b.collision_groups.push(this.physics.collision_groups.MY_BULLETS);  }  removeBullet(id) {    // remove local copy    this.destroyBullet(id)    // annouce bullet demise    this.network.sendDestroyBullet(id)  }  destroyBullet(id) {    var b = this.model.bullets.get(id);    if (!b) return;    this.clearCollisionDivisions(b);    this.model.bullets.delete(id);    if (!this.spectate) this.ships.main.bullets.delete(id);    // erase the view for it.    this.destroyBulletView(id);  }  // * BLOCKS * //  addBlock(ship) {    // interpretation ship data for block creation    const data = this.generateBlockData(ship)    // actually create block object    this.createBlock(data)    // ditribute bullet creation data to other clients    this.network.sendCreateBlock(data)    // notify ship    ship.didBlock(data.id)  }  generateBlockData(ship) {    return ({      id: Math.uuid(),      creator: ship.owner.id,      team: ship.owner.team.number,      position: ship.front_weapon_position,      angle: (ship.angle) + ((ship.BLOCK_SPREAD / 2) * ((Math.random()*2) - 1)),      hp: ship.BLOCK_HP_CAPACITY,      // radius: Math.randomIntMinMax(Block.stats.MIN_RADIUS, Block.stats.MAX_RADIUS)      radius: Block.stats.MAX_RADIUS,      speed: Math.randomIntMinMax(Block.stats.MIN_SPEED, Block.stats.MAX_SPEED)    });  }  createBlock(data) {    var bl = new Block(data);    // misc..?    bl.isForeign = this.spectate || bl.team != this.team.number;    // set model map    this.model.blocks.set(bl.id, bl);    // collision groups    bl.collision_groups = [this.physics.collision_groups.REFUGE]    if (this.teams[bl.team] != this.team) {      bl.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)    } else {      bl.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)      bl.collision_groups.push(this.physics.collision_groups.OUR_BLOCKS)    }    // notify game    if(this.gameMode == 1) this.game.scores[data.team]++;  }  damageBlock(id, hp) {    // interpret damage data    const data = [id, hp];    // adjust locally    this.adjustBlockHP(data)    // send through network    this.network.sendAdjustBlockHP(data);  }  adjustBlockHP([id, hp]) {    const block = ENV.game.model.blocks.get(id);    if(block) block.damage(hp);  }  changeBlock(id, team) {    // interpret change data    const data = [id, team];    // adjust locally    this.setBlockTeam(data)        // send through network    this.network.sendSetBlockTeam(data);  }  setBlockTeam([id, team]) {    // retrieve and store block    var b = this.model.blocks.get(id);    if (!b) return false;    // begin change if locked    if (b.locked) {      // skip if change is unnecessary      if (b.team != team) {        const oldTeam = b.team;        // assign new team        b.team = team;        // if not spectating add or remove from ref group        if (!this.spectate) {          if (b.team != this.team.number) {            this.refGroups.enemyBlocks.add(b);          } else {            this.refGroups.enemyBlocks.delete(b);          }        }        //        if (!this.spectate) {          this.ships.main.blocks.delete(id);        }        // replace and delete old view        var v = this.view.blocks.get(id);        if (v) {          let type = this.refGroups.enemyBlocks.has(b) ? 'enemy' : (b.locked ? 'locked' : 'unlocked');          v.image = DeepSpaceGame.graphicsCaches.blocks[type][b.team];          // v.updateCache();        }        // collision groups        this.clearCollisionDivisions(b);        b.collision_groups = [this.physics.collision_groups.REFUGE]        if (this.teams[b.team] != this.team) {          b.collision_groups.push(this.physics.collision_groups.ENEMY_BLOCKS)        } else {          b.collision_groups.push(this.physics.collision_groups.OUR_REFUGE)        }        this.setCollisionDivisions(b);        // notify game        if(this.gameMode == 1) {          this.game.scores[oldTeam]--;          this.game.scores[team]++;        }              } // end if(b.team != team)    } // end if(!b.locked)  }  removeBlock(id) {    // remove local copy    this.destroyBlock(id)    // annouce blocks demise    this.network.sendDestroyBlock(id)  }  destroyBlock(id) {    var b = this.model.blocks.get(id);    if (!b) return false;    this.clearCollisionDivisions(b);    this.model.blocks.delete(id);    if (!this.spectate) this.ships.main.blocks.delete(id);    if (b.locked) this.refGroups.enemyBlocks.delete(b);    // erase the view for it.    this.destroyBlockView(id);    this.destroyOverlayMinimapBlockViewFor(id);    // notify game    if(this.gameMode == 1) this.game.scores[b.team]--;    return true;  }  // * SUBS * //  addSub(ship) {    // interpretation ship data for sub creation    const data = this.generateSubData(ship)    // actually create block object    this.createSub(data)    // ditribute bullet creation data to other clients    this.network.sendCreateSub(data)    // notify ship    ship.didSub(data.id)  }  generateSubData(ship) {    return ({      id: Math.uuid(),      type: ship.SUB_TYPE,      team: ship.owner.team.number,      player: ship.owner.id,      position: ship.front_weapon_position,      angle: ship.angle    });  }  createSub(data) {    var p;    switch (data.type) {      case 'attractor':        p = new Attractor(data)        break;      case 'repulsor':        p = new Repulsor(data)        break;      case 'block_bomb':        p = new BlockBomb(data)        break;      case 'stealth_cloak':        p = new StealthCloak(data)        break;      case 'missile':        p = new Missile(data)        break;      default:        break;    }    // create a view for it.    if (data.type != 'stealth_cloak') {      let graphics = DeepSpaceGame.graphics[data.type](this.teams[p.team].color);      var pv = new createjs.Shape(graphics);      pv.cache(-12, -12, 24, 24);      this.view.layer.action.back.addChild(pv);      this.view.subs.set(p.id, pv);      // if(this.camera.showing(p)) SoundHelper.fireSub(); // no sound for stealth      p.collision_groups = (this.teams[p.team] == this.team) ? [this.physics.collision_groups.OUR_PROJ_SUBS] : [];    }    this.model.subs.set(p.id, p);    if (!this.spectate) if (p.team != this.ships.main.owner.team.number) this.refGroups.enemySubs.add(p.id);    return p;  }  removeSub(id) {    // remove local copy    this.destroySub(id)    // annouce blocks demise    this.network.sendDestroySub(id)  }  destroySub(id) {    var p = this.model.subs.get(id);    if (!p) return false;    this.clearCollisionDivisions(p);    this.model.subs.delete(id);    if (!this.spectate) this.ships.main.subs.delete(id);    this.refGroups.enemySubs.delete(p.id);    // erase the view for it.    if (p.type != 'stealth_cloak') {      var v = this.view.subs.get(id);      if (v) {        this.view.subs.delete(id);        this.view.layer.action.back.removeChild(v);      }    }    return true;  }  // * GAME * //  // CTF //  assumeFlag(ship) {    // interpret for flag capture    const id = ship.owner.id    // capture flag locally    this.captureFlag(id)    // let other clients know    this.network.sendCaptureFlag(id)    // notify ship    ship.didPickupFlag()  }  captureFlag(id) {    // set flag and ship state    const player = this.players.get(id);    this.game.flag.holderID = id;    if(this.players.get(id)) this.players.get(id).ship.setFlag(this.game.flag);    // alert    var c = player.team.color, us = player.team == this.team;    // var c = DeepSpaceGame.colors[player.team.color], us = player.team == this.team;    this.alert(      DeepSpaceGame.localizationStrings.alerts[us ? 'teamTakesFlag' : 'enemyTakesFlag'][this.language](        DeepSpaceGame.localizationStrings.colors[c][this.language]      )      , c);    // sound    // us ? SoundHelper.teamYay() : SoundHelper.teamNay();    // this.updateFlagView();  }  releaseFlag() {    // capture flag locally    this.dropFlag()    // let other clients know    this.network.sendDropFlag()    // let server know    const team = this.player.team.number;    const score = this.game.scores[team];    this.network.sendFlagProgress([team, score]);    console.log(`update to server: ${team} - ${score}`);  }  dropFlag() {    var id, flag = this.game.flag, ship = null;    if (id = flag.holderID) {      var player = this.players.get(flag.holderID)      if (ship = player.ship)        ship.clearFlag();      flag.reset();      var c = player.team.color, us = player.team == this.team;      var color = undefined;//us || this.spectate ? undefined : this.team.color;      this.alert(        DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](          DeepSpaceGame.localizationStrings.colors[c][this.language]        )        , color);      // this.updateFlagView();    }  }  flagProgress([team, score]) {    // update local registry w/ server score    this.game.scores[team] = score;    console.log(`update from server: ${team} - ${score}`);  }  // pickupFlag(playerID) { // flag activation needs to go through here  //   var flag = this.game.flag, ship = null;  //   // if(!flag.idle) NetworkHelper.out_flag_drop();  //   flag.holderID = playerID;  //  //   var player = this.players.get(flag.holderID);  //  //  //   if (ship = player.ship) {  //     ship.setFlag(flag);  //     if(this.game.overtime)  //       if(ship.owner.team == this.game.lead)  //         if(ship.owner.team == this.team)  //           this.network.out_game_over(this.team.number);  //   }  //  //  //  //   var c = DeepSpaceGame.colors[player.team.color], us = player.team == this.team;  //   this.alert(  //     DeepSpaceGame.localizationStrings.alerts[us ? 'teamTakesFlag' : 'enemyTakesFlag'][this.language](  //       DeepSpaceGame.localizationStrings.colors[c][this.language]  //     )  //     , c);  //  //   // sound  //   us ? SoundHelper.teamYay() : SoundHelper.teamNay();  //  //   // this.updateFlagView();  // }  // dropFlag() {  //   var id, flag = this.game.flag, ship = null;  //   if (id = flag.holderID) {  //     var player = this.players.get(flag.holderID)  //     if (ship = player.ship)  //       ship.clearFlag();  //  //     flag.reset();  //  //     var c = player.team.color, us = player.team == this.team;  //     this.alert(  //       DeepSpaceGame.localizationStrings.alerts[us ? 'teamDropsFlag' : 'enemyDropsFlag'][this.language](  //         DeepSpaceGame.localizationStrings.colors[c][this.language]  //       )  //       , us || this.spectate ? undefined : this.team.color);  //  //     // this.updateFlagView();  //   }  //  // }    alert(msg, color = "#ECEFF1") {    clearTimeout(this.alertTimeout)    var v = this.view.overlay.message;    v.text = msg;    v.color = color;    v.updateCache();    if (msg.trim() !== '') this.alertTimeout = setTimeout(() => {      this.alert("")    }, 4000)  }  alert_kill(msg, color = "#ECEFF1") {    clearTimeout(this.alertKillTimeout)    var v = this.view.overlay.kill_message;    v.text = msg;    v.color = color;    v.updateCache();    if (msg.trim() !== '') this.alertKillTimeout = setTimeout(() => {      this.alert_kill("")    }, 4000)  }  msgShipKill(takerID, giverID) {//alert(`takerID ${takerID}, giverID ${giverID},`)    var t = this.players.get(takerID), g = this.players.get(giverID);    if (t) t.score.deaths++;    if (g) g.score.kills++;    if (this.spectate) return;    if (takerID == this.player.id) {      const player = this.players.get(giverID);      this.alert_kill(        DeepSpaceGame.localizationStrings.alerts['yourDeath'][this.language](          player.name        )      );      this.camera.animateFocus(player.ship.view, [this.player.ship, 'disabled']);      // this.camera.animateFocus(player.ship.view, player.ship.RESPAWN_DELAY*16.7);    } else if (giverID == this.player.id) {      this.alert_kill(        DeepSpaceGame.localizationStrings.alerts['yourKill'][this.language](          this.players.get(takerID).name        )      );    }  }  /* NEW DYNAMIC GRAPHICS */  // Size has grown. It is now ineffective to keep copies  // of views for all map objects and choose to render  // based on visibility. Views will be created and  // destroyed dynamically. This will hopefully have  // great performance benefits 09/17/17  createBulletView(b) {    const cache = DeepSpaceGame.graphicsCaches.bullets[b.team];    const bv = new createjs.Bitmap(cache);    bv.scaleX = bv.scaleY = b.radius / Bullet.stats.MAX_RADIUS;    bv.regX = bv.regY = (cache.width / 2);    this.view.layer.action.back.addChild(bv);    // set view map    this.view.bullets.set(b.id, bv);    return bv  }  destroyBulletView(id) {    const v = this.view.bullets.get(id);    if (v) {      this.view.bullets.delete(id);      this.view.layer.action.back.removeChild(v);    }  }  createBlockView(bl) {        // a block can either look fluid or locked    // these being either ours or theirs    // create a view for it.    let type = 'unlocked';    if(bl.locked || bl.qualified) type = bl.isForeign ? 'enemy' : 'locked';    let cache = DeepSpaceGame.graphicsCaches.blocks[type][bl.team];    var blv = new createjs.Bitmap(cache);    blv.scaleX = blv.scaleY = bl.radius / Block.stats.MAX_RADIUS;    blv.regX = blv.regY = (cache.width / 2);    this.view.layer.action.back.addChild(blv);    // set view map    this.view.blocks.set(bl.id, blv);    return blv  }  destroyBlockView(id) {    const v = this.view.blocks.get(id);    if (v) {      this.view.blocks.delete(id);      this.view.layer.action.back.removeChild(v);    }  }  /* DEINITIALIZATION */  deinit() {    // it must go in reverse order    // as children of root objects will    // need to know what to get removed from    this.deinitCaches();    this.deinitPhysics();    this.deinitInput();    this.deinitListeners();    this.deinitCamera();    this.deinitView();    this.deinitGame();    this.deinitModel();    delete DeepSpaceGame.runningInstance;  }  deinitCaches() {    delete this.enemyTeams;    delete this.enemyPlayers;    delete this.player;    delete this.team;    delete DeepSpaceGame.graphicsCaches;  }  deinitPhysics() {    delete this.refGroups;  }  deinitInput() {    var main = this.ships.main;    if (main) delete main.owner.input;  }  deinitListeners() {    for (let [, handler] of this.inputHandlers) {      window.removeEventListener('keydown', handler); // onkeydown      window.removeEventListener('keyup', handler); // onkeyup    }  }  deinitCamera() {    delete this.camera;  }  deinitView() {    delete this.view;    delete this.window;    this.stage.removeAllChildren();    delete this.stage;    delete this.colors;  }  deinitGame() {    delete this.game;  }  deinitModel() {    delete this.ships;    delete this.players;    delete this.teams;  }  reset() {  }  resetInput() {    var input;    if (this.player) if (input = this.player.input) input.clear();  }  disconnectPlayer(id) {    var player = this.players.get(id);    if (player) {      player.disconnected = true;      player.ship.disabled = true;      if (this.spectate) this.activePlayers.delete(player);            // alert team members      if (!this.spectate) {        if(player.team === this.team) this.alert(          DeepSpaceGame.localizationStrings.alerts['teamMemberDisconnects'][this.language](            player.name          )        )      }    } else {      log(`ERR in disconnectPlayer :: id(${id}) not found`)    }  }}DeepSpaceGame.graphics = {  circle_fill: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),  circle_edge: (color, size, thickness) => new createjs.Graphics().beginStroke(color).setStrokeStyle(thickness).drawCircle(0, 0, size),  rect_fill: (color, w, h) => new createjs.Graphics().beginFill(color).drawRect(0, 0, w, h),  energy_bar_rect: (color, w, h) => new createjs.Graphics().beginFill(color).drawRect(0, (-h/2), w, h),  spawn_camp: (color) => new createjs.Graphics().beginStroke(color).setStrokeStyle(6).drawCircle(0, 0, 64),  spawn_camp_fill: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 64),  // spawn_camp: () => new createjs.Graphics().beginStroke("#37474F").setStrokeStyle(4).drawCircle(0, 0, 64),  ship: [    // 0 "standard"    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],    // 1 "rate"    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8),      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-4.8, -8).lineTo(-8, 0).lineTo(-4.8, 8).lineTo(8, 0).lineTo(-4.8, -8)],    // 2 "speed"    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8),      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(8, 0).lineTo(-8, -8)],    // 3 "defense"    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4),      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(6.4, -4).lineTo(-8, -8).lineTo(-8, 8).lineTo(6.4, 4).lineTo(8, 0).lineTo(6.4, -4)],    // 4 "damage"    [(color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8),      (color, width) => new createjs.Graphics().beginStroke(color).setStrokeStyle(width).beginFill(color).moveTo(8, 0).lineTo(4.8, -8).lineTo(-8, -8).lineTo(-4.8, 0).lineTo(-8, 8).lineTo(4.8, 8).lineTo(8, 0).lineTo(4.8, -8)],  ],  particle: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(4).drawCircle(0, 0, size),  // bullet: (color) => DeepSpaceGame.graphics.particle(color)  // block: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),  block_border: (color, size) => new createjs.Graphics().beginStroke(color).setStrokeStyle(2).drawCircle(0, 0, size),  block_fill: (color, size) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, size),  block_center: (color) => new createjs.Graphics().beginFill(color).drawCircle(0, 0, 2),  attractor: color => new createjs.Graphics().beginFill(color).moveTo(2, 2).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, 2).lineTo(-8, 2).lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),  repulsor: color => new createjs.Graphics().beginFill(color).moveTo(2, -8).lineTo(2, 8).lineTo(-2, 8).lineTo(-2, -8).lineTo(2, -8),//.lineTo(-8, -2).lineTo(-2, -2).lineTo(-2, -8).lineTo(2, -8).lineTo(2, -2).lineTo(8, -2).lineTo(8, 2).lineTo(2, 2),  block_bomb: color => new createjs.Graphics().beginFill(color).moveTo(-10, 0).arcTo(-10, -10, 0, -10, 10).lineTo(0, 10).arcTo(-9, 9, -10, 0, 10),  missile: color => new createjs.Graphics().beginFill(color).moveTo(6, 0).lineTo(-6, -6).lineTo(-6, 6).lineTo(6, 0),  ring: r => new createjs.Graphics().beginStroke("#ECEFF1").setStrokeStyle(16).drawCircle(0, 0, r),  flag: r => new createjs.Graphics().beginFill("#ECEFF1").drawCircle(0, 0, r),  flag_shadow: () => new createjs.Shadow("#ECEFF1", 0, 0, 10),  energyMeter: (color, percent, radius = 9) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius, (-Math.PI / 2), (2 * Math.PI * percent) - (Math.PI / 2)),  energyMeterShadow: (color, radius = 12) => new createjs.Graphics().beginFill(color).moveTo(0, 0).arc(0, 0, radius, 0, 2 * Math.PI)};DeepSpaceGame.renderingParameters = {  'bulletCount': 100,  'shipThrustParticleCount': 80}DeepSpaceGame.localizationStrings = {  alerts: {    enemyTakesFlag: {      en: (color) => `The ${color} team has the moon!`    },    teamTakesFlag: {      en: () => `We have the moon!`    },    enemyDropsFlag: {      en: (color) => `The ${color} team dropped the moon!`    },    teamDropsFlag: {      en: () => `We dropped the moon!`    },    yourKill: {      en: (name) => `you got ${name}`    },    yourDeath: {      en: (name) => `${name} got you!`    },    teamTakesLead: {      en: () => `We took the lead!`    },    teamLosesLead: {      en: () => `We lost the lead!`    },    teamMemberDisconnects: {      en: (name) => `Teammate ${name} disconnected`    }  },  colors: {    '#FF4081': {      en: `pink`    },    '#FF5252': {      en: `red`    },    '#FFEA00': {      en: `yellow`    },    '#00E676': {      en: `green`    },    '#00B0FF': {      en: `blue`    },    '#BB33FF': {      en: `purple`    },    '#ECEFF1': {      en: `white`    },    '#90A4AE': {      en: `light`    },    '#37474F': {      en: `dark`    },    '#263238': {      en: `black`    },    '#FFA33F': {      en: `orange`    }, // 10 orange    '#82E600': {      en: `lime`    }, // 11 grass    '#00FFE2': {      en: `aqua`    }, // 12 aqua    '#F93FFF': {      en: `magenta`    }, // 13 magenta  }}// DeepSpaceGame.colorNames = [//   '#FF4081': `pink`,//   '#FF5252': `red`,//   '#FFEA00': `yellow`,//   '#00E676': `green`,//   '#00B0FF': `blue`,//   '#AA00FF': `purple`,//   '#ECEFF1': `white`,//   '#90A4AE': `light`,//   '#37474F': `dark`,//   '#263238': `black`// ];// DeepSpaceGame.colorNames = [//   '#FF4081', // 0 pink//   '#FF5252', // 1 red//   '#FFEA00', // 2 yellow//   '#00E676', // 3 green//   '#00B0FF', // 4 blue//   '#AA00FF', // 5 purple//   '#ECEFF1', // 6 white//   '#90A4AE', // 7 light//   '#37474F', // 8 dark//   '#263238'  // 9 black// ];//// DeepSpaceGame.colorCombinations = new Map([2, [//   [1, 4], // red, blue//   [1, 2], // red, yellow//   [5, 2], // purple, yellow//   [2, 4], // yellow, blue//   [2, 0], // yellow, pink//   [0, 4], // pink, blue//   [4, 3]  // blue, green// ]],// [3,[//// ]]// );DeepSpaceGame.colors = [  '#FF4081', // 0 pink  '#FF5252', // 1 red  '#FFEA00', // 2 yellow  '#00E676', // 3 green  '#00B0FF', // 4 blue  '#BB33FF', // 5 purple AA00FF old  '#ECEFF1', // 6 white  '#90A4AE', // 7 light  '#37474F', // 8 dark  '#263238', // 9 black  // added colors  '#FFA33F', // 10 orange  '#82E600', // 11 grass  '#00FFE2', // 12 aqua  '#F93FFF', // 13 bubble gum];DeepSpaceGame.maps = [  {    name: "The Event Horizon",    width: 1920, height: 1920,    // width: 1024, height: 1024,    spawn: [      [{x: 30, y: 30}, {x: 30, y: 60}, {x: 60, y: 60}, {x: 60, y: 30}],      [{x: 450, y: 290}, {x: 450, y: 260}],      [{x: 450, y: 290}, {x: 450, y: 260}]    ]  }];DeepSpaceGame.maps = [  { // 0    name: "Wide Sky",    width: 3072 * 1, height: 3072 * 1,    teams: [2],    spawn: [      // [{x: 192, y: 192}, {x: 3072 - 192, y: 3072 - 192}] // 2      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],      [{x: (600)+64, y: (777)+64, rotation: Math.PI}, {x: (3072 - 600)-64, y: (3072 - 777)-64, rotation: 0}, {x: (777)+64, y: (3072 - 600)-64, rotation: Math.PI/+2}, {x: (3072 - 777)-64, y: (600)+64, rotation: Math.PI/-2}, {x: (1476)+64, y: (267)+64, rotation: Math.PI/-2}, {x: (3072 - 1476)-64, y: (3072 - 267)-64, rotation: Math.PI/2}, {x: (267)+64, y: (3072 - 1476)-64, rotation: Math.PI}, {x: (3072 - 267)-64, y: (1476)+64, rotation: 0}],    ],    impermeables: {      copies: 4,      bodies: [        [32, // radius          [ 1192, 382 ],          [ 716, 414 ],          [ 1496, 87 ],          [ 1668, 441 ],          [ 1670, 849 ],          [ 869, 1320 ],          [ 276, 1270 ],          [ 1380, 681 ],          [ 344, 1228 ],          [ 632, 1022 ],          [ 427, 1256 ],          [ 728, 1150 ],          [ 140, 1096 ],          [ 76, 1146 ],          [ 716, 1064 ]        ],        [48,          [ 1332, 585 ],          [ 1021, 265 ],          [ 1224, 1006 ],          [ 520, 1308 ],          [ 812, 1006 ],          [ 536, 974 ]        ],        [64,          [ 408, 942 ],          [ 856, 878 ],          [ 684, 537 ],          [ 1160, 274 ],          [ 957, 761 ],          [ 840, 1210 ]        ],        [96,          [ 491, 169 ],          [ 860, 601 ],          [ 1338, 409 ]        ],        [128,          [1540, 569],        ]      ]    }  },  { // 0    name: "Nautical",    width: 3072 * 1, height: 3072 * 1,    teams: [2],    // first array is for the number of teams coresponding to the teams array    // second is place in the arrangement for that number of teams    // object is position    spawn: [      // [{x: 192, y: 192}, {x: 3072 - 192, y: 3072 - 192}] // 2      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}],      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}],      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}],      [{x: 581, y: 555, rotation: Math.PI/2}, {x: 3072 - 581, y: 3072 - 555, rotation: -Math.PI/2}, {x: 3072 - 581, y: 555, rotation: Math.PI}, {x: 581, y: 3072 - 555, rotation: 0}]    ],    impermeables: {      copies: 4,      bodies: [        [32, // radius          [325, 764],          [989, 98],          [746, 898],          [1054, 1308],          [1179, 1260],          [1514, 1308],          [993, 1356],          [534, 1308],          [1546, 194],          [1488, 130],          [173, 1028],          [173, 892],          [470, 880],          [325, 764],          [667, 892]        ],        [48,          [1218, 274],          [1242, 786],          [618, 1260],          [1139, 1340],          [238, 960],          [794, 818]        ],        [64,          [1084, 475],          [422, 322],          [914, 784],          [1654, 546],          [1279, 1219],          [1423, 1228]        ],        [96,          [298, 539],          [967, 610]        ],        [128,          [831, 411]        ]      ]    }  },  /*{ // 1    name: "Liftor",    width: 1920, height: 1920,    teams: [2],    // first array is for the number of teams coresponding to the teams array    // second is place in the arrangement for that number of teams    // object is position    spawn: [      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}],      [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}, {x: 1920 - 192, y: 192}, {x: 192, y: 1920 - 192}]    ],    impermeables: {      copies: 2,      bodies: [        [32, // radius          [929, 76],          [582, 128],          [696, 176],          [811, 226],          [173, 892],          [173, 1028]        ],        [48,          [1218, 274],          [1242, 786],          [238, 960]        ],        [64,          [1654, 546],          [637, 578]        ]      ]    }  },*/  {    name: "Nebula",    width: 3072, height: 3072,    teams: [2],    tint: [180, '#FFFFFF', '#000000', ],    // first array is for the number of teams coresponding to the teams array    // second is place in the arrangement for that number of teams    // object is position    spawn: [      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2      [        {x: 1791, y: 160, rotation: Math.PI/2},        {x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI/2},      ],      [        {x: 1791, y: 160, rotation: Math.PI/2},        {x: 3072 - 1791, y: 3072 - 160, rotation: -Math.PI/2},      ],    ],    impermeables: {      copies: 2,      bodies: [        [32, // radius          [ 456, 549 ],          [ 692, 1238 ],          [ 787, 1367 ],          [ 2013, 176 ],          [ 1199, 1175 ],          [ 555, 1731 ],          [ 1276, 1143 ],          [ 1507, 192 ],          [ 1587, 224 ],          [ 1443, 391 ],          [ 3030, 697 ],          [ 2609, 847 ],          [ 1727, 920 ],          [ 1911, 643 ],          [ 898, 1303 ],          [ 1078, 1358 ],          [ 1503, 1341 ],          [ 1575, 1316 ],          [ 1639, 1358 ],          [ 2798, 859 ]        ],        [48,          [898,1207],[510,1183],[1110,1206],[1343,1214],[1459,274],[2888,863]        ],        [64,          [1372,1079],[1631,845],[946,1422],[1515,86],[1007,1278],[341,660],[2166,1047],[541,1348],[421,1271],[1395,160],[992,847],[566,537],[2449,560],[2936,751],[2699,909],[2077,86],[1497,811],[2417,697],[2737,258]        ],        [96,          [231,304],[330,485],[1355,911],[276,822],[820,879],[1853,845],[2045,920],[2221,1213],[2277,592]        ],        [128,          [2609,421],[385,1037],[641,724],[1267,334],[1215,613],[427,1519],[2149,278],[2289,857]        ]      ]    }  },  {    name: "Clockwise",    width: 2048, height: 2048,    teams: [2],    tint: [180, '#207272', '#000000', ],    // first array is for the number of teams coresponding to the teams array    // second is place in the arrangement for that number of teams    // object is position    spawn: [      // [{x: 192, y: 192}, {x: 1920 - 192, y: 1920 - 192}] // 2      [        {x: 1023, y: 119, rotation: 0},        {x: 2048 - 1023, y: 2048 - 119, rotation: Math.PI},      ],      [        {x: 1023, y: 119, rotation: 0},        {x: 2048 - 1023, y: 2048 - 119, rotation: Math.PI},      ],    ],    impermeables: {      copies: 2,      bodies: [        [32, // radius          [557,1059],[509,1367],[1000,876],[1077,844],[678,1420],[1897,192],[1977,224],[1162,344],[589,173],[1613,398],[1367,299],[1439,274],[1485,211]        ],        [48,          [589,77],[481,1009],[587,1415],[911,907],[1144,915],[941,372],[745,1491]        ],        [64,          [278,205],[541,748],[635,276],[1865,86],[507,521],[826,661],[370,1091],[420,1312],[317,1219],[1056,320],[1266,332],[497,883],[1549,302]        ],        [96,          [806,292],[656,617],[118,662]        ],      ]    }  },];DeepSpaceGame.spawn_structure = [  [{x: 0, y: 0}], // 1 player  [{x: 18, y: 0}, {x: -18, y: 0}], // 2  [{x: 26, y: 0}, {x: -13, y: 22}, {x: -13, y: -22}], // 3  [{x: 34, y: 0}, {x: 0, y: 34}, {x: -34, y: 0}, {x: 0, y: -34}], //4  [{x: 34, y: 0}, {x: 10, y: 32}, {x: -28, y: 20}, {x: -28, y: -20}, {x: 10, y: -32}], // 5  [{x: 34, y: 0}, {x: 17, y: 30}, {x: -17, y: 30}, {x: -34, y: 0}, {x: -17, y: -30}, {x: 17, y: -30}] // 6]DeepSpaceGame.modes = {  ctf: { // capture the flag    ring_radius: 720,    flag_radius: 18,    time_limit: FRAMES.mins(3)  }};

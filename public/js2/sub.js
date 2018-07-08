@@ -194,7 +194,9 @@ BlockBomb.stats = {
   SPEED: 360, //px/s
   FRICTION: 0.99,
 
-  EXPLOSION_RANGE: 120,
+  RANGE: 500,
+
+  EXPLOSION_RANGE: 500, // 120,
   EXPLOSION_DAMAGE_FUNCTION: function EXPLOSION_DAMAGE_FUNCTION(x) {
     return (8000 / (BlockBomb.stats._A * x + 100) - 20) * 3;
   }, // 60hp at contact and 0hp at range px
@@ -202,7 +204,7 @@ BlockBomb.stats = {
   LIFESPAN: 2.4 //s
 };
 
-BlockBomb.stats._A = 300 / Repulsor.stats.RANGE;
+BlockBomb.stats._A = 300 / BlockBomb.stats.RANGE;
 
 var StealthCloak = function () {
   function StealthCloak(data) {
@@ -319,4 +321,3 @@ Missile.stats = {
 
   LIFESPAN: 2.6 //s
 };
-//# sourceMappingURL=sub.js.map

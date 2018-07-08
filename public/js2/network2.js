@@ -16,7 +16,7 @@ var GameNetworkAdapter = function () {
     this.activated = false;
     this.sendSenderID = false;
 
-    this.incomingMessages = ['shipUpdated', 'shipOverridden', 'shipHPAdjusted', 'bulletCreated', 'bulletDestroyed', 'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed', 'subCreated', 'subDestroyed', 'deathOccurrence', 'flagCaptured', 'flagDropped', 'flagProgress', 'playerDisconnected'];
+    this.incomingMessages = ['shipUpdated', 'shipOverridden', 'shipHPAdjusted', 'bulletCreated', 'bulletDestroyed', 'bubbleHPAdjusted', 'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed', 'subCreated', 'subDestroyed', 'deathOccurrence', 'flagCaptured', 'flagDropped', 'flagProgress', 'playerDisconnected'];
     this.listenersMap = new Map();
 
     this.activate();
@@ -162,6 +162,19 @@ var GameNetworkAdapter = function () {
     key: 'shipHPAdjusted',
     value: function shipHPAdjusted(data) {
       this.game.adjustShipHP(data);
+    }
+
+    // bubble
+
+  }, {
+    key: 'sendAdjustBubbleHP',
+    value: function sendAdjustBubbleHP(data) {
+      this.emit('bubbleHPAdjusted', data);
+    }
+  }, {
+    key: 'bubbleHPAdjusted',
+    value: function bubbleHPAdjusted(data) {
+      this.game.adjustBubbleHP(data);
     }
 
     // bullets
@@ -820,4 +833,3 @@ var NetworkHelper = function () {
   return NetworkHelper;
 }();
 // NetworkHelper.messages = [];
-//# sourceMappingURL=network2.js.map

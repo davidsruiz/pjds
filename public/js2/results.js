@@ -295,13 +295,12 @@ var RESULTS = {
       case 0:
 
         // progresses
-        var limit = 100;
         scores.forEach(function (score) {
-          return progresses.push(limit - score);
+          return progresses.push(score);
         });
 
         // win bool
-        var bestScore = _(scores).min();
+        var bestScore = _(scores).max();
         scores.forEach(function (score) {
           return respectiveWins.push(bestScore == score);
         });
@@ -483,4 +482,3 @@ var fake_data = [{
   players: [['shakespear', 12, 15, 123]]
 }];
 // RESULTS.load(fake_data);
-//# sourceMappingURL=results.js.map

@@ -16,6 +16,7 @@ class GameNetworkAdapter {
     this.incomingMessages = [
       'shipUpdated', 'shipOverridden', 'shipHPAdjusted',
       'bulletCreated', 'bulletDestroyed',
+      'bubbleHPAdjusted',
       'blockCreated', 'blockHPAdjusted', 'blockTeamSet', 'blockDestroyed',
       'subCreated', 'subDestroyed',
       'deathOccurrence',
@@ -93,6 +94,15 @@ class GameNetworkAdapter {
 
   shipHPAdjusted(data) {
     this.game.adjustShipHP(data)
+  }
+
+  // bubble
+  sendAdjustBubbleHP(data) {
+    this.emit('bubbleHPAdjusted', data);
+  }
+
+  bubbleHPAdjusted(data) {
+    this.game.adjustBubbleHP(data)
   }
 
   // bullets

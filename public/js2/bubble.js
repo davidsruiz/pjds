@@ -170,4 +170,3 @@ var BubbleCore = function () {
 BubbleCore.stats = {
   RADIUS: 10
 };
-//# sourceMappingURL=bubble.js.map

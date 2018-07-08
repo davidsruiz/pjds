@@ -212,11 +212,10 @@ let RESULTS = {
       case 0:
 
         // progresses
-        const limit = 100;
-        scores.forEach(score => progresses.push(limit - score))
+        scores.forEach(score => progresses.push(score))
 
         // win bool
-        var bestScore = _(scores).min();
+        var bestScore = _(scores).max();
         scores.forEach(score => respectiveWins.push(bestScore == score))
 
         break;

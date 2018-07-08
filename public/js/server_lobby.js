@@ -53,8 +53,8 @@ class Lobby {
     this.gameVars = null; // set during this.startGame
     this.options = {
       // settable
-      map: 0,
-      mode: 1,
+      map: 3,
+      mode: 0,
       stock: 0,
 
       // non-settable
@@ -875,6 +875,11 @@ class Lobby {
     this.gameVars.modeLogic.playerRecordsHPGivenIncrement(fromID, hp);
   }
 
+  bubbleHPAdjusted(data, client) {
+    // reflect message
+    this.broadcast('bubbleHPAdjusted', data, client);
+  }
+
   bulletCreated(data, client) {
     // reflect message
     this.broadcast('bulletCreated', data, client)
@@ -1037,6 +1042,55 @@ class GameLogic {
 }
 
 
+class BubbleMode extends GameLogic {
+
+  constructor(endCallback, numberOfTeams, players) {
+    super(...arguments);
+
+    this.scores = new Array(numberOfTeams).fill(0);
+    this.playerWithFlag = null;
+
+    this.updates = 0;
+  }
+
+  flagCaptured(playersID) { this.playerWithFlag = playersID; this.updates = 0 }
+  flagDropped() { this.playerWithFlag = null; this.updates = 0 }
+  get flagAvailable() { return !this.playerWithFlag }
+  flagIsHeldBy(playersID) { return this.playerWithFlag === playersID }
+
+  updateTeamScore(team, score) {
+
+    // only one update per flag capture
+    // note: doesn't exactly validate appropriately
+    if(++this.updates > 2) {
+      console.log(`update limit exceeded!`);
+      return;
+    }
+
+    // update registry
+    if(score > 100) score = 100;
+    if(typeof this.scores[team] !== 'undefined')
+      this.scores[team] = score;
+
+    console.log(`team score updated: TEAM(${team}) SCORE(${score})`);
+
+    // check for winner
+    if(score > 99 && !this.flagAvailable) this.end();
+
+  }
+
+  scoreForTeam(number) {
+    return this.scores[number]
+  }
+
+  formatScores() {
+    return this.scores;
+  }
+
+
+
+}
+
 class CTFModeLogic extends GameLogic {
 
   constructor(endCallback, numberOfTeams, players) {
@@ -1120,7 +1174,7 @@ class TerritorialModeLogic extends GameLogic {
 
 }
 
-const MODES = [CTFModeLogic, TerritorialModeLogic];
+const MODES = [BubbleMode, TerritorialModeLogic];
 
 
 

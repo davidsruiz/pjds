@@ -609,14 +609,59 @@ and (max-width: 600px) {
 }
 
 #touch_layer > .right {
-    overflow: scroll;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    max-height: 500px;
+    /*max-width: 150px;*/
 }
 
-#touch_layer > .right > .scroll {
-    display: inline-block;
-    height:100%;
-    width:100%;
+#touch_layer > .right > .bottom {
+    position: relative;
+    width: 100%;
+    height: 70%;
 }
+
+#touch_layer > .right > .top {
+    position: relative;
+    width: 100%;
+    height: 30%;
+}
+
+/*#touch_layer > .right > .top > span {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    display: inline-block;
+    padding: 8px 24px;
+
+    color: white;
+    font-family: Roboto;
+    letter-spacing: 1px;
+    opacity: 0.2;
+}
+
+#touch_layer > .right > .top:hover > span {
+    opacity: 0.4;
+}
+
+#touch_layer > .right > .bottom > span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: inline-block;
+    padding: 8px 24px;
+
+    color: white;
+    font-family: Roboto;
+    letter-spacing: 1px;
+    opacity: 0.2;
+}
+
+#touch_layer > .right > .bottom:active > span {
+    opacity: 0.4;
+}*/
+
 
 
 

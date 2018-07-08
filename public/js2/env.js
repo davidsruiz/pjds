@@ -30,6 +30,8 @@ ENV.options = {
   var isAndroid = ua.indexOf("android") > -1;
   ENV.options.input.invertControls = isAndroid;
 
+  ENV.isIOS = !!navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform);
+
   // ReactDOM.render(
   //     <h1>Hey Isa!</h1>,
   //   document.getElementById('root')
@@ -42,4 +44,3 @@ ENV.options = {
 //   stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 //   document.body.appendChild( stats.dom );
 // });
-//# sourceMappingURL=env.js.map

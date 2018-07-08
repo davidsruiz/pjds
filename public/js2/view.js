@@ -364,7 +364,13 @@ var LobbyActions = function (_React$Component5) {
     key: 'handleShareClick',
     value: function handleShareClick() {
 
-      window.prompt('copy to share this link:', window.location.href);
+      if (ENV.isIOS) {
+        window.location = 'sms:&body=' + encodeURIComponent(window.location);
+      } else if (ENV.isAndroid) {
+        window.location = 'sms:?body=' + encodeURIComponent(window.location);
+      } else {
+        window.prompt('copy to share this link:', window.location.href);
+      }
     }
   }, {
     key: 'render',
@@ -1334,7 +1340,7 @@ var INFO = {
 };
 
 var LOBBY_OPTIONS = {
-  map: ['MAP', [], [0], [0, 1, 2, 3]],
+  map: ['MAP', [], [0, 1, 2, 3], [0, 1, 2, 3]],
   mode: ['GAME MODE', [], [0, 1], [0, 1]],
   player_capacity: ['MAX PLAYERS', '2', '3', '4', '5', '6', '7', '8'],
   stock: ['STOCK', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
@@ -1437,4 +1443,3 @@ var IMAGES = {
 //   <DSGameLobby data={INFO} />,
 //   document.getElementById('container')
 // );
-//# sourceMappingURL=view.js.map
